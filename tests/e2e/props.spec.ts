@@ -11,7 +11,7 @@ const errorsOf = (page: Page) => {
 };
 
 async function boot(page: Page, site: string): Promise<void> {
-  await page.goto('/?q=low&nomenu');
+  await page.goto('/?q=low&nomenu&lang=en');
   await page.waitForFunction(() => (window as any).__rft?.ready === true, null, { timeout: 120_000 });
   await page.evaluate((s) => (window as any).__rft.startWorld(s), site);
 }
@@ -53,7 +53,7 @@ test('Sun scene: ramming Roadster 1 changes its orbit in the panel', async ({ pa
   test.setTimeout(300_000);
   const errors = errorsOf(page);
   await boot(page, 'space_sun');
-  await expect(page.locator('.rft-orbitpanel')).toContainText('Ungestört');
+  await expect(page.locator('.rft-orbitpanel')).toContainText('Undisturbed');
   await page.evaluate(() => {
     const a = (window as any).__rft.app, p = a.sim.props.partPose(0, 0).pos;
     // 12 m behind Roadster 1 (−Z), aimed at it, 7 m/s; the spawn point is the ground point under the CoG
@@ -70,7 +70,7 @@ test('Sun scene: ramming Roadster 1 changes its orbit in the panel', async ({ pa
   expect(r.dv).toBeLessThan(15);
   expect(Math.abs(r.dP)).toBeGreaterThan(600);   // s: a few m/s change the period by hours, not seconds
   const panel = page.locator('.rft-orbitpanel');
-  await expect(panel).toContainText('Gerammt');
+  await expect(panel).toContainText('Rammed');
   await expect(panel.locator('[data-k="per"]')).toContainText(' h)');
   await expect(panel.locator('[data-k="peri"]')).toContainText('km)');
   expect(errors, errors.join('\n')).toEqual([]);

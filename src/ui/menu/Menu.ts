@@ -232,7 +232,7 @@ export class Menu extends Emitter<MenuEvents> {
     return h('section', { class: 'rft-title', 'data-title': t('menu.main') },
       h('div', { class: 'rft-title-block' },
         h('p', { class: 'rft-eyebrow', text: t('menu.eyebrow') }),
-        h('h1', { class: 'rft-logo' }, h('span', { class: 'l1', text: 'Roadster' }), h('span', { class: 'l2', text: 'Flight Test' })),
+        h('h1', { class: 'rft-logo', lang: 'en' }, h('span', { class: 'l1', text: 'Roadster' }), h('span', { class: 'l2', text: 'Flight Test' })),
         h('p', { class: 'rft-tagline', text: t('menu.tagline') }),
       ),
       h('nav', { class: 'rft-mainnav', 'aria-label': t('menu.main') },

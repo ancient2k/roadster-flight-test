@@ -16,7 +16,7 @@ for (const [stunt, title] of Object.entries(STUNT_TITLES)) {
   test(`menu → Stunts nachfliegen → ${stunt} runs in real time to the results screen`, async ({ page }) => {
     test.setTimeout(300_000);
     const errors = errorsOf(page);
-    await page.goto('/?q=low');
+    await page.goto('/?q=low&lang=de'); // German UI: the texts below are the German locale
     await page.waitForFunction(() => (window as any).__rft?.ready === true, null, { timeout: 90_000 });
     await page.getByRole('button', { name: /Stunts nachfliegen/ }).click();
     await page.getByRole('button', { name: title }).first().click();
@@ -37,7 +37,7 @@ for (const [stunt, title] of Object.entries(STUNT_TITLES)) {
 test('free play: every assist level lifts off and the car stays intact', async ({ page }) => {
   test.setTimeout(240_000);
   const errors = errorsOf(page);
-  await page.goto('/?q=low');
+  await page.goto('/?q=low&lang=de'); // German UI: the texts below are the German locale
   await page.waitForFunction(() => (window as any).__rft?.ready === true, null, { timeout: 90_000 });
   await page.getByRole('button', { name: /Freies Testen/ }).click();
   await page.getByRole('button', { name: /Losfliegen/ }).click();
