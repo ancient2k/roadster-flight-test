@@ -4,7 +4,9 @@ Generates "RFT Display", the project's own HUD/headline typeface, in three weigh
 
 Why our own font: the Tesla stream HUD uses a squarish, rounded-corner display face with a slashed
 zero and tabular figures. Shipping a third-party font would need a download and licence review, so we
-draw a compatible stroke font ourselves (uppercase, digits, German umlauts, HUD punctuation).
+draw a compatible stroke font ourselves (uppercase Latin incl. the Latin-Extended letters of the
+shipped UI languages, Cyrillic for ru/uk, digits, HUD punctuation). CJK is left to the system font
+(see the font stacks in src/ui/fonts.ts and ui.css).
 Lowercase code points map to the uppercase glyphs (the display face is caps-only).
 
 Glyphs are defined as centre-line polylines on a 0..700 cap-height grid; points may carry a fillet
@@ -90,6 +92,85 @@ G['Ä'] = with_dots('A', [W / 2 - 110, W / 2 + 110])
 G['Ö'] = with_dots('O', [(W + 20) / 2 - 110, (W + 20) / 2 + 110])
 G['Ü'] = with_dots('U', [W / 2 - 110, W / 2 + 110])
 
+# Latin Extended (fr, es, it, pt, nl, pl, tr) ---------------------------------
+# Marks are centre-line paths around x = 0 above the cap height (y 790..930) or below the baseline;
+# accent(base, mark) centres the mark over the base's centre-line width.
+I_WIDE = (160, [('o', [(80, 0), (80, H)])])  # I with room for a mark (plain 'I' has zero width)
+MARKS = {
+    'acute': [('o', [(-45, 790), (65, 930)])],
+    'grave': [('o', [(-65, 930), (45, 790)])],
+    'circ': [('o', [(-115, 790), (0, 925), (115, 790)])],
+    'tilde': [('o', [(-125, 800), (-55, 900), (55, 820), (125, 920)])],
+    'dots': [('dot', (-110, 860)), ('dot', (110, 860))],
+    'dot': [('dot', (0, 860))],
+    'breve': [('o', [(-115, 930), (-115, 800, 70), (115, 800, 70), (115, 930)])],
+    'cedilla': [('o', [(0, 0), (0, -70), (85, -70, 40), (85, -175, 40), (-60, -175)])],
+    'ogonek': [('o', [(0, 0), (-70, -70, 50), (-70, -175, 40), (40, -175)])],
+}
+
+
+def accent(base, mark, x=None, extra_w=0):
+    w, paths = I_WIDE if base == 'I' else G[base]
+    cx = w / 2 if x is None else x
+    moved = []
+    for kind, data in MARKS[mark]:
+        if kind == 'dot':
+            moved.append(('dot', (data[0] + cx, data[1])))
+        else:
+            moved.append((kind, [(q[0] + cx, q[1]) + tuple(q[2:]) for q in data]))
+    return (w + extra_w, paths + moved)
+
+
+for base, marks in {
+    'A': {'À': 'grave', 'Á': 'acute', 'Â': 'circ', 'Ã': 'tilde'},
+    'C': {'Ç': 'cedilla', 'Ć': 'acute'},
+    'E': {'È': 'grave', 'É': 'acute', 'Ê': 'circ', 'Ë': 'dots'},
+    'I': {'Ì': 'grave', 'Í': 'acute', 'Î': 'circ', 'Ï': 'dots', 'İ': 'dot'},
+    'N': {'Ñ': 'tilde', 'Ń': 'acute'},
+    'O': {'Ò': 'grave', 'Ó': 'acute', 'Ô': 'circ', 'Õ': 'tilde'},
+    'S': {'Ś': 'acute', 'Ş': 'cedilla'},
+    'U': {'Ù': 'grave', 'Ú': 'acute', 'Û': 'circ'},
+    'Y': {'Ÿ': 'dots'},
+    'Z': {'Ź': 'acute', 'Ż': 'dot'},
+    'G': {'Ğ': 'breve'},
+}.items():
+    for ch, mk in marks.items():
+        G[ch] = accent(base, mk)
+G['Ą'] = accent('A', 'ogonek', x=W - 10)
+G['Ę'] = accent('E', 'ogonek', x=W - 60)
+G['Ł'] = (W - 40, G['L'][1] + [('o', [(-70, 250), (170, 450)])])
+G['Œ'] = (700, [('o', [(700, H), (0, H, 140), (0, 0, 140), (700, 0)]), ('o', [(350, 0), (350, H)]), ('o', [(350, 360), (640, 360)])])
+
+# Cyrillic (ru, uk) -------------------------------------------------------------
+for cyr, lat in zip('АВЕКМНОРСТХІ', 'ABEKMHOPCTXI'):
+    G[cyr] = G[lat]
+G['Ё'] = accent('E', 'dots')
+G['Ї'] = accent('I', 'dots', extra_w=60)
+G['Б'] = (W, [('o', [(W, H), (0, H), (0, 0), (W, 0, 110), (W, 380, 110), (0, 380)])])
+G['Г'] = (W - 40, [('o', [(W - 40, H), (0, H), (0, 0)])])
+G['Ґ'] = (W - 40, [('o', [(0, 0), (0, H), (W - 40, H), (W - 40, H + 150)])])
+G['Д'] = (W + 40, [('o', [(-20, -150), (-20, 0), (W + 40, 0), (W + 40, -150)]), ('o', [(50, 0), (120, H), (W, H), (W, 0)])])
+G['Ж'] = (620, [('o', [(310, 0), (310, H)]), ('o', [(0, H), (310, 330)]), ('o', [(620, H), (310, 330)]),
+                ('o', [(0, 0), (200, 330)]), ('o', [(620, 0), (420, 330)])])
+G['З'] = (W, [('o', [(0, H), (W, H, R), (W, 0, R), (0, 0)]), ('o', [(120, 370), (W, 370)])])
+G['И'] = (W, [('o', [(0, H), (0, 0), (W, H), (W, 0)])])
+G['Й'] = accent('И', 'breve')
+G['Л'] = (W, [('o', [(0, 0), (90, H), (W, H), (W, 0)])])
+G['П'] = (W, [('o', [(0, 0), (0, H), (W, H), (W, 0)])])
+G['У'] = (W, [('o', [(0, H), (0, 380, R), (W, 380)]), ('o', [(W, H), (W, 0, R), (0, 0)])])
+G['Ф'] = (W + 80, [rr(0, 170, W + 80, 570, 130), ('o', [((W + 80) / 2, 0), ((W + 80) / 2, H)])])
+G['Ц'] = (W + 70, [('o', [(0, H), (0, 0), (W + 70, 0), (W + 70, -150)]), ('o', [(W, 0), (W, H)])])
+G['Ч'] = (W, [('o', [(0, H), (0, 330, R), (W, 330)]), ('o', [(W, H), (W, 0)])])
+G['Ш'] = (620, [('o', [(0, H), (0, 0), (620, 0), (620, H)]), ('o', [(310, 0), (310, H)])])
+G['Щ'] = (690, [('o', [(0, H), (0, 0), (690, 0), (690, -150)]), ('o', [(310, 0), (310, H)]), ('o', [(620, 0), (620, H)])])
+G['Ъ'] = (W + 60, [('o', [(0, H), (130, H), (130, 0), (W + 60, 0, 110), (W + 60, 380, 110), (130, 380)])])
+G['Ь'] = (W - 20, [('o', [(0, H), (0, 0), (W - 20, 0, 110), (W - 20, 380, 110), (0, 380)])])
+G['Ы'] = (520, [('o', [(0, H), (0, 0), (330, 0, 100), (330, 380, 100), (0, 380)]), ('o', [(520, 0), (520, H)])])
+G['Э'] = (W, [('o', [(0, H), (W, H, 140), (W, 0, 140), (0, 0)]), ('o', [(130, 360), (W, 360)])])
+G['Є'] = (W, [('o', [(W, H), (0, H, 140), (0, 0, 140), (W, 0)]), ('o', [(0, 360), (W - 130, 360)])])
+G['Ю'] = (660, [('o', [(0, 0), (0, H)]), ('o', [(0, 360), (180, 360)]), rr(180, 0, 660, H, 140)])
+G['Я'] = (W, [('o', [(W, 0), (W, H), (0, H, 120), (0, 340, 120), (W, 340)]), ('o', [(190, 340), (0, 0)])])
+
 # punctuation --------------------------------------------------------------
 G['.'] = (0, [('dot', (0, 0))])
 G[','] = (40, [('o', [(40, 70), (0, -110)])])
@@ -123,6 +204,17 @@ G['↓'] = (440, [('o', [(220, H), (220, 0)]), ('o', [(0, 220), (220, 0), (440, 
 G['←'] = (640, [('o', [(640, 330), (0, 330)]), ('o', [(220, 550), (0, 330), (220, 110)])])
 G['→'] = (640, [('o', [(0, 330), (640, 330)]), ('o', [(420, 550), (640, 330), (420, 110)])])
 G['^'] = (380, [('o', [(0, 450), (190, H), (380, 450)])])
+G['¡'] = (0, [('o', [(0, 0), (0, 470)]), ('dot', (0, 600))])
+G['¿'] = (420, [('o', [(420, 160), (420, 0, 120), (0, 0, 120), (0, 280, 100), (220, 340, 60), (220, 470)]), ('dot', (220, 600))])
+G['…'] = (440, [('dot', (0, 0)), ('dot', (220, 0)), ('dot', (440, 0))])
+G['’'] = (40, [('o', [(40, H), (0, H - 180)])])
+G['‘'] = (40, [('o', [(0, H - 180), (40, H)])])
+G['“'] = (180, [('o', [(0, H - 180), (40, H)]), ('o', [(140, H - 180), (180, H)])])
+G['”'] = (180, [('o', [(40, H), (0, H - 180)]), ('o', [(180, H), (140, H - 180)])])
+G['„'] = (180, [('o', [(40, 70), (0, -110)]), ('o', [(180, 70), (140, -110)])])
+G['«'] = (380, [('o', [(200, 540), (0, 330), (200, 120)]), ('o', [(380, 540), (180, 330), (380, 120)])])
+G['»'] = (380, [('o', [(0, 540), (200, 330), (0, 120)]), ('o', [(180, 540), (380, 330), (180, 120)])])
+G['№'] = (700, [('o', [(0, 0), (0, H), (W, 0), (W, H)]), rr(560, 330, 700, H, 60), ('o', [(560, 200), (700, 200)])])
 
 
 # --------------------------------------------------------------------------- geometry
@@ -308,6 +400,8 @@ def build(weight, w):
         if low != ch and len(low) == 1:
             cmap[ord(low)] = name
     cmap[ord('ß')] = 'uni1E9E'
+    cmap[ord('ı')] = 'uni0049'  # Turkish dotless i -> I (caps-only face)
+    cmap[ord('œ')] = 'uni0152'
     cmap[0x2212] = 'uni002D'  # minus sign -> hyphen
 
     fb = FontBuilder(1000, isTTF=True)

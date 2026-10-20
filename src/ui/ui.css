@@ -9,8 +9,9 @@
   --rft-red: #e8261c;
   --rft-red-glow: rgba(232, 38, 28, 0.45);
   --rft-ok: #3ad17a;
-  --rft-display: "RFT Display", "Eurostile", "DIN Alternate", system-ui, sans-serif;
-  --rft-text-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* RFT Display: Latin + Latin Extended + Cyrillic; CJK and anything else fall back per glyph to the system font */
+  --rft-display: "RFT Display", "Eurostile", "DIN Alternate", system-ui, -apple-system, "Segoe UI", "Noto Sans", "Hiragino Sans", "PingFang SC", "Microsoft YaHei", "Malgun Gothic", sans-serif;
+  --rft-text-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Hiragino Sans", "PingFang SC", "Microsoft YaHei", "Malgun Gothic", sans-serif;
 }
 
 .rft-hud { position: absolute; inset: 0; pointer-events: none; overflow: hidden; contain: strict; z-index: 10; }
