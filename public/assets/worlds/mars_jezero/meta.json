@@ -1,0 +1,131 @@
+{
+  "site": "mars_jezero",
+  "body": "mars",
+  "name": "Jezero-Krater (Perseverance)",
+  "description": "Kraterboden am Landeplatz Octavia E. Butler (18.2.2021); westlich das Flussdelta, Kraterrand (Ø 45 km) am Horizont.",
+  "frame": "+X = Ost, +Y = oben, -Z = Nord; Bildzeile 0 = Nordrand (z = -size/2), Spalte 0 = Westrand (x = -size/2). Ursprung = Mitte der Nahkachel; Höhen in m relativ zum Mittelpunkt der Nahkachel (y = 0, wie decodeHeightmap), Planetenkrümmung eingerechnet; Spawn-Bodenhöhe = spawn.y.",
+  "geo": {
+    "centerLat": 18.4447,
+    "centerLon": 77.4508,
+    "radiusM": 3396190.0
+  },
+  "sources": [
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/mars2020_trn/HiRISE/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40.tif",
+      "credit": "NASA/JPL/UArizona/USGS, Mars 2020 TRN HiRISE DTM-Mosaik 1 m (Fergason et al. 2020)",
+      "license": "Public Domain (USGS)",
+      "use": "near height"
+    },
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/mars2020_trn/HiRISE/JEZ_hirise_soc_007_orthoMosaic_25cm_Ortho_blend120.tif",
+      "credit": "NASA/JPL/UArizona/USGS, Mars 2020 TRN HiRISE Orthomosaik 25 cm",
+      "license": "Public Domain (USGS)",
+      "use": "albedo"
+    },
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif",
+      "credit": "NASA/JPL/GSFC MGS MOLA, ESA/DLR/FU Berlin Mars Express HRSC; USGS Astrogeology Blended DEM 200 m v2",
+      "license": "Public Domain (USGS)",
+      "use": "far height"
+    },
+    {
+      "url": "https://github.com/nasa/NASA-3D-Resources/tree/master/3D%20Models/Mars%202020%20Perseverance%20Rover",
+      "credit": "NASA/JPL-Caltech, NASA 3D Resources: Mars 2020 Perseverance Rover",
+      "license": "NASA-Medienrichtlinien (frei nutzbar, nicht urheberrechtlich geschützt)",
+      "use": "landmark perseverance.glb"
+    }
+  ],
+  "tiles": {
+    "near": {
+      "heightmap": "terrain_h16.png",
+      "resolution": 2049,
+      "sizeM": 4000.0,
+      "metersPerPixel": 1.9531,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -64.9,
+      "heightMaxM": 104.5,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
+      "normalMap": "normal.png",
+      "albedo": "albedo.jpg",
+      "albedoNote": "HiRISE RED (graustufig) mit Mars-Farbton eingefärbt; mittlere Albedo 0,17 (Kraterboden).",
+      "splat": "splat.png"
+    },
+    "far": {
+      "heightmap": "terrain_far_h16.png",
+      "resolution": 1025,
+      "sizeM": 60000.0,
+      "metersPerPixel": 58.5938,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -374.2,
+      "heightMaxM": 1077.7,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)"
+    }
+  },
+  "spawn": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": -0.0,
+    "headingDeg": 270.0,
+    "compassDeg": 270.0,
+    "lat": 18.4447,
+    "lon": 77.4508,
+    "note": "Landeplatz Perseverance, Blick nach Westen zum Delta"
+  },
+  "sun": {
+    "azimuthDeg": 255.0,
+    "elevationDeg": 32.0,
+    "note": "Nachmittag (Landung ~15:40 LMST)",
+    "illuminanceLux": 55000,
+    "colorTempK": 5200,
+    "direction": [
+      -0.819152,
+      0.529919,
+      0.219491
+    ]
+  },
+  "detailTextures": {
+    "fine": "mars_soil",
+    "rock": "mars_rock",
+    "dark": "mars_soil"
+  },
+  "landmarks": [
+    {
+      "file": "perseverance.glb",
+      "x": -30.14,
+      "y": 0.336,
+      "z": -0.0,
+      "headingDeg": 270.0,
+      "compassDeg": 270.0,
+      "lat": 18.4447,
+      "lon": 77.450264,
+      "note": "Perseverance (NASA 3D Resources, Mast aufgerichtet), Fahrtrichtung West",
+      "dynamic": [
+        {"id": "perseverance", "name": "Perseverance", "meshes": ["Perseverance"], "origin": [0, 0, 0], "yawDeg": 0, "note": "Masse 1025 kg, 3 × 2,7 × 2,2 m, Rad Ø 52,5 cm (NASA/JPL). Räder je 7 kg, Mastkopf 15 kg (SuperCam-Kopf 5,6 kg + Mastcam-Z + Kopf) [EST]; Bruchenergien [EST].", "parts": [
+          {"id": "body", "name": "Rumpf", "massKg": 968.0, "friction": 0.5, "shapes": [{"kind": "box", "c": [0, 1.05, -0.15], "h": [0.75, 0.38, 1.25]}, {"kind": "box", "c": [0, 1.15, -1.5], "h": [0.35, 0.3, 0.2]}, {"kind": "box", "c": [0.98, 0.62, -0.03], "h": [0.1, 0.12, 1.12]}, {"kind": "box", "c": [-0.98, 0.62, -0.03], "h": [0.1, 0.12, 1.12]}, {"kind": "box", "c": [0.1, 1.55, 0.95], "h": [0.06, 0.15, 0.06]}]},
+          {"id": "wheel_fl", "name": "Rad vorn links", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [1.1, 0.263, 1.095], "r": 0.2625, "hh": 0.17, "axis": "x"}], "joint": {"type": "fixed", "anchor": [1.1, 0.263, 1.095], "breakEnergyJ": 2000}, "region": [{"min": [0.8600000000000001, -0.05, 0.7825], "max": [1.34, 0.545, 1.4075]}]},
+          {"id": "wheel_ml", "name": "Rad Mitte links", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [1.12, 0.263, -0.09], "r": 0.2625, "hh": 0.17, "axis": "x"}], "joint": {"type": "fixed", "anchor": [1.12, 0.263, -0.09], "breakEnergyJ": 2000}, "region": [{"min": [0.8800000000000001, -0.05, -0.4025], "max": [1.36, 0.545, 0.22250000000000003]}]},
+          {"id": "wheel_rl", "name": "Rad hinten links", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [1.1, 0.263, -1.165], "r": 0.2625, "hh": 0.17, "axis": "x"}], "joint": {"type": "fixed", "anchor": [1.1, 0.263, -1.165], "breakEnergyJ": 2000}, "region": [{"min": [0.8600000000000001, -0.05, -1.4775], "max": [1.34, 0.545, -0.8525]}]},
+          {"id": "wheel_fr", "name": "Rad vorn rechts", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [-1.1, 0.263, 1.095], "r": 0.2625, "hh": 0.17, "axis": "x"}], "joint": {"type": "fixed", "anchor": [-1.1, 0.263, 1.095], "breakEnergyJ": 2000}, "region": [{"min": [-1.34, -0.05, 0.7825], "max": [-0.8600000000000001, 0.545, 1.4075]}]},
+          {"id": "wheel_mr", "name": "Rad Mitte rechts", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [-1.12, 0.263, -0.09], "r": 0.2625, "hh": 0.17, "axis": "x"}], "joint": {"type": "fixed", "anchor": [-1.12, 0.263, -0.09], "breakEnergyJ": 2000}, "region": [{"min": [-1.36, -0.05, -0.4025], "max": [-0.8800000000000001, 0.545, 0.22250000000000003]}]},
+          {"id": "wheel_rr", "name": "Rad hinten rechts", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [-1.1, 0.263, -1.165], "r": 0.2625, "hh": 0.17, "axis": "x"}], "joint": {"type": "fixed", "anchor": [-1.1, 0.263, -1.165], "breakEnergyJ": 2000}, "region": [{"min": [-1.34, -0.05, -1.4775], "max": [-0.8600000000000001, 0.545, -0.8525]}]},
+          {"id": "mast", "name": "Mastkopf (SuperCam, Mastcam-Z)", "massKg": 15, "friction": 0.5, "shapes": [{"kind": "box", "c": [0.05, 1.85, 0.95], "h": [0.35, 0.13, 0.25]}], "joint": {"type": "fixed", "anchor": [0.1, 1.7, 0.95], "breakEnergyJ": 120}, "region": [{"min": [-0.5, 1.68, 0.55], "max": [0.75, 2.05, 1.35]}]}
+        ]}
+      ]
+    }
+  ],
+  "rocks": {
+    "file": "../_shared/rocks_mars.glb",
+    "density": "Kraterboden: verstreut (Séítah-Blöcke)"
+  },
+  "license": "NASA/USGS-Daten gemeinfrei",
+  "size": 2049,
+  "extentM": 4000.0,
+  "minM": -64.9,
+  "maxM": 104.5,
+  "source": "NASA/JPL/UArizona/USGS, Mars 2020 TRN HiRISE DTM-Mosaik 1 m (Fergason et al. 2020)",
+  "r5Notes": [
+    "Perseverance durch das NASA-3D-Resources-Modell ersetzt (Mast aufgerichtet)"
+  ]
+}

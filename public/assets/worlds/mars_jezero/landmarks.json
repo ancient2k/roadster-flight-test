@@ -1,0 +1,18 @@
+[
+ {
+  "glb": "perseverance.glb",
+  "pos": {
+   "x": -30.14,
+   "y": 0.336,
+   "z": -0.0
+  },
+  "headingDeg": 270.0,
+  "collider": "box",
+  "size": {
+   "x": 2.7,
+   "y": 2.2,
+   "z": 3.0
+  },
+  "note": "Perseverance (vereinfacht), Fahrtrichtung West"
+ }
+]

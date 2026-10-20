@@ -1,0 +1,132 @@
+{
+  "site": "mars_gale",
+  "body": "mars",
+  "name": "Gale-Krater / Mount Sharp (Curiosity)",
+  "description": "Bradbury Landing (6.8.2012) auf Aeolis Palus; Mount Sharp (Aeolis Mons, 5,5 km) im Südosten.",
+  "frame": "+X = Ost, +Y = oben, -Z = Nord; Bildzeile 0 = Nordrand (z = -size/2), Spalte 0 = Westrand (x = -size/2). Ursprung = Mitte der Nahkachel; Höhen in m relativ zum Mittelpunkt der Nahkachel (y = 0, wie decodeHeightmap), Planetenkrümmung eingerechnet; Spawn-Bodenhöhe = spawn.y.",
+  "geo": {
+    "centerLat": -4.5895,
+    "centerLon": 137.4417,
+    "radiusM": 3396190.0
+  },
+  "sources": [
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/Mars/MSL/MSL_Gale_DEM_Mosaic_1m_v3.tif",
+      "credit": "NASA/JPL/UArizona/USGS, MSL Gale Merged DEM 1 m (Calef & Parker 2016)",
+      "license": "Public Domain (USGS)",
+      "use": "near height"
+    },
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/MSL_Gale_Orthophoto_Mosaic_25cm_v3.tif",
+      "credit": "NASA/JPL/UArizona/USGS, MSL Gale Merged Orthophoto 25 cm",
+      "license": "Public Domain (USGS)",
+      "use": "albedo"
+    },
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif",
+      "credit": "NASA/JPL/GSFC MGS MOLA, ESA/DLR/FU Berlin Mars Express HRSC; USGS Astrogeology Blended DEM 200 m v2",
+      "license": "Public Domain (USGS)",
+      "use": "far height"
+    },
+    {
+      "url": "https://github.com/nasa/NASA-3D-Resources/tree/master/3D%20Models/Curiosity%20Rover%20(MSL)",
+      "credit": "NASA/JPL-Caltech, NASA 3D Resources: Curiosity Rover (MSL)",
+      "license": "NASA-Medienrichtlinien (frei nutzbar, nicht urheberrechtlich geschützt)",
+      "use": "landmark curiosity.glb"
+    }
+  ],
+  "tiles": {
+    "near": {
+      "heightmap": "terrain_h16.png",
+      "resolution": 2049,
+      "sizeM": 4000.0,
+      "metersPerPixel": 1.9531,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -28.8,
+      "heightMaxM": 17.6,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
+      "normalMap": "normal.png",
+      "albedo": "albedo.jpg",
+      "albedoNote": "HiRISE-Orthomosaik (graustufig) mit Mars-Farbton.",
+      "splat": "splat.png"
+    },
+    "far": {
+      "heightmap": "terrain_far_h16.png",
+      "resolution": 1025,
+      "sizeM": 80000.0,
+      "metersPerPixel": 78.125,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -401.7,
+      "heightMaxM": 4851.5,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)"
+    }
+  },
+  "spawn": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": -0.0,
+    "headingDeg": 30.0,
+    "compassDeg": 150.0,
+    "lat": -4.5895,
+    "lon": 137.4417,
+    "note": "Bradbury Landing, Blick auf Mount Sharp"
+  },
+  "sun": {
+    "azimuthDeg": 250.0,
+    "elevationDeg": 35.0,
+    "note": "Nachmittag",
+    "illuminanceLux": 55000,
+    "colorTempK": 5200,
+    "direction": [
+      -0.769751,
+      0.573576,
+      0.280166
+    ]
+  },
+  "detailTextures": {
+    "fine": "mars_soil",
+    "rock": "mars_layered",
+    "dark": "mars_soil"
+  },
+  "landmarks": [
+    {
+      "file": "curiosity.glb",
+      "x": 8.0,
+      "y": 0.317,
+      "z": 26.0,
+      "headingDeg": 200.0,
+      "compassDeg": 340.0,
+      "lat": -4.5895,
+      "lon": 137.4417,
+      "note": "Curiosity (NASA 3D Resources, staubige Fassung), Blick zurück nach NNW, Arm ausgeklappt",
+      "dynamic": [
+        {"id": "curiosity", "name": "Curiosity", "meshes": ["Curiosity"], "origin": [0, 0, 0], "yawDeg": 0, "note": "Masse 899 kg, Rad Ø 50 cm × 40 cm (NASA/JPL). Räder je 7 kg, Mastkopf 15 kg, Arm + Turm 65 kg [EST]; Bruchenergien [EST].", "parts": [
+          {"id": "body", "name": "Rumpf", "massKg": 777.0, "friction": 0.5, "shapes": [{"kind": "box", "c": [0, 1.0, -0.2], "h": [0.75, 0.33, 1.15]}, {"kind": "box", "c": [0, 1.15, -1.45], "h": [0.35, 0.3, 0.2]}, {"kind": "box", "c": [1.0, 0.62, -0.03], "h": [0.1, 0.12, 1.12]}, {"kind": "box", "c": [-1.0, 0.62, -0.03], "h": [0.1, 0.12, 1.12]}, {"kind": "box", "c": [-0.5, 1.45, 0.7], "h": [0.06, 0.15, 0.06]}]},
+          {"id": "wheel_fl", "name": "Rad vorn links", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [1.08, 0.245, 1.095], "r": 0.25, "hh": 0.2, "axis": "x"}], "joint": {"type": "fixed", "anchor": [1.08, 0.245, 1.095], "breakEnergyJ": 2000}, "region": [{"min": [0.8400000000000001, -0.05, 0.7949999999999999], "max": [1.32, 0.52, 1.395]}]},
+          {"id": "wheel_ml", "name": "Rad Mitte links", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [1.19, 0.245, -0.09], "r": 0.25, "hh": 0.2, "axis": "x"}], "joint": {"type": "fixed", "anchor": [1.19, 0.245, -0.09], "breakEnergyJ": 2000}, "region": [{"min": [0.95, -0.05, -0.38999999999999996], "max": [1.43, 0.52, 0.21000000000000002]}]},
+          {"id": "wheel_rl", "name": "Rad hinten links", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [1.08, 0.245, -1.165], "r": 0.25, "hh": 0.2, "axis": "x"}], "joint": {"type": "fixed", "anchor": [1.08, 0.245, -1.165], "breakEnergyJ": 2000}, "region": [{"min": [0.8400000000000001, -0.05, -1.465], "max": [1.32, 0.52, -0.865]}]},
+          {"id": "wheel_fr", "name": "Rad vorn rechts", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [-1.08, 0.245, 1.095], "r": 0.25, "hh": 0.2, "axis": "x"}], "joint": {"type": "fixed", "anchor": [-1.08, 0.245, 1.095], "breakEnergyJ": 2000}, "region": [{"min": [-1.32, -0.05, 0.7949999999999999], "max": [-0.8400000000000001, 0.52, 1.395]}]},
+          {"id": "wheel_mr", "name": "Rad Mitte rechts", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [-1.19, 0.245, -0.09], "r": 0.25, "hh": 0.2, "axis": "x"}], "joint": {"type": "fixed", "anchor": [-1.19, 0.245, -0.09], "breakEnergyJ": 2000}, "region": [{"min": [-1.43, -0.05, -0.38999999999999996], "max": [-0.95, 0.52, 0.21000000000000002]}]},
+          {"id": "wheel_rr", "name": "Rad hinten rechts", "massKg": 7.0, "friction": 0.8, "shapes": [{"kind": "cyl", "c": [-1.08, 0.245, -1.165], "r": 0.25, "hh": 0.2, "axis": "x"}], "joint": {"type": "fixed", "anchor": [-1.08, 0.245, -1.165], "breakEnergyJ": 2000}, "region": [{"min": [-1.32, -0.05, -1.465], "max": [-0.8400000000000001, 0.52, -0.865]}]},
+          {"id": "mast", "name": "Mastkopf (ChemCam, Mastcam)", "massKg": 15, "friction": 0.5, "shapes": [{"kind": "box", "c": [-0.5, 1.95, 0.7], "h": [0.2, 0.2, 0.2]}], "joint": {"type": "fixed", "anchor": [-0.5, 1.65, 0.7], "breakEnergyJ": 120}, "region": [{"min": [-0.85, 1.6, 0.35], "max": [-0.15, 2.3, 1.05]}]},
+          {"id": "arm", "name": "Roboterarm mit Turm", "massKg": 65, "friction": 0.5, "shapes": [{"kind": "box", "c": [0.45, 0.88, 1.6], "h": [0.08, 0.08, 0.5]}, {"kind": "box", "c": [0.45, 1.2, 2.12], "h": [0.07, 0.32, 0.07]}, {"kind": "box", "c": [0.45, 1.88, 2.0], "h": [0.22, 0.14, 0.24]}], "joint": {"type": "fixed", "anchor": [0.45, 0.88, 1.12], "breakEnergyJ": 400}, "region": [{"min": [0.0, 0.5, 1.25], "max": [0.85, 2.15, 2.35]}]}
+        ]}
+      ]
+    }
+  ],
+  "rocks": {
+    "file": "../_shared/rocks_mars.glb",
+    "density": "mäßig, auf Aeolis Palus verstreut"
+  },
+  "license": "NASA/USGS-Daten gemeinfrei",
+  "size": 2049,
+  "extentM": 4000.0,
+  "minM": -28.8,
+  "maxM": 17.6,
+  "source": "NASA/JPL/UArizona/USGS, MSL Gale Merged DEM 1 m (Calef & Parker 2016)",
+  "r5Notes": [
+    "Curiosity (NASA 3D Resources) als Wahrzeichen nahe Bradbury Landing"
+  ]
+}

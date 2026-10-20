@@ -1,0 +1,133 @@
+{
+  "site": "moon_tranquility",
+  "body": "moon",
+  "name": "Tranquility Base (Apollo 11)",
+  "description": "Mare Tranquillitatis, Landestelle Apollo 11 (20.7.1969). LM-Abstiegsstufe steht noch dort; West Crater (Little West) ~60 m östlich, großes West-Krater ~400 m westlich.",
+  "frame": "+X = Ost, +Y = oben, -Z = Nord; Bildzeile 0 = Nordrand (z = -size/2), Spalte 0 = Westrand (x = -size/2). Ursprung = Mitte der Nahkachel; Höhen in m relativ zum Mittelpunkt der Nahkachel (y = 0, wie decodeHeightmap), Planetenkrümmung eingerechnet; Spawn-Bodenhöhe = spawn.y.",
+  "geo": {
+    "centerLat": 0.67409,
+    "centerLon": 23.4419,
+    "radiusM": 1737400.0
+  },
+  "sources": [
+    {
+      "url": "https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/DATA/SDP/NAC_DTM/APOLLO11/NAC_DTM_APOLLO11.TIF",
+      "credit": "NASA/GSFC/Arizona State University, LROC NAC DTM Apollo 11 (2 m/px)",
+      "license": "Public Domain (NASA)",
+      "use": "near height"
+    },
+    {
+      "url": "https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/EXTRAS/BROWSE/NAC_ROI/APOLLO11HIA/NAC_ROI_APOLLO11HIA_E010N0234.TIF",
+      "credit": "NASA/GSFC/Arizona State University, LROC NAC high-Sun mosaic Apollo 11 (1,3 m/px)",
+      "license": "Public Domain (NASA)",
+      "use": "albedo"
+    },
+    {
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/LolaKaguya_Topo/Lunar_LRO_LOLAKaguya_DEMmerge_60N60S_512ppd.tif",
+      "credit": "NASA LRO LOLA / JAXA SELENE Kaguya TC, SLDEM2015 merge 59 m (USGS Astrogeology)",
+      "license": "Public Domain (USGS)",
+      "use": "far height"
+    },
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif",
+      "credit": "NASA/GSFC LRO LOLA, USGS Astrogeology (LDEM 118 m, Mar 2014)",
+      "license": "Public Domain (NASA/USGS)",
+      "use": "far height"
+    }
+  ],
+  "tiles": {
+    "near": {
+      "heightmap": "terrain_h16.png",
+      "resolution": 2049,
+      "sizeM": 4000.0,
+      "metersPerPixel": 1.9531,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -49.2,
+      "heightMaxM": 51.7,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
+      "normalMap": "normal.png",
+      "albedo": "albedo.jpg",
+      "albedoNote": "Hochsonnen-NAC-Mosaik (kaum Schatten) -> echte Albedo inkl. heller Abgas-Zone um das LM. Lineare Mittel-Albedo 0,11 (Mare).",
+      "splat": "splat.png"
+    },
+    "far": {
+      "heightmap": "terrain_far_h16.png",
+      "resolution": 1025,
+      "sizeM": 40000.0,
+      "metersPerPixel": 39.0625,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -687.8,
+      "heightMaxM": 211.6,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)"
+    }
+  },
+  "spawn": {
+    "x": 942.38,
+    "y": -10.804,
+    "z": 30.02,
+    "headingDeg": 180.0,
+    "compassDeg": 0.0,
+    "lat": 0.6731,
+    "lon": 23.47298,
+    "note": "30 m südlich der LM-Abstiegsstufe, Blick nach Norden"
+  },
+  "sun": {
+    "azimuthDeg": 89.0,
+    "elevationDeg": 10.8,
+    "note": "Sonnenstand bei der Landung 20.7.1969 (Morgen, Sonne im Osten)",
+    "illuminanceLux": 131000,
+    "colorTempK": 5800,
+    "direction": [
+      0.982138,
+      0.187381,
+      -0.017143
+    ]
+  },
+  "detailTextures": {
+    "fine": "regolith",
+    "rock": "regolith_rocky",
+    "dark": "regolith"
+  },
+  "landmarks": [
+    {
+      "file": "apollo_lm_descent.glb",
+      "x": 942.38,
+      "y": -10.047,
+      "z": -0.0,
+      "headingDeg": 270.0,
+      "compassDeg": 270.0,
+      "lat": 0.67409,
+      "lon": 23.47298,
+      "note": "Abstiegsstufe Eagle, Vorderseite (+Z, Leiter) nach Westen",
+      "dynamic": [
+        {"id": "lm", "name": "Apollo-11-Abstiegsstufe „Eagle“", "meshes": ["LM_Descent"], "origin": [0, 0, 0], "yawDeg": 0, "note": "Masse 2034 kg (LM-5, Liste künstlicher Objekte auf dem Mond / spacefacts). Bein 53,5 kg = Fahrwerk ≈ 214 kg / 4 (Isolation 17,1 kg ≈ 8 %, Rogers/NASA); Bruch 28,7 kJ = axiale Energieaufnahme der Primärstrebe (4500 lbf über 10 in + 9500 lbf über 22 in, TN D-6850) – als Spielschwelle auch für seitliche Stöße [EST]. Triebwerk DPS 179 kg (Wikipedia „Descent propulsion system“); Düsenverlängerung dünnwandig und zum Stauchen ausgelegt → Bruch 2 kJ [EST].", "parts": [
+          {"id": "body", "name": "Abstiegsstufe", "massKg": 1641.0, "com": [0, 2.3, 0], "friction": 0.5, "shapes": [{"kind": "hull", "pts": [2.15, 1.52, 1.05, 1.05, 1.52, 2.15, -1.05, 1.52, 2.15, -2.15, 1.52, 1.05, -2.15, 1.52, -1.05, -1.05, 1.52, -2.15, 1.05, 1.52, -2.15, 2.15, 1.52, -1.05, 2.15, 3.31, 1.05, 1.05, 3.31, 2.15, -1.05, 3.31, 2.15, -2.15, 3.31, 1.05, -2.15, 3.31, -1.05, -1.05, 3.31, -2.15, 1.05, 3.31, -2.15, 2.15, 3.31, -1.05]}]},
+          {"id": "leg_pz", "name": "Landebein vorn (Leiter)", "massKg": 53.5, "com": [0.0, 1.3, 3.6], "friction": 0.6, "shapes": [{"kind": "cyl", "c": [0.0, 0.16, 4.72], "r": 0.45, "hh": 0.16, "axis": "y"}, {"kind": "box", "c": [0.0, 1.75, 3.435], "h": [0.08, 1.834182379154265, 0.08], "rotDeg": [-40.25, 0, 0]}, {"kind": "box", "c": [0.0, 1.35, 3.1], "h": [0.9, 0.1, 0.85]}], "joint": {"type": "fixed", "anchor": [0.0, 2.3, 2.25], "breakEnergyJ": 28700}, "region": [{"min": [-2.3, -0.1, 2.25], "max": [2.3, 3.6, 5.3]}]},
+          {"id": "leg_nz", "name": "Landebein hinten", "massKg": 53.5, "com": [0.0, 1.3, -3.6], "friction": 0.6, "shapes": [{"kind": "cyl", "c": [0.0, 0.16, -4.72], "r": 0.45, "hh": 0.16, "axis": "y"}, {"kind": "box", "c": [0.0, 1.75, -3.435], "h": [0.08, 1.834182379154265, 0.08], "rotDeg": [40.25, 0, 0]}, {"kind": "box", "c": [0.0, 1.35, -3.1], "h": [0.9, 0.1, 0.85]}], "joint": {"type": "fixed", "anchor": [0.0, 2.3, -2.25], "breakEnergyJ": 28700}, "region": [{"min": [-2.3, -0.1, -5.3], "max": [2.3, 3.6, -2.25]}]},
+          {"id": "leg_px", "name": "Landebein links", "massKg": 53.5, "com": [3.6, 1.3, 0.0], "friction": 0.6, "shapes": [{"kind": "cyl", "c": [4.72, 0.16, 0.0], "r": 0.45, "hh": 0.16, "axis": "y"}, {"kind": "box", "c": [3.435, 1.75, 0.0], "h": [0.08, 1.834182379154265, 0.08], "rotDeg": [0, 0, 40.25]}, {"kind": "box", "c": [3.1, 1.35, 0.0], "h": [0.85, 0.1, 0.9]}], "joint": {"type": "fixed", "anchor": [2.25, 2.3, 0.0], "breakEnergyJ": 28700}, "region": [{"min": [2.25, -0.1, -2.3], "max": [5.3, 3.6, 2.3]}]},
+          {"id": "leg_nx", "name": "Landebein rechts", "massKg": 53.5, "com": [-3.6, 1.3, 0.0], "friction": 0.6, "shapes": [{"kind": "cyl", "c": [-4.72, 0.16, 0.0], "r": 0.45, "hh": 0.16, "axis": "y"}, {"kind": "box", "c": [-3.435, 1.75, 0.0], "h": [0.08, 1.834182379154265, 0.08], "rotDeg": [0, 0, -40.25]}, {"kind": "box", "c": [-3.1, 1.35, 0.0], "h": [0.85, 0.1, 0.9]}], "joint": {"type": "fixed", "anchor": [-2.25, 2.3, 0.0], "breakEnergyJ": 28700}, "region": [{"min": [-5.3, -0.1, -2.3], "max": [-2.25, 3.6, 2.3]}]},
+          {"id": "engine", "name": "Abstiegstriebwerk (Düse)", "massKg": 179, "friction": 0.5, "shapes": [{"kind": "cyl", "c": [0, 1.03, 0], "r": 0.72, "hh": 0.48, "axis": "y"}], "joint": {"type": "fixed", "anchor": [0, 1.52, 0], "breakEnergyJ": 2000}, "region": [{"min": [-0.8, 0.45, -0.8], "max": [0.8, 1.51, 0.8]}]}
+        ]}
+      ]
+    }
+  ],
+  "rocks": {
+    "file": "../_shared/rocks_moon.glb",
+    "density": "dünn (Mare): ~1 Block > 0,5 m pro 200 m², Kraterränder dichter"
+  },
+  "license": "NASA-Daten gemeinfrei",
+  "footprints": {
+    "file": "footprints.json",
+    "count": 790
+  },
+  "size": 2049,
+  "extentM": 4000.0,
+  "minM": -49.2,
+  "maxM": 51.7,
+  "source": "NASA/GSFC/Arizona State University, LROC NAC DTM Apollo 11 (2 m/px)",
+  "r5Notes": [
+    "LM-Abstiegsstufe: Knitterfolie facettiert und rauer (kein Überstrahlen), gepolsterte Folienbahnen, Deck matt"
+  ]
+}

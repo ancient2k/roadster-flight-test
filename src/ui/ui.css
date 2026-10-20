@@ -1,0 +1,29 @@
+/* Shared UI styles (HUD overlay + menus). Display face: RFT Display (own work, public/assets/fonts). */
+:root {
+  --rft-bg: #050505;
+  --rft-panel: rgba(12, 12, 13, 0.82);
+  --rft-line: rgba(255, 255, 255, 0.12);
+  --rft-line-strong: rgba(255, 255, 255, 0.32);
+  --rft-text: #f2f2f2;
+  --rft-dim: #9a9a9a;
+  --rft-red: #e8261c;
+  --rft-red-glow: rgba(232, 38, 28, 0.45);
+  --rft-ok: #3ad17a;
+  --rft-display: "RFT Display", "Eurostile", "DIN Alternate", system-ui, sans-serif;
+  --rft-text-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.rft-hud { position: absolute; inset: 0; pointer-events: none; overflow: hidden; contain: strict; z-index: 10; }
+.rft-hud-canvas { position: absolute; inset: 0; display: block; }
+
+.rft-flash {
+  position: absolute; left: 50%; top: 17%; transform: translate(-50%, -8px);
+  font: 600 clamp(18px, 2.3vh, 44px) / 1 var(--rft-display); letter-spacing: 0.22em; color: #fff;
+  padding: 0.7em 1.4em 0.65em; white-space: nowrap; opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.6) 18%, rgba(0,0,0,0.6) 82%, transparent);
+  border-top: 1px solid rgba(255,255,255,0.18); border-bottom: 1px solid rgba(255,255,255,0.18);
+  transition: opacity 0.35s ease, transform 0.35s ease; text-shadow: 0 0 18px rgba(255,255,255,0.25);
+}
+.rft-flash.show { opacity: 1; transform: translate(-50%, 0); }
+.rft-flash[data-kind="success"] { border-color: rgba(58, 209, 122, 0.55); }
+.rft-flash[data-kind="warn"] { color: #ffd7d3; border-color: var(--rft-red); text-shadow: 0 0 18px var(--rft-red-glow); }

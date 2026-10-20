@@ -1,0 +1,13 @@
+{
+ "_doc": "Material regions and parts on the body surface. s = station parameter (index into body_spec stations: 1 nose 2.25, 6 cowl 1.40, 7 0.92, 8 0.50, 11 -0.62, 12 -0.90, 13 -1.25, 15 -1.58, 18 tail -1.93), p = half-profile parameter (0 bottom centre, 3 sill, 7 crest, 9 glass base, 10 roof rail, 11 glass inner, 12 top centre). First matching rule wins.",
+ "regions": [
+  {"mat": "D", "s": [0, 19], "p": [0, 3]},
+  {"mat": "D", "s": [13.6, 17.9], "p": [3, 4.6]},
+  {"mat": "G", "s": [6.0, 8.0], "p": [10.0, 12]},
+  {"mat": "G", "s": [8.0, 15.6], "p": [11.0, 12]},
+  {"mat": "G", "s": [6.25, 12.2], "p": [9.0, 10.0]}
+ ],
+ "parts": [
+  {"part": "door", "s": [7, 11], "p": [3, 10]}
+ ]
+}

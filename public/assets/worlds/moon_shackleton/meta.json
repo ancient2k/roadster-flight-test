@@ -1,0 +1,98 @@
+{
+  "site": "moon_shackleton",
+  "body": "moon",
+  "name": "Shackleton-Kraterrand (Südpol)",
+  "description": "Rand des Shackleton-Kraters (Ø 21 km, 4 km tief) am lunaren Südpol, Artemis-Kandidat. Sonne streift den Horizont (< 2°), Kraterinneres in ewigem Schatten.",
+  "frame": "+X = Ost, +Y = oben, -Z = Nord; Bildzeile 0 = Nordrand (z = -size/2), Spalte 0 = Westrand (x = -size/2). Ursprung = Mitte der Nahkachel; Höhen in m relativ zum Mittelpunkt der Nahkachel (y = 0, wie decodeHeightmap), Planetenkrümmung eingerechnet; Spawn-Bodenhöhe = spawn.y.",
+  "geo": {
+    "centerLat": -89.742,
+    "centerLon": 199.74,
+    "radiusM": 1737400.0
+  },
+  "sources": [
+    {
+      "url": "https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/DATA/SDP/NAC_DTM/ESALL_SR12/NAC_DTM_ESALL_SR12.TIF",
+      "credit": "NASA/GSFC/ASU/DLR, LROC NAC DTM Shackleton Rim SR12 (2 m/px)",
+      "license": "Public Domain (NASA)",
+      "use": "near height"
+    },
+    {
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/87S/ldem_87s_5mpp.tif",
+      "credit": "NASA GSFC Planetary Geodesy Data Archive, LOLA 5 m/px DEM 87–90°S (Barker et al.)",
+      "license": "Public Domain (NASA)",
+      "use": "near height"
+    },
+    {
+      "url": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_20MPP_ADJ.TIF",
+      "credit": "NASA GSFC PGDA, LOLA 20 m/px DEM 80–90°S (Barker et al. 2021)",
+      "license": "Public Domain (NASA)",
+      "use": "far height"
+    }
+  ],
+  "tiles": {
+    "near": {
+      "heightmap": "terrain_h16.png",
+      "resolution": 2049,
+      "sizeM": 4000.0,
+      "metersPerPixel": 1.9531,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -1659.3,
+      "heightMaxM": 82.3,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
+      "normalMap": "normal.png",
+      "albedo": "albedo.jpg",
+      "albedoNote": "Prozedural (am Pol gibt es keine schattenfreien Bilder); Hochland-Albedo ~0,11–0,14.",
+      "splat": "splat.png"
+    },
+    "far": {
+      "heightmap": "terrain_far_h16.png",
+      "resolution": 1025,
+      "sizeM": 60000.0,
+      "metersPerPixel": 58.5938,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -4575.0,
+      "heightMaxM": 272.1,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)"
+    }
+  },
+  "spawn": {
+    "x": 180.0,
+    "y": 45.295,
+    "z": 0.01,
+    "headingDeg": 270.0,
+    "compassDeg": 270.0,
+    "lat": -89.741932,
+    "lon": 201.05802,
+    "note": "Auf dem Kraterkamm, Blick nach Westen 1,6 km hinab in den dauerhaft dunklen Krater"
+  },
+  "sun": {
+    "azimuthDeg": 60.0,
+    "elevationDeg": 1.5,
+    "note": "Streifendes Licht, max. Sonnenhöhe am Pol ~1,5°",
+    "illuminanceLux": 131000,
+    "colorTempK": 5800,
+    "direction": [
+      0.865729,
+      0.026177,
+      -0.499829
+    ]
+  },
+  "detailTextures": {
+    "fine": "regolith",
+    "rock": "regolith_rocky",
+    "dark": "regolith"
+  },
+  "landmarks": [],
+  "rocks": {
+    "file": "../_shared/rocks_moon.glb",
+    "density": "Hochland: mäßig, Kraterhang dicht"
+  },
+  "license": "NASA-Daten gemeinfrei",
+  "size": 2049,
+  "extentM": 4000.0,
+  "minM": -1659.3,
+  "maxM": 82.3,
+  "source": "NASA/GSFC/ASU/DLR, LROC NAC DTM Shackleton Rim SR12 (2 m/px); NASA GSFC Planetary Geodesy Data Archive, LOLA 5 m/px DEM 87–90°S (Barker et al.)"
+}

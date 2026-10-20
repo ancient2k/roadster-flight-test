@@ -1,0 +1,50 @@
+{
+  "regolith": {
+    "tileM": 4.0,
+    "source": "https://polyhaven.com/a/rock_ground",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  },
+  "regolith_rocky": {
+    "tileM": 3.0,
+    "source": "https://polyhaven.com/a/gray_rocks",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  },
+  "sand": {
+    "tileM": 6.0,
+    "source": "https://polyhaven.com/a/coast_sand_01",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  },
+  "limestone": {
+    "tileM": 5.0,
+    "source": "https://polyhaven.com/a/rock_boulder_dry",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  },
+  "mars_soil": {
+    "tileM": 4.0,
+    "source": "https://polyhaven.com/a/red_laterite_soil_stones",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  },
+  "mars_rock": {
+    "tileM": 6.0,
+    "source": "https://polyhaven.com/a/rock_face_03",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  },
+  "mars_layered": {
+    "tileM": 8.0,
+    "source": "https://polyhaven.com/a/dry_riverbed_rock",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  },
+  "grass_chalk": {
+    "tileM": 3.0,
+    "source": "https://polyhaven.com/a/grass_ground",
+    "license": "CC0 1.0",
+    "use": "albedo = kachelAlbedo * detail_diff * 2 (linear)"
+  }
+}

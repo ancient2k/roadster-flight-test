@@ -1,0 +1,37 @@
+{
+ "albedo": "albedo.jpg",
+ "albedoCoversM": 4000.0,
+ "normal": "normal.png",
+ "splat": {
+  "file": "splat.png",
+  "channels": {
+   "r": "rock",
+   "g": "fine",
+   "b": "dark"
+  }
+ },
+ "details": {
+  "fine": {
+   "name": "sand",
+   "diff": "detail_sand_diff.jpg",
+   "nor": "detail_sand_nor.jpg",
+   "arm": "detail_sand_arm.jpg",
+   "tileM": 6.0
+  },
+  "rock": {
+   "name": "limestone",
+   "diff": "detail_limestone_diff.jpg",
+   "nor": "detail_limestone_nor.jpg",
+   "arm": "detail_limestone_arm.jpg",
+   "tileM": 5.0
+  },
+  "dark": {
+   "name": "sand",
+   "diff": "detail_sand_diff.jpg",
+   "nor": "detail_sand_nor.jpg",
+   "arm": "detail_sand_arm.jpg",
+   "tileM": 6.0
+  }
+ },
+ "blend": "albedo_final = albedo · Σ_k splat_k · (detail_k_diff · 2) (linear); Normalen: Kachel-Normal + Detail-Normal (RNM)"
+}

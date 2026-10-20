@@ -1,0 +1,110 @@
+{
+  "site": "space_sun",
+  "body": "space",
+  "name": "Sonne (heliozentrischer Raum)",
+  "description": "Freier Raum nahe der Sonne: Sternenhimmel, Sonnenscheibe, Referenzdaten für Strahlung/Erhitzung und die Bahn von Roadster 1 + Starman (Modell: tools/blender/build_starman.py).",
+  "files": [
+    "stars_8k.jpg",
+    "stars_4k.jpg",
+    "stars_2k.hdr",
+    "sun_disk_1024.png"
+  ],
+  "stars": {
+    "projection": "equirektangulär, äquatorial ICRF/J2000: Bildmitte = RA 0h/Dec 0°, RA nimmt nach LINKS zu, oben = Himmelsnordpol (Dec +90°)",
+    "toEcliptic": "Rotation um die x-Achse (Frühlingspunkt) um +ε: y_ekl = cosε·y_äq + sinε·z_äq, z_ekl = −sinε·y_äq + cosε·z_äq",
+    "obliquityDeg": 23.4392911,
+    "matrixEquatorialToEcliptic": [
+      [
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        0.917482062,
+        0.397777156
+      ],
+      [
+        0,
+        -0.397777156,
+        0.917482062
+      ]
+    ],
+    "suggestedSceneFrame": "three.js: +X = Frühlingspunkt, +Y = ekliptikaler Nordpol, +Z = X × Y (rechtshändig)",
+    "hdrScale": "stars_2k.hdr linear; 1,0 ≈ 99,9-Perzentil-Helligkeit (nur Hintergrund, keine physikalische Einheit)"
+  },
+  "sun": {
+    "radiusM": 695700000.0,
+    "GM_m3s2": 1.32712440018e+20,
+    "luminosityW": 3.828e+26,
+    "effectiveTempK": 5772,
+    "solarConstantWm2At1AU": 1361.0,
+    "AU_m": 149597870700.0,
+    "irradiance": "E(r) = 1361 W/m² · (1 AU / r)²",
+    "limbDarkening": {
+      "law": "I(μ)/I(1) = 1 − u1(1−μ) − u2(1−μ)²",
+      "u1": 0.47,
+      "u2": 0.23,
+      "band": "~550 nm"
+    },
+    "photosphereColorLinear": [
+      1.0,
+      0.94,
+      0.88
+    ],
+    "angularDiameterDegAt1AU": 0.5332,
+    "corona": "nur bei abgedeckter Scheibe sichtbar; Helligkeit ~1e-6 der Scheibe",
+    "disk": {
+      "file": "sun_disk_1024.png",
+      "source": "NASA/SDO HMI Continuum Quick-Look 2026-10-18 01:30 UT",
+      "note": "Graustufen-Helligkeit (Flecken + Randverdunkelung), Alpha = Scheibe; mit Sonnenfarbe multiplizieren"
+    },
+    "sunDirectionNote": "Sonne ist ein Objekt im Raum, keine feste Richtung"
+  },
+  "roadster1": {
+    "designation": "Tesla Roadster / Starman, NORAD 43205, COSPAR 2018-017A, JPL Horizons ID -143205",
+    "elementsApprox": {
+      "a_AU": 1.3245,
+      "e": 0.2559,
+      "i_deg": 1.0759,
+      "Omega_deg": 317.43,
+      "omega_deg": 177.24,
+      "periodDays": 557.0,
+      "perihelionAU": 0.9855,
+      "aphelionAU": 1.664
+    },
+    "note": "Näherungswerte (heliozentrisch, ekliptikal J2000); für Datum-genaue Position JPL Horizons -143205 verwenden"
+  },
+  "heating": {
+    "absorbedFlux": "q = α · E(r) · A_proj; Gleichgewicht T = (α E / (ε σ · A_rad/A_proj))^(1/4)",
+    "sigma": 5.670374419e-08,
+    "aluminiumMeltK": 933,
+    "steelMeltK": 1700,
+    "carbonFiberDegradeK": 700,
+    "lithiumIonRunawayK": 420,
+    "note": "Referenz für das Verglühen"
+  },
+  "spawn": {
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "headingDeg": 0,
+    "note": "Spielszene definiert Start relativ zu Roadster 1"
+  },
+  "sources": [
+    {
+      "url": "https://svs.gsfc.nasa.gov/4851",
+      "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC",
+      "license": "NASA-Bildrichtlinie (frei, Namensnennung erbeten)",
+      "use": "stars"
+    },
+    {
+      "url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg",
+      "credit": "NASA/SDO and the HMI science team",
+      "license": "NASA-Bildrichtlinie (frei, Namensnennung erbeten)",
+      "use": "sun disk"
+    }
+  ],
+  "tiles": {},
+  "frame": "Kein Gelände. Himmelskugel äquatorial (ICRF/J2000); vorgeschlagener Szenenrahmen: siehe stars.suggestedSceneFrame"
+}

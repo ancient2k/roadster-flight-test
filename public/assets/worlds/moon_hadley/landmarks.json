@@ -1,0 +1,18 @@
+[
+ {
+  "glb": "apollo_lm_descent.glb",
+  "pos": {
+   "x": 925.61,
+   "y": -18.849,
+   "z": -371.28
+  },
+  "headingDeg": 270.0,
+  "collider": "box",
+  "size": {
+   "x": 6.8,
+   "y": 3.3,
+   "z": 6.8
+  },
+  "note": "Abstiegsstufe Falcon; Rover (LRV) ~90 m östlich ist im GLB enthalten"
+ }
+]

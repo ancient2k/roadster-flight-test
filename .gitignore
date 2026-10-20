@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+out/
+test-results/
+playwright-report/
+.vite/
+*.log
+.DS_Store
+__pycache__/
+tools/blender/out/
+tools/worlds/downloads/
+.claude/

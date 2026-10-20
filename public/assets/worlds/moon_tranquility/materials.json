@@ -1,0 +1,37 @@
+{
+ "albedo": "albedo.jpg",
+ "albedoCoversM": 4000.0,
+ "normal": "normal.png",
+ "splat": {
+  "file": "splat.png",
+  "channels": {
+   "r": "rock",
+   "g": "fine",
+   "b": "dark"
+  }
+ },
+ "details": {
+  "fine": {
+   "name": "regolith",
+   "diff": "detail_regolith_diff.jpg",
+   "nor": "detail_regolith_nor.jpg",
+   "arm": "detail_regolith_arm.jpg",
+   "tileM": 4.0
+  },
+  "rock": {
+   "name": "regolith_rocky",
+   "diff": "detail_regolith_rocky_diff.jpg",
+   "nor": "detail_regolith_rocky_nor.jpg",
+   "arm": "detail_regolith_rocky_arm.jpg",
+   "tileM": 3.0
+  },
+  "dark": {
+   "name": "regolith",
+   "diff": "detail_regolith_diff.jpg",
+   "nor": "detail_regolith_nor.jpg",
+   "arm": "detail_regolith_arm.jpg",
+   "tileM": 4.0
+  }
+ },
+ "blend": "albedo_final = albedo · Σ_k splat_k · (detail_k_diff · 2) (linear); Normalen: Kachel-Normal + Detail-Normal (RNM)"
+}

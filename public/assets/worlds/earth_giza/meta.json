@@ -1,0 +1,221 @@
+{
+  "site": "earth_giza",
+  "body": "earth",
+  "name": "Gizeh-Plateau",
+  "description": "Pyramiden von Cheops, Chephren, Mykerinos und Sphinx. Wüstenplateau ~60 m ü. NN, Niltal im Osten.",
+  "frame": "+X = Ost, +Y = oben, -Z = Nord; Bildzeile 0 = Nordrand (z = -size/2), Spalte 0 = Westrand (x = -size/2). Ursprung = Mitte der Nahkachel; Höhen in m relativ zum Mittelpunkt der Nahkachel (y = 0, wie decodeHeightmap), Planetenkrümmung eingerechnet; Spawn-Bodenhöhe = spawn.y.",
+  "geo": {
+    "centerLat": 29.9745,
+    "centerLon": 31.13,
+    "radiusM": 6371000.0
+  },
+  "sources": [
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N29_00_E031_00_DEM/Copernicus_DSM_COG_10_N29_00_E031_00_DEM.tif",
+      "credit": "Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA",
+      "license": "Copernicus DEM licence (frei, mit Namensnennung)",
+      "use": "near height"
+    },
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N29_00_E031_00_DEM/Copernicus_DSM_COG_10_N29_00_E031_00_DEM.tif",
+      "credit": "Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA",
+      "license": "Copernicus DEM licence (frei, mit Namensnennung)",
+      "use": "far height"
+    },
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N30_00_E031_00_DEM/Copernicus_DSM_COG_10_N30_00_E031_00_DEM.tif",
+      "credit": "Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA",
+      "license": "Copernicus DEM licence (frei, mit Namensnennung)",
+      "use": "far height"
+    },
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N29_00_E030_00_DEM/Copernicus_DSM_COG_10_N29_00_E030_00_DEM.tif",
+      "credit": "Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA",
+      "license": "Copernicus DEM licence (frei, mit Namensnennung)",
+      "use": "far height"
+    },
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N30_00_E030_00_DEM/Copernicus_DSM_COG_10_N30_00_E030_00_DEM.tif",
+      "credit": "Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA",
+      "license": "Copernicus DEM licence (frei, mit Namensnennung)",
+      "use": "far height"
+    }
+  ],
+  "tiles": {
+    "near": {
+      "heightmap": "terrain_h16.png",
+      "resolution": 2049,
+      "sizeM": 4000.0,
+      "metersPerPixel": 1.9531,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -70.0,
+      "heightMaxM": 35.6,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
+      "normalMap": "normal.png",
+      "albedo": "albedo.jpg",
+      "albedoNote": "Prozedural (Sand/Kalkstein) aus Hangneigung + Rauschen; Detailtexturen sand/limestone.",
+      "splat": "splat.png"
+    },
+    "far": {
+      "heightmap": "terrain_far_h16.png",
+      "resolution": 1025,
+      "sizeM": 30000.0,
+      "metersPerPixel": 29.2969,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -107.8,
+      "heightMaxM": 172.0,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)"
+    }
+  },
+  "spawn": {
+    "x": -674.29,
+    "y": 23.788,
+    "z": 500.36,
+    "headingDeg": 135.0,
+    "compassDeg": 45.0,
+    "lat": 29.97,
+    "lon": 31.123,
+    "note": "Panorama-Punkt in der Wüste südwestlich, Blick nach NO auf die drei Pyramiden"
+  },
+  "sun": {
+    "azimuthDeg": 255.0,
+    "elevationDeg": 22.0,
+    "note": "Spätnachmittag (goldenes Licht, lange Schatten nach Osten)",
+    "illuminanceLux": 60000,
+    "colorTempK": 4300,
+    "direction": [
+      -0.895591,
+      0.374607,
+      0.239973
+    ]
+  },
+  "detailTextures": {
+    "fine": "sand",
+    "rock": "limestone",
+    "dark": "sand"
+  },
+  "landmarks": [
+    {
+      "file": "giza_khufu.glb",
+      "x": 401.65,
+      "y": -7.119,
+      "z": -519.29,
+      "headingDeg": 180.06,
+      "compassDeg": -0.06,
+      "lat": 29.97917,
+      "lon": 31.13417,
+      "note": "Cheops: Basis 230,34 m, heute 138,5 m",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_khafre.glb",
+      "x": 79.95,
+      "y": 4.212,
+      "z": -179.02,
+      "headingDeg": 180.1,
+      "compassDeg": -0.1,
+      "lat": 29.97611,
+      "lon": 31.13083,
+      "note": "Chephren: Basis 215,25 m, heute 136,4 m",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_menkaure.glb",
+      "x": -186.87,
+      "y": 5.998,
+      "z": 222.39,
+      "headingDeg": 179.8,
+      "compassDeg": 0.2,
+      "lat": 29.9725,
+      "lon": 31.12806,
+      "note": "Mykerinos: 102,2 x 104,6 m, heute 61 m",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_sphinx.glb",
+      "x": 731.08,
+      "y": -45.5,
+      "z": -86.76,
+      "headingDeg": 90.0,
+      "compassDeg": 90.0,
+      "lat": 29.97528,
+      "lon": 31.13759,
+      "note": "Sphinx blickt nach Osten; steht im Gehege (Boden -45,5 m, R5 gestempelt)"
+    },
+    {
+      "file": "giza_g1a.glb",
+      "x": 553.0,
+      "y": -8.768,
+      "z": -505.0,
+      "headingDeg": 180.0,
+      "compassDeg": 0.0,
+      "note": "G1-a (Hetepheres I.?), Königinnenpyramide östlich von Cheops (R5, prozedural gestufter Kern)",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_g1b.glb",
+      "x": 553.0,
+      "y": -10.475,
+      "z": -450.0,
+      "headingDeg": 180.0,
+      "compassDeg": 0.0,
+      "note": "G1-b (Meritites I.) (R5, prozedural gestufter Kern)",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_g1c.glb",
+      "x": 551.0,
+      "y": -10.924,
+      "z": -398.0,
+      "headingDeg": 180.0,
+      "compassDeg": 0.0,
+      "note": "G1-c (Henutsen) (R5, prozedural gestufter Kern)",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_g3a.glb",
+      "x": -140.0,
+      "y": -0.965,
+      "z": 322.0,
+      "headingDeg": 180.0,
+      "compassDeg": 0.0,
+      "note": "G3-a, Königinnenpyramide südlich von Mykerinos (R5, prozedural gestufter Kern)",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_g3b.glb",
+      "x": -196.0,
+      "y": 1.607,
+      "z": 322.0,
+      "headingDeg": 180.0,
+      "compassDeg": 0.0,
+      "note": "G3-b, Stufenpyramide (R5, prozedural gestufter Kern)",
+      "collider": "pyramid"
+    },
+    {
+      "file": "giza_g3c.glb",
+      "x": -245.0,
+      "y": 2.369,
+      "z": 322.0,
+      "headingDeg": 180.0,
+      "compassDeg": 0.0,
+      "note": "G3-c, Stufenpyramide (R5, prozedural gestufter Kern)",
+      "collider": "pyramid"
+    }
+  ],
+  "rocks": {
+    "file": "../_shared/rocks_desert.glb",
+    "density": "Kalksteinbrocken an Hängen und um die Pyramiden"
+  },
+  "license": "Copernicus DEM: Namensnennung (siehe sources)",
+  "size": 2049,
+  "extentM": 4000.0,
+  "minM": -70.0,
+  "maxM": 35.6,
+  "source": "Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA",
+  "r5Notes": [
+    "Sphinx-Gehege (Boden -45,5 m) ins Nahfeld gestempelt, Königinnenpyramiden G1-a/b/c und G3-a/b/c ergänzt (tools/worlds/giza_detail.py); Sphinx neu aus SDF (tools/worlds/sphinx_sdf.py)"
+  ]
+}

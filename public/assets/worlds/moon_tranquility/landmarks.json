@@ -1,0 +1,18 @@
+[
+ {
+  "glb": "apollo_lm_descent.glb",
+  "pos": {
+   "x": 942.38,
+   "y": -10.047,
+   "z": -0.0
+  },
+  "headingDeg": 270.0,
+  "collider": "box",
+  "size": {
+   "x": 6.8,
+   "y": 3.3,
+   "z": 6.8
+  },
+  "note": "Abstiegsstufe Eagle, Vorderseite (+Z, Leiter) nach Westen"
+ }
+]

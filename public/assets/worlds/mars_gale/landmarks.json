@@ -1,0 +1,18 @@
+[
+ {
+  "glb": "curiosity.glb",
+  "pos": {
+   "x": 8.0,
+   "y": 0.317,
+   "z": 26.0
+  },
+  "headingDeg": 200.0,
+  "collider": "box",
+  "size": {
+   "x": 2.8,
+   "y": 2.2,
+   "z": 3.9
+  },
+  "note": "Curiosity (NASA 3D Resources)"
+ }
+]

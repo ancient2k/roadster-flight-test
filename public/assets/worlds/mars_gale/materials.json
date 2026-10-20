@@ -1,0 +1,37 @@
+{
+ "albedo": "albedo.jpg",
+ "albedoCoversM": 4000.0,
+ "normal": "normal.png",
+ "splat": {
+  "file": "splat.png",
+  "channels": {
+   "r": "rock",
+   "g": "fine",
+   "b": "dark"
+  }
+ },
+ "details": {
+  "fine": {
+   "name": "mars_soil",
+   "diff": "detail_mars_soil_diff.jpg",
+   "nor": "detail_mars_soil_nor.jpg",
+   "arm": "detail_mars_soil_arm.jpg",
+   "tileM": 4.0
+  },
+  "rock": {
+   "name": "mars_layered",
+   "diff": "detail_mars_layered_diff.jpg",
+   "nor": "detail_mars_layered_nor.jpg",
+   "arm": "detail_mars_layered_arm.jpg",
+   "tileM": 8.0
+  },
+  "dark": {
+   "name": "mars_soil",
+   "diff": "detail_mars_soil_diff.jpg",
+   "nor": "detail_mars_soil_nor.jpg",
+   "arm": "detail_mars_soil_arm.jpg",
+   "tileM": 4.0
+  }
+ },
+ "blend": "albedo_final = albedo · Σ_k splat_k · (detail_k_diff · 2) (linear); Normalen: Kachel-Normal + Detail-Normal (RNM)"
+}

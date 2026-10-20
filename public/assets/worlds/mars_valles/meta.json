@@ -1,0 +1,95 @@
+{
+  "site": "mars_valles",
+  "body": "mars",
+  "name": "Valles Marineris (Coprates Chasma)",
+  "description": "Talboden von Coprates Chasma; die Steilwände ragen 6–8 km auf (Horizontkachel 120 km).",
+  "frame": "+X = Ost, +Y = oben, -Z = Nord; Bildzeile 0 = Nordrand (z = -size/2), Spalte 0 = Westrand (x = -size/2). Ursprung = Mitte der Nahkachel; Höhen in m relativ zum Mittelpunkt der Nahkachel (y = 0, wie decodeHeightmap), Planetenkrümmung eingerechnet; Spawn-Bodenhöhe = spawn.y.",
+  "geo": {
+    "centerLat": -13.4856,
+    "centerLon": -61.4,
+    "radiusM": 3396190.0
+  },
+  "sources": [
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif",
+      "credit": "NASA/JPL/GSFC MGS MOLA, ESA/DLR/FU Berlin Mars Express HRSC; USGS Astrogeology Blended DEM 200 m v2",
+      "license": "Public Domain (USGS)",
+      "use": "near height"
+    },
+    {
+      "url": "https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif",
+      "credit": "NASA/JPL/GSFC MGS MOLA, ESA/DLR/FU Berlin Mars Express HRSC; USGS Astrogeology Blended DEM 200 m v2",
+      "license": "Public Domain (USGS)",
+      "use": "far height"
+    }
+  ],
+  "tiles": {
+    "near": {
+      "heightmap": "terrain_h16.png",
+      "resolution": 2049,
+      "sizeM": 4000.0,
+      "metersPerPixel": 1.9531,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -198.0,
+      "heightMaxM": 110.8,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
+      "normalMap": "normal.png",
+      "albedo": "albedo.jpg",
+      "albedoNote": "Prozedural (Staub/Fels), da kein HiRISE-DTM am gewählten Punkt; Höhen 200 m + Feinstruktur.",
+      "splat": "splat.png"
+    },
+    "far": {
+      "heightmap": "terrain_far_h16.png",
+      "resolution": 1025,
+      "sizeM": 120000.0,
+      "metersPerPixel": 117.1875,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -1326.9,
+      "heightMaxM": 8822.7,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)"
+    }
+  },
+  "spawn": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": -0.0,
+    "headingDeg": 0.0,
+    "compassDeg": 180.0,
+    "lat": -13.4856,
+    "lon": -61.4,
+    "note": "Wandfuß am Südrand von Coprates Chasma, Blick auf die Südwand"
+  },
+  "sun": {
+    "azimuthDeg": 110.0,
+    "elevationDeg": 25.0,
+    "note": "Vormittag, Licht streift die Südwand",
+    "illuminanceLux": 55000,
+    "colorTempK": 5200,
+    "direction": [
+      0.851651,
+      0.422618,
+      0.309976
+    ]
+  },
+  "detailTextures": {
+    "fine": "mars_soil",
+    "rock": "mars_layered",
+    "dark": "mars_rock"
+  },
+  "landmarks": [],
+  "rocks": {
+    "file": "../_shared/rocks_mars.glb",
+    "density": "Schuttfächer am Wandfuß: dicht"
+  },
+  "license": "NASA/USGS-Daten gemeinfrei",
+  "size": 2049,
+  "extentM": 4000.0,
+  "minM": -102.4,
+  "maxM": 57.1,
+  "source": "NASA/JPL/GSFC MGS MOLA, ESA/DLR/FU Berlin Mars Express HRSC; USGS Astrogeology Blended DEM 200 m v2",
+  "r5Notes": [
+    "Sporn-und-Rinnen-Relief und Schichtbänke an den Wänden prozedural aufgeprägt (tools/worlds/valles_detail.py), Spawn-Umkreis 900 m unverändert"
+  ]
+}
