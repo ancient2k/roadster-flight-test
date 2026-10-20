@@ -32,10 +32,21 @@ async function boot(): Promise<void> {
   const stunt = params.get('stunt') as StuntId | null;
   if (stunt && STUNTS.includes(stunt)) { app.menu.hide(); app.startStunt(stunt); }
   window.__rft.ready = true;
+  hideBootScreen();
+}
+
+/** Fades out the static boot screen of index.html (download progress while the game loads). */
+function hideBootScreen(): void {
+  const el = document.getElementById('boot');
+  if (!el) return;
+  el.classList.add('done');
+  el.removeAttribute('aria-busy');
+  setTimeout(() => el.remove(), 500);
 }
 
 boot().catch((e) => {
   console.error(e);
+  hideBootScreen();
   const pre = document.createElement('pre');
   pre.style.cssText = 'color:#f66;padding:24px;font:14px monospace';
   pre.textContent = `Start fehlgeschlagen: ${String(e?.stack ?? e)}`;

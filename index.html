@@ -6,9 +6,30 @@
     <title>Roadster Flight Test</title>
     <link rel="icon" href="data:," />
     <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#app{position:fixed;inset:0}</style>
+    <style>
+      #boot{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#000;color:#ddd;font:600 13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.32em;transition:opacity .4s}
+      #boot .t{font-size:clamp(18px,3.2vw,34px);letter-spacing:.42em;color:#fff;text-align:center;padding:0 16px}
+      #boot .bar{width:min(360px,70vw);height:3px;background:#222;overflow:hidden;border-radius:2px}
+      #boot .bar i{display:block;height:100%;width:0;background:#e31937;transition:width .3s}
+      #boot .mb{font-variant-numeric:tabular-nums;letter-spacing:.12em;color:#888;min-height:1.4em}
+      #boot.done{opacity:0;pointer-events:none}
+    </style>
   </head>
   <body>
     <div id="app"></div>
+    <div id="boot" aria-busy="true"><div class="t">ROADSTER FLIGHT TEST</div><div class="bar"><i></i></div><div class="mb"></div></div>
+    <script>
+      // boot screen: language-neutral progress (downloaded MB) until the game is ready (src/main.ts removes it)
+      (function () {
+        var bar = document.querySelector('#boot .bar i'), mb = document.querySelector('#boot .mb'), sum = 0, EXPECT = 34e6;
+        function show() { bar.style.width = Math.min(96, 4 + 92 * sum / EXPECT) + '%'; mb.textContent = (sum / 1e6).toFixed(1) + ' MB'; }
+        try {
+          new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { sum += e.transferSize || e.encodedBodySize || 0; }); show(); })
+            .observe({ type: 'resource', buffered: true });
+        } catch (e) { /* no PerformanceObserver: the bar stays at its start */ }
+        show();
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
