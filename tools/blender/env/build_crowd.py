@@ -1,16 +1,16 @@
-"""Publikumsfiguren für Instancing (crowd_person.glb).
+"""Spectator figures for instancing (crowd_person.glb).
 
   Blender -b --factory-startup -P tools/blender/env/build_crowd.py
 
-Drei Varianten als eigene Mesh-Knoten mit EINEM gemeinsamen Material `Crowd` (256²-Farbatlas):
-  Person_A  steht, Arme hängend, dunkles T-Shirt, Jeans                    (~0,5k Dreiecke)
-  Person_B  hält das Handy hoch (rechte Hand, Display zur Person = -Z), helles Shirt, längere Haare
-  Person_C  Kapuzenjacke, Hände in den Taschen, Basecap
-Rahmen: Füße auf y = 0, Blick/Front = +Z, Höhe 1,70–1,78 m. Ursprung zwischen den Füßen.
-Atlas: Farbfelder (Haut, Oberteile, Hosen, Schuhe, Haare, Handy); das Handydisplay ist als
-emissiveTexture hinterlegt (nur dieses Feld leuchtet). instanceColor für Kleidungsvariation.
-Sitzende Figuren: Person_A mit gebeugten Knien wäre eigener Knoten -> hier Person_S (sitzt, Sitzhöhe y = 0,45
-über Ursprung, Ursprung = Sitzfläche unter dem Gesäß... siehe Report).
+Three variants as separate mesh nodes with ONE shared material `Crowd` (256² colour atlas):
+  Person_A  standing, arms hanging, dark T-shirt, jeans                    (~0.5k triangles)
+  Person_B  holds the phone up (right hand, display towards the person = -Z), light shirt, longer hair
+  Person_C  hooded jacket, hands in the pockets, baseball cap
+Frame: feet at y = 0, view/front = +Z, height 1.70–1.78 m. Origin between the feet.
+Atlas: colour fields (skin, tops, trousers, shoes, hair, phone); the phone display is stored as an
+emissiveTexture (only this field glows). instanceColor for clothing variation.
+Seated figures: Person_A with bent knees would be a separate node -> here Person_S (seated, seat height y = 0.45
+above the origin, origin = seat surface under the buttocks... see report).
 """
 import math
 import os
@@ -22,7 +22,7 @@ from mathutils import Matrix, Vector  # noqa: E402
 
 import env_common as E  # noqa: E402
 
-# Atlas: 4x4 Felder à 64 px; Feld -> (u, v) Mitte
+# atlas: 4x4 fields of 64 px; field -> (u, v) centre
 CELLS = {
     "skin": 0, "skin2": 1, "top_dark": 2, "top_white": 3, "top_red": 4, "jeans": 5, "pants_black": 6,
     "shoe": 7, "hair_dark": 8, "hair_brown": 9, "phone": 10, "screen": 11, "hood_grey": 12, "cap": 13,
@@ -71,7 +71,7 @@ class Person:
         self.part(self.mb.tube, cell, a, b, r0, "Crowd", seg=seg, r2=r1)
 
     def blob(self, c, prof, cell, sx=1.0, sz=1.0, seg=12, tilt=0.0):
-        """Rotationskörper um die senkrechte Achse (prof: [(r, dy)]), in x/z skaliert."""
+        """Solid of revolution about the vertical axis (prof: [(r, dy)]), scaled in x/z."""
         M = Matrix.Translation(c) @ Matrix.Rotation(tilt, 4, "X") @ Matrix.Diagonal((sx, 1, sz, 1))
         self.mb.push(M)
         self.part(self.mb.lathe, cell, prof, "Crowd", seg=seg, axis_a=(0, 0, 0), axis_b=(0, 1, 0), cap_start=True, cap_end=True)
@@ -80,7 +80,7 @@ class Person:
 
 def body(p: Person, top="top_dark", pants="jeans", hair="hair_dark", skin="skin", sitting=False, hood=False):
     hip_y = 0.92
-    # Beine
+    # legs
     for sx in (-1, 1):
         if sitting:
             p.limb((sx * 0.1, 0.47, -0.05), (sx * 0.11, 0.47, 0.38), 0.08, 0.06, pants)
@@ -92,20 +92,20 @@ def body(p: Person, top="top_dark", pants="jeans", hair="hair_dark", skin="skin"
             p.blob(Vector((sx * 0.11, 0.0, 0.045)), [(0.0, 0.0), (0.06, 0.0), (0.062, 0.05), (0.05, 0.085), (0.0, 0.09)], "shoe", sz=2.3, seg=8)
     y0 = 0.5 if sitting else hip_y
     z0 = -0.04 if sitting else 0.0
-    # Becken + Rumpf
+    # pelvis + torso
     p.blob(Vector((0, y0 - 0.06, z0)), [(0.15, 0.0), (0.17, 0.08), (0.165, 0.14)], pants, sz=0.68)
     bulk = 1.12 if hood else 1.0
     p.blob(Vector((0, y0 + 0.07, z0)), [(0.155 * bulk, 0.0), (0.15 * bulk, 0.14), (0.175 * bulk, 0.33), (0.18 * bulk, 0.43),
                                         (0.14 * bulk, 0.5), (0.06, 0.54)], "hood_grey" if hood else top, sz=0.62, seg=10)
     neck = y0 + 0.6
-    for sx in (-1, 1):   # Schultern (Deltamuskel) verbinden Rumpf und Arme
+    for sx in (-1, 1):   # shoulders (deltoids) connect torso and arms
         p.blob(Vector((sx * 0.18, neck - 0.17, z0)), [(0.0, -0.06), (0.05, -0.045), (0.068, 0.0), (0.05, 0.045), (0.0, 0.06)],
                "hood_grey" if hood else top, sz=1.0, seg=8)
     p.limb((0, neck - 0.03, z0), (0, neck + 0.07, z0 + 0.01), 0.048, 0.045, skin)
-    # Kopf
+    # head
     hc = Vector((0, neck + 0.17, z0 + 0.02))
     def sph(R, ph0, ph1, k=8, sy=1.12):
-        """Kugelprofil (r, dy) von Breitengrad ph0 bis ph1 (Grad), dy relativ zum Südpol, gestreckt in y."""
+        """Sphere profile (r, dy) from latitude ph0 to ph1 (degrees), dy relative to the south pole, stretched in y."""
         out = []
         for i in range(k + 1):
             ph = math.radians(ph0 + (ph1 - ph0) * i / k)
@@ -138,10 +138,10 @@ def person_a():
 def person_b():
     p = Person()
     sh, z = body(p, "top_white", "pants_black", "hair_brown", skin="skin")
-    # lange Haare hinten
+    # long hair at the back
     p.blob(Vector((0, sh + 0.13, z - 0.06)), [(0.09, 0.0), (0.1, 0.12), (0.08, 0.2), (0.0, 0.22)], "hair_brown", sz=0.6, seg=8)
     arm(p, -1, (-0.2, sh, z), (-0.24, sh - 0.3, z - 0.02), (-0.23, sh - 0.56, z + 0.04), "top_white", "skin")
-    # rechter Arm hebt das Handy vor das Gesicht (+Z), Display zeigt zur Person (-Z)
+    # right arm lifts the phone in front of the face (+Z), display facing the person (-Z)
     hand = Vector((0.12, sh + 0.2, z + 0.42))
     arm(p, 1, (0.2, sh, z), (0.27, sh - 0.05, z + 0.25), tuple(hand), "top_white", "skin")
     p.part(p.mb.box, "phone", tuple(hand + Vector((0, 0.06, 0.02))), (0.075, 0.155, 0.01), "Crowd")
@@ -152,14 +152,14 @@ def person_b():
 def person_c():
     p = Person()
     sh, z = body(p, "top_dark", "jeans", "hair_dark", skin="skin2", hood=True)
-    for sx in (-1, 1):   # Hände in den Taschen der Jacke
+    for sx in (-1, 1):   # hands in the jacket pockets
         p.limb((sx * 0.21, sh, z), (sx * 0.25, sh - 0.27, z - 0.01), 0.06, 0.05, "hood_grey")
         p.limb((sx * 0.25, sh - 0.27, z - 0.01), (sx * 0.13, sh - 0.4, z + 0.11), 0.05, 0.045, "hood_grey")
     return p
 
 
 def person_s():
-    """Sitzend (Tribüne): Ursprung = Boden unter den Füßen, Sitzhöhe 0,45 m."""
+    """Seated (grandstand): origin = ground under the feet, seat height 0.45 m."""
     p = Person()
     sh, z = body(p, "top_red", "jeans", "hair_dark", sitting=True)
     for sx in (-1, 1):

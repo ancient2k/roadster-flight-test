@@ -1,7 +1,7 @@
-"""asset pipeline Welten: komprimierte TIFF-Segmente (z. B. LZW) ohne imagecodecs dekodieren.
+"""Asset pipeline worlds: decode compressed TIFF segments (e.g. LZW) without imagecodecs.
 
-Die rohen Strips/Tiles werden unverändert in ein minimales TIFF im Speicher verpackt (gleiche Bytereihenfolge,
-Kompression, Prädiktor) und von Pillow/libtiff dekodiert.
+The raw strips/tiles are wrapped unchanged into a minimal in-memory TIFF (same byte order,
+compression, predictor) and decoded by Pillow/libtiff.
 """
 import io
 import struct
@@ -11,8 +11,8 @@ from PIL import Image
 
 
 def decode(segs, seg_shape, grid, dtype, byteorder, compression, predictor=1):
-    """segs: Liste komprimierter Segmente (zeilenweise im Raster grid=(ny, nx)); seg_shape=(h, w) je Segment.
-    Liefert Array (ny*h, nx*w)."""
+    """segs: list of compressed segments (row by row in the raster grid=(ny, nx)); seg_shape=(h, w) per segment.
+    Returns an array (ny*h, nx*w)."""
     bo = "<" if byteorder == "<" else ">"
     ny, nx = grid
     sh, sw = seg_shape

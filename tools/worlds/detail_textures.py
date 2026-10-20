@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""asset pipeline Welten: Detailtexturen (Poly Haven CC0) für die Geländeshader nach public/assets/worlds/_shared/detail/.
+"""Asset pipeline worlds: detail textures (Poly Haven CC0) for the terrain shaders into public/assets/worlds/_shared/detail/.
 
-Je Detailtextur <name>_diff.jpg (sRGB, auf mittlere Helligkeit 0,5 linear-normiert -> im Shader
-albedo = kachelAlbedo * detail * 2), <name>_nor.jpg (OpenGL), <name>_arm.jpg (AO/Rough/Metal), 1024².
-detail.json: Kachelgröße (m) und Quelle. Splat-Kanäle der Orte: R = rock, G = fine, B = dark.
+Per detail texture <name>_diff.jpg (sRGB, normalised to a mean linear brightness of 0.5 -> in the shader
+albedo = tileAlbedo * detail * 2), <name>_nor.jpg (OpenGL), <name>_arm.jpg (AO/rough/metal), 1024².
+detail.json: tile size (m) and source. Splat channels of the sites: R = rock, G = fine, B = dark.
 
     python3 tools/worlds/detail_textures.py
 """
@@ -18,7 +18,7 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 CC = os.path.join(HERE, "downloads", "_cc0")
 OUT = os.path.join(ROOT, "public", "assets", "worlds", "_shared", "detail")
 
-# name: (Poly-Haven-Quelle, Entsättigung, Farbton, Kachel in m)
+# name: (Poly Haven source, desaturation, tint, tile in m)
 DETAIL = {
     "regolith": ("rock_ground", 1.0, (1.0, 0.98, 0.95), 4.0),
     "regolith_rocky": ("gray_rocks", 1.0, (1.0, 1.0, 1.0), 3.0),
@@ -50,7 +50,7 @@ def main():
         lum = d @ np.array([0.2126, 0.7152, 0.0722])
         d = d * (1 - desat) + lum[..., None] * desat
         d = d * np.array(tint)
-        d = d / d.mean() * 0.5                     # mittlere lineare Helligkeit 0,5 -> Faktor 2 im Shader
+        d = d / d.mean() * 0.5                     # mean linear brightness 0.5 -> factor 2 in the shader
         Image.fromarray((lin2srgb(d) * 255 + 0.5).astype(np.uint8)).save(os.path.join(OUT, f"{name}_diff.jpg"), quality=88)
         load("nor_gl").save(os.path.join(OUT, f"{name}_nor.jpg"), quality=92)
         load("arm").save(os.path.join(OUT, f"{name}_arm.jpg"), quality=92)

@@ -1,10 +1,10 @@
-"""asset pipeline Welten: Perseverance-Rover (vereinfacht) -> public/assets/worlds/mars_jezero/perseverance.glb
+"""Asset pipeline worlds: Perseverance rover (simplified) -> public/assets/worlds/mars_jezero/perseverance.glb
 
   Blender -b --factory-startup -P tools/worlds/blender/build_rover.py
 
-Maße (NASA/JPL Mars 2020 Fact Sheet): Länge 3,0 m, Breite 2,7 m, Höhe 2,2 m (Mast), 6 Aluminiumräder Ø 52,5 cm
-mit Lauffläche-Stollen, Rocker-Bogie-Fahrwerk, MMRTG schräg am Heck, Roboterarm 2,1 m mit Turm, Mast mit
-Kopf (SuperCam/Mastcam-Z) auf ~2,2 m. glTF-Rahmen: Ursprung zwischen den Rädern am Boden, +Z = Fahrtrichtung.
+Dimensions (NASA/JPL Mars 2020 fact sheet): length 3.0 m, width 2.7 m, height 2.2 m (mast), 6 aluminium wheels Ø 52.5 cm
+with tread grousers, rocker-bogie suspension, MMRTG slanted at the rear, 2.1 m robotic arm with turret, mast with
+head (SuperCam/Mastcam-Z) at ~2.2 m. glTF frame: origin between the wheels on the ground, +Z = driving direction.
 """
 import math
 import os
@@ -21,7 +21,7 @@ OUT = os.path.join(ROOT, "public", "assets", "worlds", "mars_jezero")
 
 
 def wheel(mb, c, side):
-    """Rad: Felge mit gewölbter Lauffläche + 48 Stollen (Grousers), Speichen angedeutet."""
+    """Wheel: rim with a curved tread + 48 grousers, spokes hinted."""
     c = Vector(c)
     ax = Vector((side, 0, 0))
     r, w = 0.2625, 0.25
@@ -49,14 +49,14 @@ def build():
     E.mat_painted("Titanium", (0.45, 0.45, 0.47), rough=0.35, metal=1.0, seed=83, var=0.1)
     root = E.empty("Perseverance", (0, 0, 0), size=0.5)
     mb = E.MB()
-    # Wannenkörper (WEB) + Deck
+    # body (WEB) + deck
     mb.box((0, 0.95, 0.05), (1.7, 0.5, 2.1), "Body_White")
     mb.box((0, 1.22, 0.05), (1.85, 0.04, 2.25), "Body_White")
     mb.box((0, 0.72, 0.05), (1.6, 0.06, 2.0), "Dark")
-    # Kalibrierziele/Kleinzeug auf dem Deck
+    # calibration targets/small items on the deck
     for x, z in ((0.5, 0.6), (-0.55, 0.4), (0.2, -0.6)):
         mb.box((x, 1.3, z), (0.25, 0.12, 0.2), "Body_White")
-    # Rocker-Bogie (je Seite): Rocker vom Differential nach vorn, Bogie nach hinten mit 2 Rädern
+    # rocker-bogie (per side): rocker from the differential forwards, bogie backwards with 2 wheels
     wheels_z = (0.98, 0.0, -0.95)
     for side in (-1, 1):
         x = side * 1.02
@@ -71,25 +71,25 @@ def build():
             mb.tube(tuple(a), tuple(b), 0.035, "Titanium", seg=8)
         for z in wheels_z:
             wheel(mb, (x - side * 0.0, 0.2625, z), side)
-    # Mast + Kopf
+    # mast + head
     mb.tube((0.55, 1.24, 0.85), (0.55, 2.0, 0.85), 0.055, "Body_White", seg=12)
     mb.box((0.55, 2.12, 0.88), (0.42, 0.24, 0.3), "Body_White")
     mb.lathe([(0.0, 0.0), (0.06, 0.0), (0.06, 0.02), (0.0, 0.02)], "Glass", seg=16, axis_a=(0.48, 2.15, 1.03), axis_b=(0.48, 2.15, 1.5))
     for x in (0.62, 0.72):
         mb.lathe([(0.0, 0.0), (0.035, 0.0), (0.035, 0.02), (0.0, 0.02)], "Glass", seg=12, axis_a=(x, 2.08, 1.03), axis_b=(x, 2.08, 1.5))
-    # Hochgewinnantenne (sechseckig, flach) + UHF
+    # high-gain antenna (hexagonal, flat) + UHF
     mb.lathe([(0.0, 0.0), (0.3, 0.0), (0.3, 0.03), (0.0, 0.03)], "Body_White", seg=6, axis_a=(-0.55, 1.4, -0.4), axis_b=(-0.4, 1.9, -0.4))
     mb.tube((-0.55, 1.24, -0.4), (-0.52, 1.4, -0.4), 0.03, "Titanium", seg=8)
-    # MMRTG am Heck (schräg, mit Kühlrippen)
+    # MMRTG at the rear (slanted, with cooling fins)
     a, b = Vector((0, 1.0, -1.05)), Vector((0, 1.55, -1.6))
     mb.lathe([(0.0, 0.0), (0.32, 0.0), (0.32, 0.67), (0.0, 0.67)], "Titanium", seg=8, axis_a=tuple(a), axis_b=tuple(b))
-    # Kühlrippen als gestufter Rotationskörper (8 Rippen wirken aus der Distanz wie Ringe)
+    # cooling fins as a stepped solid of revolution (8 fins look like rings from a distance)
     prof = []
     for k in range(9):
         z0 = 0.04 + k * 0.074
         prof += [(0.33, z0), (0.46, z0 + 0.008), (0.46, z0 + 0.03), (0.33, z0 + 0.038)]
     mb.lathe(prof, "Dark", seg=8, axis_a=tuple(a), axis_b=tuple(b))
-    # Roboterarm (verstaut vorn) mit Turm
+    # robotic arm (stowed at the front) with turret
     s = Vector((0.7, 1.0, 1.15))
     e1 = s + Vector((-0.5, 0.05, 0.12))
     e2 = e1 + Vector((-0.75, -0.05, 0.0))

@@ -1,13 +1,13 @@
-"""Perseverance und Curiosity aus den offiziellen NASA-3D-Modellen (NASA 3D Resources,
-github.com/nasa/NASA-3D-Resources, NASA/JPL-Caltech, frei nutzbar nach den NASA-Medienrichtlinien).
+"""Perseverance and Curiosity from the official NASA 3D models (NASA 3D Resources,
+github.com/nasa/NASA-3D-Resources, NASA/JPL-Caltech, free to use under the NASA media guidelines).
 
   Blender -b -Y --factory-startup -P tools/worlds/blender/build_nasa_rovers.py -- perseverance|curiosity
 
-Quellen (vorher nach tools/worlds/downloads/_nasa3d/ laden, siehe docs/RENDERING.md):
+Sources (download to tools/worlds/downloads/_nasa3d/ first, see docs/RENDERING.md):
   Mars_2020_Perseverance_Rover.glb, Curiosity_Rover_MSL_Dirty.blend
-glTF-Rahmen wie alle Wahrzeichen: Meter, +Y oben, Ursprung unten Mitte, Vorderseite = lokales +Z.
-Perseverance: Mast (Remote Sensing Mast) aus der Transportlage aufgerichtet (Kamerakopf ~2,1 m), Räder und
-Federung dezimiert, Texturen auf 1024 px. Curiosity: Hilfsobjekte (Pivots, Kameraziele, Innenteile) entfernt.
+glTF frame like all landmarks: metres, +Y up, origin bottom centre, front = local +Z.
+Perseverance: mast (Remote Sensing Mast) raised from the stowed position (camera head ~2.1 m), wheels and
+suspension decimated, textures at 1024 px. Curiosity: helper objects (pivots, camera targets, interior parts) removed.
 """
 import math
 import os

@@ -1,11 +1,11 @@
-"""asset pipeline Welten: EEVEE-Vorschau eines Ortes aus public/assets/worlds/<ort>/ (Gelände + Wahrzeichen + Sonne).
+"""Asset pipeline worlds: EEVEE preview of a site from public/assets/worlds/<site>/ (terrain + landmarks + sun).
 
   Blender -b --factory-startup -P tools/worlds/blender/render_world.py -- --site earth_giza \
       --out out/renders/world_earth_giza.png [--cam x,y,z] [--target x,y,z] [--lens 35]
       [--crop 1600] [--res 1600x900] [--exposure 0] [--sun_strength 4] [--far]
 
-Kamera/Ziel in lokalen Ortskoordinaten (glTF: +X Ost, +Y oben, -Z Nord; y relativ zum Gelände, wenn --agl).
-Gelände: Ausschnitt --crop (m) um das Ziel in voller Auflösung, Horizont-Kachel (--far) grob dahinter.
+Camera/target in local site coordinates (glTF: +X east, +Y up, -Z north; y relative to the terrain with --agl).
+Terrain: window --crop (m) around the target at full resolution, horizon tile (--far) coarsely behind it.
 """
 import json
 import math
@@ -36,7 +36,7 @@ def G(x, y, z):
 
 
 def load_h(d, t):
-    from PIL import Image  # noqa  (nicht in Blender) -> Fallback unten
+    from PIL import Image  # noqa  (not in Blender) -> fallback below
     return None
 
 
@@ -46,13 +46,13 @@ def read_png16(path):
     w, h = img.size
     a = np.empty(w * h * img.channels, np.float32)
     img.pixels.foreach_get(a)
-    a = a.reshape(h, w, img.channels)[::-1, :, 0]      # Blender: Zeile 0 = unten -> umdrehen (Zeile 0 = Nord)
+    a = a.reshape(h, w, img.channels)[::-1, :, 0]      # Blender: row 0 = bottom -> flip (row 0 = north)
     bpy.data.images.remove(img)
     return a.astype(np.float64)
 
 
 def terrain_mesh(name, H, size, cx, cz, x0, x1, z0, z1, step, mat, yoff=0.0, hole=None):
-    """Gitter-Mesh aus Höhenfeld H (Zeile 0 = Nord) für das Rechteck [x0,x1] x [z0,z1] (lokal), jede step-te Zelle."""
+    """Grid mesh from the height field H (row 0 = north) for the rectangle [x0,x1] x [z0,z1] (local), every step-th cell."""
     n = H.shape[0]
     mpp = size / (n - 1)
     c0 = max(int((x0 - cx) / mpp + (n - 1) / 2), 0)
@@ -69,7 +69,7 @@ def terrain_mesh(name, H, size, cx, cz, x0, x1, z0, z1, step, mat, yoff=0.0, hol
     verts = np.stack([xv.ravel(), zv.ravel() * -1, hh.ravel()], -1)      # Blender (x, -z, y)
     idx = np.arange(nr * nc).reshape(nr, nc)
     quads = np.stack([idx[:-1, :-1], idx[1:, :-1], idx[1:, 1:], idx[:-1, 1:]], -1).reshape(-1, 4)
-    if hole is not None:      # Rechteck aussparen (dort liegt die feinere Kachel)
+    if hole is not None:      # leave out the rectangle (the finer tile lies there)
         hx0, hx1, hz0, hz1 = hole
         qx = xv[:-1, :-1].ravel()
         qz = zv[:-1, :-1].ravel()
@@ -107,7 +107,7 @@ def terrain_material(d, t, detail=None):
         tx.image = bpy.data.images.load(os.path.join(d, t["albedo"]))
         tx.extension = "EXTEND"
         if detail:
-            # Detailtextur (Meter-Kachelung) multipliziert, auf Mittelwert 1 normiert
+            # detail texture (tiling in metres) multiplied, normalised to a mean of 1
             tc = nt.nodes.new("ShaderNodeTexCoord")
             mp = nt.nodes.new("ShaderNodeMapping")
             mp.inputs["Scale"].default_value = (detail[1], detail[1], detail[1])
@@ -184,7 +184,7 @@ def main():
     if flag("--agl"):
         tgt[1] += height(tgt[0], tgt[2])
         cam[1] += height(cam[0], cam[2])
-    if flag("--agl_cam"):          # nur Kamera relativ zum Gelände, Ziel absolut
+    if flag("--agl_cam"):          # only the camera relative to the terrain, the target absolute
         cam[1] += height(cam[0], cam[2])
     crop = float(arg("--crop", "1600"))
     det = arg("--detail")
@@ -196,7 +196,7 @@ def main():
     cx_, cz_ = tgt[0], tgt[2]
     step = int(arg("--step", "1"))
     terrain_mesh("Near", H, t["sizeM"], 0, 0, cx_ - crop / 2, cx_ + crop / 2, cz_ - crop / 2, cz_ + crop / 2, step, mat)
-    # restliche Nahkachel gröber
+    # rest of the close-range tile coarser
     terrain_mesh("NearCoarse", H, t["sizeM"], 0, 0, -t["sizeM"] / 2, t["sizeM"] / 2, -t["sizeM"] / 2, t["sizeM"] / 2, 4, mat, yoff=-0.05,
                  hole=(cx_ - crop / 2, cx_ + crop / 2, cz_ - crop / 2, cz_ + crop / 2))
     if flag("--far") and "far" in meta["tiles"]:
@@ -208,7 +208,7 @@ def main():
                      hole=(-t["sizeM"] / 2, t["sizeM"] / 2, -t["sizeM"] / 2, t["sizeM"] / 2))
 
     def use_vcol(objs):
-        """Vorschau: COLOR_0 wie three.js mit Base Color multiplizieren."""
+        """Preview: multiply COLOR_0 with the base colour like three.js."""
         for o in objs:
             if o.type != "MESH" or not o.data.color_attributes:
                 continue
@@ -234,7 +234,7 @@ def main():
                 nt2.links.new(ca.outputs["Color"], mx.inputs[7])
                 nt2.links.new(mx.outputs[2], pb.inputs["Base Color"])
 
-    # Wahrzeichen
+    # landmarks
     for lm in meta["landmarks"]:
         p = os.path.join(d, lm["file"])
         if not os.path.exists(p):
@@ -247,7 +247,7 @@ def main():
             o.location = G(lm["x"], lm["y"], lm["z"])
             o.rotation_mode = "XYZ"
             o.rotation_euler[2] += math.radians(lm["headingDeg"])
-    for ex in arg("--extra", many=True):      # weitere GLBs: pfad@x,z,heading (y = Gelände)
+    for ex in arg("--extra", many=True):      # more GLBs: path@x,z,heading (y = terrain)
         p, tt = ex.split("@")
         x, z, hd = (float(v) for v in tt.split(","))
         before = set(bpy.data.objects)
@@ -256,7 +256,7 @@ def main():
             o.location = G(x, height(x, z), z)
             o.rotation_euler[2] += math.radians(hd)
 
-    # Sonne + Himmel
+    # sun + sky
     sun = meta["sun"]
     sd = Vector(G(*sun["direction"])).normalized()
     ld = bpy.data.lights.new("Sun", "SUN")

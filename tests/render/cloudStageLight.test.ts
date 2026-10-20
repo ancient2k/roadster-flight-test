@@ -1,5 +1,5 @@
-// red stage floods in the cloud bake (finale: light "zu grau statt räumlich
-// getrennt weiß/rot"). A red flood from one side must colour that half of the cloud and leave the
+// red stage floods in the cloud bake (finale: light "too grey instead of spatially
+// separated white/red"). A red flood from one side must colour that half of the cloud and leave the
 // other half to the white key; without red floods the bake is unchanged (LED bars only).
 import { describe, expect, it } from 'vitest';
 import { CloudSim, DMAX, runStep, type CloudBake, type CloudLights, type CloudSource } from '../../src/render/fx/volume/cloudSim';

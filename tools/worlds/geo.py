@@ -1,9 +1,9 @@
-"""asset pipeline Welten: Kartenprojektionen und Resampling für DTM-/Orthobild-Ausschnitte.
+"""Asset pipeline worlds: map projections and resampling for DTM/orthoimage windows.
 
-Lokales Spielkoordinatensystem je Ort (siehe docs/RENDERING.md):
-  +X = Ost, +Y = oben, -Z = Nord (three.js-Konvention), Ursprung = Kachelmitte, y = 0 am Spawn-Boden.
-  Bildzeile 0 = Nordrand (z = -size/2), Spalte 0 = Westrand (x = -size/2).
-Kleine Kacheln (<= 50 km): lokale Tangentialebene, lat = lat0 + n/R, lon = lon0 + e/(R cos lat0).
+Local game coordinate system per site (see docs/RENDERING.md):
+  +X = east, +Y = up, -Z = north (three.js convention), origin = tile centre, y = 0 at the spawn ground.
+  Image row 0 = north edge (z = -size/2), column 0 = west edge (x = -size/2).
+Small tiles (<= 50 km): local tangent plane, lat = lat0 + n/R, lon = lon0 + e/(R cos lat0).
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import numpy as np
 
 
 class Proj:
-    """Vorwärtsprojektion lat/lon (Grad) -> Pixel (col, row) eines Rasters, aus GeoTIFF-GeoKeys oder PDS3-Label."""
+    """Forward projection lat/lon (degrees) -> pixel (col, row) of a raster, from GeoTIFF GeoKeys or a PDS3 label."""
 
     def __init__(self, kind: str, R: float, scale: tuple[float, float], tie: tuple[float, float],
                  clon: float = 0.0, clat_ts: float = 0.0, south: bool = False, plat: float = 90.0):
@@ -43,7 +43,7 @@ class Proj:
         raise ValueError(f"Projektion nicht unterstützt: {ct} / {mt}")
 
     def xy(self, lat, lon):
-        """lat/lon (Grad, Arrays) -> projizierte Meter (bzw. Grad bei geographic)."""
+        """lat/lon (degrees, arrays) -> projected metres (or degrees for geographic)."""
         lat = np.asarray(lat, np.float64)
         lon = np.asarray(lon, np.float64)
         if self.kind == "geographic":
@@ -55,7 +55,7 @@ class Proj:
             la, lo, la0 = np.radians(lat), np.radians(lon - self.clon), math.radians(self.clat)
             return (self.R * np.cos(la) * np.sin(lo),
                     self.R * (math.cos(la0) * np.sin(la) - math.sin(la0) * np.cos(la) * np.cos(lo)))
-        # polare stereographische Projektion (Kugel)
+        # polar stereographic projection (sphere)
         la, lo = np.radians(lat), np.radians(lon - self.clon)
         if self.south:
             rho = 2 * self.R * np.tan(np.pi / 4 + la / 2)
@@ -77,8 +77,8 @@ def _frame(lat0, lon0):
 
 
 def enu_to_latlon(lat0, lon0, R, east, north):
-    """Exakt (Kugel): Punkt in Entfernung/Richtung (east, north) entlang der Oberfläche vom Ursprung (lat0, lon0)
-    -> lat/lon. Gilt auch an den Polen (Shackleton)."""
+    """Exact (sphere): point at distance/direction (east, north) along the surface from the origin (lat0, lon0)
+    -> lat/lon. Also valid at the poles (Shackleton)."""
     c, e, n = _frame(lat0, lon0)
     east, north = np.asarray(east, np.float64), np.asarray(north, np.float64)
     d = np.hypot(east, north)
@@ -93,7 +93,7 @@ def enu_to_latlon(lat0, lon0, R, east, north):
 
 
 def latlon_to_enu(lat0, lon0, R, lat, lon):
-    """Umkehrung (azimutal äquidistant): lat/lon -> (east, north) in m relativ zu (lat0, lon0)."""
+    """Inverse (azimuthal equidistant): lat/lon -> (east, north) in m relative to (lat0, lon0)."""
     c, e, n = _frame(lat0, lon0)
     la, lo = math.radians(lat), math.radians(lon)
     v = np.array([math.cos(la) * math.cos(lo), math.cos(la) * math.sin(lo), math.sin(la)])
@@ -106,8 +106,8 @@ def latlon_to_enu(lat0, lon0, R, lat, lon):
 
 
 def local_grid(lat0: float, lon0: float, R: float, size: float, n: int, cx: float = 0.0, cz: float = 0.0):
-    """lat/lon-Gitter n x n für eine Kachel der Kantenlänge size (m), Mitte bei lokal (cx, cz) relativ zu lat0/lon0.
-    Zeile 0 = Norden, Spalte 0 = Westen. Azimutal-äquidistante Tangentialebene (exakt, polfest)."""
+    """lat/lon grid n x n for a tile with edge length size (m), centred at local (cx, cz) relative to lat0/lon0.
+    Row 0 = north, column 0 = west. Azimuthal equidistant tangent plane (exact, works at the poles)."""
     t = (np.arange(n) / (n - 1) - 0.5) * size
     east = cx + t[None, :] + 0 * t[:, None]
     north = -(cz + t[:, None]) + 0 * t[None, :]
@@ -115,7 +115,7 @@ def local_grid(lat0: float, lon0: float, R: float, size: float, n: int, cx: floa
 
 
 def bilinear(img: np.ndarray, col: np.ndarray, row: np.ndarray, nodata_mask: np.ndarray | None = None):
-    """Bilineares Sampling; liefert (werte, gültig). nodata_mask: True = ungültiges Quellpixel."""
+    """Bilinear sampling; returns (values, valid). nodata_mask: True = invalid source pixel."""
     h, w = img.shape
     c0 = np.floor(col).astype(np.int64)
     r0 = np.floor(row).astype(np.int64)
@@ -141,13 +141,13 @@ def box_down(img: np.ndarray, f: int) -> np.ndarray:
 
 
 def inpaint(v: np.ndarray, ok: np.ndarray, iters: int = 400) -> np.ndarray:
-    """Lücken (ok == False) per Multigrid-Diffusion füllen (glatte Membran)."""
+    """Fill gaps (ok == False) by multigrid diffusion (smooth membrane)."""
     v = v.copy()
     if ok.all():
         return v
     if not ok.any():
         return np.zeros_like(v)
-    # grobe Ebene zuerst (Pyramide), dann verfeinern
+    # coarse level first (pyramid), then refine
     h, w = v.shape
     if min(h, w) > 64:
         f = 4
@@ -169,13 +169,13 @@ def inpaint(v: np.ndarray, ok: np.ndarray, iters: int = 400) -> np.ndarray:
 
 
 def sun_vector(azimuth_deg: float, elevation_deg: float):
-    """Richtung ZUR Sonne im lokalen Rahmen (+X Ost, +Y oben, -Z Nord); Azimut von Nord über Ost."""
+    """Direction TO the sun in the local frame (+X east, +Y up, -Z north); azimuth from north via east."""
     a, e = math.radians(azimuth_deg), math.radians(elevation_deg)
     return [round(math.sin(a) * math.cos(e), 6), round(math.sin(e), 6), round(-math.cos(a) * math.cos(e), 6)]
 
 
 def cubic(img: np.ndarray, col: np.ndarray, row: np.ndarray):
-    """Catmull-Rom-Interpolation (C1-stetig) für das Hochrechnen grober DEMs ohne Facetten. Ränder geklemmt."""
+    """Catmull-Rom interpolation (C1-continuous) for upsampling coarse DEMs without facets. Edges clamped."""
     h, w = img.shape
     c0 = np.floor(col).astype(np.int64)
     r0 = np.floor(row).astype(np.int64)

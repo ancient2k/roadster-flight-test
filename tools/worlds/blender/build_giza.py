@@ -1,16 +1,16 @@
-"""asset pipeline Welten: Pyramiden von Gizeh + Sphinx (public/assets/worlds/earth_giza/*.glb).
+"""Asset pipeline worlds: pyramids of Giza + Sphinx (public/assets/worlds/earth_giza/*.glb).
 
   Blender -b --factory-startup -P tools/worlds/blender/build_giza.py [-- --lod 1]
 
-Maße (heutiger Zustand, Lehner/Hawass "Giza and the Pyramids", Petrie-Vermessung):
-  Cheops   Basis 230,34 m, Neigung 51,84°, ursprünglich 146,6 m, heute 138,5 m (Plattform ~10 m),
-           Verkleidung fehlt -> gestufter Kern (~0,7–1,5 m Lagen), Vermessungsmast auf der Spitze.
-  Chephren Basis 215,25 m, Neigung 53,13°, ursprünglich 143,5 m, heute 136,4 m; obere ~25 % mit
-           erhaltener glatter Tura-Kalkstein-Verkleidung.
-  Mykerinos 102,2 x 104,6 m, Neigung 51,34°, ursprünglich 65,5 m, heute 61 m; untere Lagen mit
-           Rosengranit-Verkleidung, Bresche in der Nordseite.
-  Sphinx   73 m lang, 20 m hoch, 19 m breit, blickt nach Osten (lokal +Z), vereinfacht modelliert.
-glTF-Rahmen: Ursprung = Basismitte auf Bodenniveau, Seiten achsparallel (Nord = -Z). Ein Mesh je Datei.
+Dimensions (present state, Lehner/Hawass "Giza and the Pyramids", Petrie survey):
+  Khufu    base 230.34 m, slope 51.84°, originally 146.6 m, today 138.5 m (platform ~10 m),
+           casing missing -> stepped core (~0.7–1.5 m courses), survey mast on the top.
+  Khafre   base 215.25 m, slope 53.13°, originally 143.5 m, today 136.4 m; top ~25 % with
+           its smooth Tura limestone casing preserved.
+  Menkaure 102.2 x 104.6 m, slope 51.34°, originally 65.5 m, today 61 m; lower courses with
+           rose granite casing, breach in the north face.
+  Sphinx   73 m long, 20 m high, 19 m wide, faces east (local +Z), modelled in simplified form.
+glTF frame: origin = base centre at ground level, sides axis-aligned (north = -Z). One mesh per file.
 """
 import math
 import os
@@ -41,13 +41,13 @@ def mat_limestone(name, src="large_sandstone_blocks_01", tint=(1.0, 0.93, 0.8), 
     return E.material(name, diff=d, arm=a, nor=n, normal_strength=nstr, tile=tile)
 
 
-UVU, UVV = 4.6, 2.3      # Textur large_sandstone_blocks_01: ~3 Blockreihen je Kachel -> 3 Lagen à ~0,75 m
+UVU, UVV = 4.6, 2.3      # texture large_sandstone_blocks_01: ~3 block rows per tile -> 3 courses of ~0.75 m
 
 
 def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, inset=1.2, erosion=0.35,
                     casing_from=None, casing_mat="Casing", core_mat="Limestone", granite_to=0.0, seed=1):
-    """Gestufter Pyramidenkern: je Lage ein senkrechter Setzstufen-Ring + Trittfläche, Kanten erodiert.
-    casing_from: ab dieser Höhe glatte Verkleidungsflächen (Chephren). granite_to: Granitverkleidung bis Höhe."""
+    """Stepped pyramid core: per course a vertical riser ring + tread, eroded edges.
+    casing_from: smooth casing faces above this height (Khafre). granite_to: granite casing up to this height."""
     t = 1.0 / math.tan(math.radians(slope_deg))
     n = int(h_now / course)
     r = np.random.default_rng(seed)
@@ -57,7 +57,7 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
         return hx0 - y * t, hz0 - y * t
 
     def ring(y, dx, dz, k):
-        """Umfangspunkte (Ecken + Zwischenpunkte) mit Erosion; k = Lagennummer (Seed)."""
+        """Perimeter points (corners + intermediate points) with erosion; k = course number (seed)."""
         pts = []
         corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
         for c in range(4):
@@ -66,7 +66,7 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
                 f = s / segs
                 x = (a[0] + (b[0] - a[0]) * f) * dx
                 z = (a[1] + (b[1] - a[1]) * f) * dz
-                # Erosion: Rücksprung nach innen, an Ecken stärker
+                # erosion: set back inwards, stronger at the corners
                 edge = min(f, 1 - f) if s else 0.0
                 e = erosion * (0.5 + noise.noise(Vector((x * 0.08, y * 0.3, z * 0.08 + k))) + (0.9 if s == 0 else 0.0))
                 nrm = Vector((x, 0, z))
@@ -95,7 +95,7 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
             mb.poly([tuple(top[i]), tuple(top[j]), tuple(bot[j]), tuple(bot[i])], mat,
                     uvs=[(u / UVU, y1 / UVV), ((u + L) / UVU, y1 / UVV), ((u + L) / UVU, y0 / UVV), (u / UVU, y0 / UVV)])
             u += L
-        # Trittfläche zur nächsten (eingerückten) Lage
+        # tread to the next (inset) course
         dx2, dz2 = half(y1)
         if dx2 > 1.0 and not (casing_from is not None and y1 >= casing_from):
             nxt = ring(y1, dx2, dz2, k + 1)
@@ -106,7 +106,7 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
         prev_top = (top, y1, dx, dz)
     top, ytop, dx, dz = prev_top
     if casing_from is not None:
-        # glatte Verkleidung: Pyramidenstumpf von casing_from bis zur (fast) Spitze, außen auf der Verkleidungslinie
+        # smooth casing: frustum from casing_from to (almost) the apex, outside on the casing line
         hxc, hzc = base_x / 2 - (casing_from) * t, base_z / 2 - casing_from * t
         apex = h_now
         hxa, hza = max(base_x / 2 - apex * t, 0.6), max(base_z / 2 - apex * t, 0.6)
@@ -118,12 +118,12 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
             mb.poly([tuple(hi[i]), tuple(hi[j]), tuple(lo[j]), tuple(lo[i])], casing_mat,
                     uvs=[(0, Ls), (Lb, Ls), (Lb, 0), (0, 0)])
         mb.poly([tuple(p) for p in hi][::-1], casing_mat)
-        # Übergang Kern -> Verkleidung (Absatz)
+        # transition core -> casing (ledge)
         for i in range(len(top)):
             pass
         mb.poly([tuple(p) for p in [Vector((sx * hxc, casing_from, sz * hzc)) for sx, sz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]][::-1], core_mat)
     else:
-        mb.poly([tuple(p) for p in top][::-1], core_mat, uvs=[(p.x / 6, p.z / 6) for p in top][::-1])   # Gipfelplattform
+        mb.poly([tuple(p) for p in top][::-1], core_mat, uvs=[(p.x / 6, p.z / 6) for p in top][::-1])   # summit platform
     return ytop
 
 
@@ -134,7 +134,7 @@ def khufu():
     mb = E.MB()
     segs = 8 if LOD == 0 else 3
     yt = stepped_pyramid(mb, 230.34, 230.34, 51.84, 138.5, course=0.75, segs=segs, inset=1.4, seed=1)
-    # Vermessungsmast (zeigt die ursprüngliche Höhe 146,6 m an)
+    # survey mast (marks the original height of 146.6 m)
     mb.tube((0, yt, 0), (0, 146.6, 0), 0.08, "Mast_Wood", seg=6)
     for a in range(3):
         ang = a * 2.094
@@ -170,7 +170,7 @@ def menkaure():
     stepped_pyramid(mb, 102.2, 104.6, 51.34, 61.0, course=0.7, segs=segs, inset=0.8, erosion=0.45, granite_to=8.0, seed=3)
     mb.build("Menkaure")
     ob = bpy.data.objects["Menkaure"]
-    # Bresche in der Nordseite (-Z): Vertiefung per Boolean-Quader
+    # breach in the north face (-Z): recess via a boolean box
     cut = bpy.data.objects.new("cut", bpy.data.meshes.new("cut"))
     E.link(cut)
     import bmesh
@@ -191,8 +191,8 @@ def menkaure():
 
 
 def sphinx():
-    """Vereinfachte Sphinx aus Metaball-Volumen (Körper, Pranken, Hinterteil, Kopf mit Nemes), horizontal
-    geschichtete Erosion, dezimiert. Blick nach lokal +Z."""
+    """Simplified Sphinx from metaball volumes (body, paws, haunches, head with nemes), horizontally
+    layered erosion, decimated. Faces local +Z."""
     E.reset()
     mat_limestone("Limestone", src="rock_boulder_dry", tint=(1.0, 0.86, 0.66), gain=0.95, desat=0.35, tile=5.0)
     mball = bpy.data.metaballs.new("SphinxMB")
@@ -209,26 +209,26 @@ def sphinx():
         sx, sy, sz = size
         e.size_x, e.size_y, e.size_z = sx, sz, sy      # Blender: x, y(=glTF z), z(=glTF y)
         e.stiffness = stiff
-    # Körper (Rücken bis ~13 m), Brust
+    # body (back up to ~13 m), chest
     el((0, 7.5, -8), (9, 6.5, 20))
     el((0, 9.5, 8), (8, 7.0, 7))
-    el((0, 7.0, -24), (8.5, 6.0, 7))           # Hinterteil
+    el((0, 7.0, -24), (8.5, 6.0, 7))           # haunches
     for sx in (-1, 1):
-        el((sx * 6.5, 2.5, 18), (2.4, 2.0, 12))      # Vorderpranken (lang, flach)
-        el((sx * 7.5, 4.0, -20), (3.5, 4.0, 7))      # Hinterläufe
-        el((sx * 8.5, 7.5, 6), (2.6, 4.5, 4))        # Schultern
-    el((0, 3.0, 0), (9.5, 3.0, 30), "CUBE", 1.0)      # Sockel/Rumpfboden
-    el((0, 15.5, 10.5), (3.6, 4.6, 3.6))          # Kopf
-    el((0, 13.5, 9.0), (5.5, 3.5, 2.2))           # Nemes-Kopftuch-Flügel
+        el((sx * 6.5, 2.5, 18), (2.4, 2.0, 12))      # front paws (long, flat)
+        el((sx * 7.5, 4.0, -20), (3.5, 4.0, 7))      # hind legs
+        el((sx * 8.5, 7.5, 6), (2.6, 4.5, 4))        # shoulders
+    el((0, 3.0, 0), (9.5, 3.0, 30), "CUBE", 1.0)      # plinth/belly
+    el((0, 15.5, 10.5), (3.6, 4.6, 3.6))          # head
+    el((0, 13.5, 9.0), (5.5, 3.5, 2.2))           # nemes headdress wings
     for sx in (-1, 1):
-        el((sx * 3.8, 12.0, 10.0), (1.6, 4.0, 1.4))   # Tuchlappen seitlich
-    el((0, 18.8, 9.5), (2.8, 1.6, 3.0))           # Kopfoberseite
-    el((0, 12.5, 12.0), (1.8, 2.0, 1.6))          # Kinn/Bart-Ansatz
+        el((sx * 3.8, 12.0, 10.0), (1.6, 4.0, 1.4))   # cloth lappets at the sides
+    el((0, 18.8, 9.5), (2.8, 1.6, 3.0))           # top of the head
+    el((0, 12.5, 12.0), (1.8, 2.0, 1.6))          # chin/beard base
     bpy.context.view_layer.objects.active = ob
     ob.select_set(True)
     bpy.ops.object.convert(target="MESH")
     me_ob = bpy.context.view_layer.objects.active
-    # horizontal geschichtete Erosion (Mokattam-Kalksteinbänke): Verschiebung entlang Normale, stufig in Höhe
+    # horizontally layered erosion (Mokattam limestone beds): displacement along the normal, stepped in height
     me = me_ob.data
     me.calc_loop_triangles()
     for v in me.vertices:
@@ -236,12 +236,12 @@ def sphinx():
         layer = math.sin(p.z * 2.1) * 0.18 + math.sin(p.z * 5.3 + 1.0) * 0.07
         n3 = noise.noise(p * 0.35) * 0.35 + noise.noise(p * 1.3) * 0.08
         v.co = p + v.normal * (layer + n3 - 0.15) * (1.0 if p.z > 1.0 else 0.4)
-    # Bodenplatte abschneiden: alles unter y=0 auf 0 klemmen
+    # cut off the base: clamp everything below y=0 to 0
     for v in me.vertices:
         if v.co.z < 0:
             v.co.z = 0.0
     E.decimate(me_ob, 0.5 if LOD == 0 else 0.25)
-    # UVs: Box-Projektion in Metern
+    # UVs: box projection in metres
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.cube_project(cube_size=5.0)
@@ -255,8 +255,8 @@ def sphinx():
 
 
 def queen(name, base, slope, h_now, seed, course=0.6, erosion=0.6, granite_to=0.0, casing_from=None):
-    """Königinnenpyramiden (G1-a/b/c östlich von Cheops, G3-a/b/c südlich von Mykerinos), ruiniert:
-    gestufter Kern ohne Verkleidung, abgetragene Spitze, Schuttkegel am Fuß."""
+    """Queens' pyramids (G1-a/b/c east of Khufu, G3-a/b/c south of Menkaure), ruined:
+    stepped core without casing, eroded top, rubble cone at the foot."""
     E.reset()
     mat_limestone("Limestone", tint=(1.0, 0.87, 0.69), gain=1.15)
     if casing_from is not None:
@@ -265,7 +265,7 @@ def queen(name, base, slope, h_now, seed, course=0.6, erosion=0.6, granite_to=0.
     segs = 8 if LOD == 0 else 3
     stepped_pyramid(mb, base, base, slope, h_now, course=course, segs=segs, inset=0.6, erosion=erosion, seed=seed,
                     casing_from=casing_from)
-    # Schutt am Fuß: flacher, unregelmäßiger Kegelstumpf-Ring aus Kalksteinbruch
+    # rubble at the foot: flat, irregular frustum ring of limestone debris
     rng = np.random.default_rng(seed + 50)
     for k in range(int(base * 1.2)):
         a = rng.uniform(0, 2 * math.pi)
@@ -281,17 +281,17 @@ def queen(name, base, slope, h_now, seed, course=0.6, erosion=0.6, granite_to=0.
 
 
 def queens():
-    queen("g1a", 49.5, 51.8, 24.0, 11)                      # Hetepheres I. (?), stark abgetragen
-    queen("g1b", 49.0, 51.8, 22.0, 12)                      # Meritites I.
-    queen("g1c", 46.25, 51.8, 27.0, 13, erosion=0.45)       # Henutsen, am besten erhalten
-    queen("g3a", 44.3, 52.2, 22.0, 14, erosion=0.5)         # echte Pyramide, Verkleidung fehlt
-    queen("g3b", 31.2, 58.0, 15.0, 15, course=3.4, erosion=0.8)   # Stufenpyramide (4 Stufen sichtbar)
+    queen("g1a", 49.5, 51.8, 24.0, 11)                      # Hetepheres I (?), heavily eroded
+    queen("g1b", 49.0, 51.8, 22.0, 12)                      # Meritites I
+    queen("g1c", 46.25, 51.8, 27.0, 13, erosion=0.45)       # Henutsen, best preserved
+    queen("g3a", 44.3, 52.2, 22.0, 14, erosion=0.5)         # true pyramid, casing missing
+    queen("g3b", 31.2, 58.0, 15.0, 15, course=3.4, erosion=0.8)   # step pyramid (4 steps visible)
     queen("g3c", 31.2, 58.0, 14.0, 16, course=3.4, erosion=0.8)
 
 
 def sphinx2():
-    """Sphinx aus dem SDF-Modell (tools/worlds/sphinx_sdf.py -> downloads/earth_giza/sphinx_sdf.ply):
-    Marching-Cubes-Fläche, dezimiert, Box-UV in Metern. Blick nach lokal +Z, y = 0 = Gehegeboden."""
+    """Sphinx from the SDF model (tools/worlds/sphinx_sdf.py -> downloads/earth_giza/sphinx_sdf.ply):
+    marching-cubes surface, decimated, box UV in metres. Faces local +Z, y = 0 = enclosure floor."""
     E.reset()
     mat_limestone("Limestone", src="rock_boulder_dry", tint=(1.0, 0.85, 0.64), gain=0.95, desat=0.35, tile=5.0)
     ply = os.path.join(HERE, "..", "downloads", "earth_giza", "sphinx_sdf.ply")

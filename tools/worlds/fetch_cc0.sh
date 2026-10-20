@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Welten: CC0-Texturen von Poly Haven (https://polyhaven.com/license) nach tools/worlds/downloads/_cc0/.
-# Nur Bilddaten. Idempotent.
+# worlds: CC0 textures from Poly Haven (https://polyhaven.com/license) into tools/worlds/downloads/_cc0/.
+# Image data only. Idempotent.
 set -euo pipefail
 cd "$(dirname "$0")"
 OUT=downloads/_cc0

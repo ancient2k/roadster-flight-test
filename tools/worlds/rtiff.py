@@ -1,12 +1,12 @@
-"""asset pipeline Welten: Ausschnitte aus großen (Geo-)TIFFs lesen — lokal oder per HTTP-Range direkt vom Server.
+"""Asset pipeline worlds: read windows from large (Geo)TIFFs — locally or via HTTP range directly from the server.
 
-Nur die benötigten Strips/Tiles werden geladen und als Rohbytes unter downloads/<ort>/.cache/ abgelegt
-(erneuter Lauf ohne Netz). Dekodierung über tifffile (unkomprimiert, LZW, Deflate, …).
+Only the strips/tiles that are needed are loaded and stored as raw bytes under downloads/<site>/.cache/
+(re-runs work offline). Decoding via tifffile (uncompressed, LZW, Deflate, …).
 
     from rtiff import open_tiff
     t = open_tiff(url_or_path, cache_dir)
-    arr = t.window(x0, y0, w, h)          # numpy (h, w) in Pixel-Koordinaten der Vollauflösung
-    t.shape, t.dtype, t.geo                # geo: ModelPixelScale / ModelTiepoint, falls vorhanden
+    arr = t.window(x0, y0, w, h)          # numpy (h, w) in pixel coordinates of the full resolution
+    t.shape, t.dtype, t.geo                # geo: ModelPixelScale / ModelTiepoint, if present
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ UA = {"User-Agent": "RoadsterFlightTest-asset pipeline/1.0 (terrain preprocessin
 
 
 def urlopen_retry(req, timeout=120, tries=8):
-    """urlopen mit exponentiellem Backoff (429/5xx/Netzfehler), respektiert Retry-After."""
+    """urlopen with exponential backoff (429/5xx/network errors), honours Retry-After."""
     import time
     import urllib.error
     for k in range(tries):
@@ -44,7 +44,7 @@ def urlopen_retry(req, timeout=120, tries=8):
 
 
 def get_bytes(req, timeout=120, tries=8) -> bytes:
-    """Request inkl. Lesen mit Backoff (auch Timeouts/Abbrüche während des Lesens)."""
+    """Request including the read, with backoff (also timeouts/aborts while reading)."""
     import time
     for k in range(tries):
         try:
@@ -57,8 +57,8 @@ def get_bytes(req, timeout=120, tries=8) -> bytes:
 
 
 def resolve(url: str) -> str:
-    """Server-Umleitungen vorab auflösen (urllib verliert bei Cookie-/Cloud-Umleitungen die Range-Header):
-    planetarymaps.usgs.gov -> USGS-S3-Spiegel, pds.lroc.im-ldi.com -> NASA PDS Cloud (pds.mcp.nasa.gov)."""
+    """Resolve server redirects up front (urllib loses the Range headers on cookie/cloud redirects):
+    planetarymaps.usgs.gov -> USGS S3 mirror, pds.lroc.im-ldi.com -> NASA PDS Cloud (pds.mcp.nasa.gov)."""
     url = url.replace("https://planetarymaps.usgs.gov/mosaic/", "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/")
     url = url.replace("https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/",
                       "https://pds.mcp.nasa.gov/data/store/img/lunar_reconnaissance_orbiter/pds4/lroc/lro-l-lroc-5-rdr/")
@@ -66,15 +66,15 @@ def resolve(url: str) -> str:
 
 
 class HttpFile(io.RawIOBase):
-    """Seekbares Datei-Objekt über HTTP-Range-Requests mit Blockcache (Speicher + Platte)."""
+    """Seekable file object over HTTP range requests with a block cache (memory + disk)."""
 
     BLOCK = 1 << 20
 
     def __init__(self, url: str, cache_dir: str):
-        # planetarymaps.usgs.gov leitet per Cloudflare-Cookie auf den S3-Spiegel um (urllib-Schleife) -> direkt S3
+        # planetarymaps.usgs.gov redirects via a Cloudflare cookie to the S3 mirror (urllib loop) -> go to S3 directly
         url = resolve(url)
         self.url, self.pos = url, 0
-        # NASA-PDS-Cloud drosselt parallele Zugriffe (HTTP 429) -> dort nur 2 Verbindungen
+        # the NASA PDS Cloud throttles parallel access (HTTP 429) -> only 2 connections there
         self.threads = 2 if "nasa.gov" in url else 8
         self.cache_dir = os.path.join(cache_dir, hashlib.md5(url.encode()).hexdigest()[:12])
         os.makedirs(self.cache_dir, exist_ok=True)
@@ -132,7 +132,7 @@ class HttpFile(io.RawIOBase):
         return bytes(out)
 
     def read_range(self, a: int, n: int) -> bytes:
-        """Exakter Byte-Bereich per eigenem Range-Request (für schmale Fenster in breiten Zeilen), mit Plattencache."""
+        """Exact byte range via its own range request (for narrow windows in wide rows), with disk cache."""
         p = os.path.join(self.cache_dir, f"r{a}_{n}.bin")
         if os.path.exists(p):
             return open(p, "rb").read()
@@ -158,8 +158,8 @@ class Tiff:
         self.geo = {k: tags[k].value for k in ("ModelPixelScaleTag", "ModelTiepointTag", "GDAL_NODATA") if k in tags}
 
     def window(self, x0: int, y0: int, w: int, h: int, step: int = 1) -> np.ndarray:
-        """Fenster in Vollauflösung; step > 1: nur jede step-te Zeile/Spalte (bei Zeilen-Strips werden die
-        übrigen Strips gar nicht geladen). Ergebnis-Form (ceil(h/step), ceil(w/step))."""
+        """Window at full resolution; step > 1: only every step-th row/column (with row strips the
+        remaining strips are not loaded at all). Result shape (ceil(h/step), ceil(w/step))."""
         p = self.page
         H, W = self.shape
         out = np.zeros(((h + step - 1) // step, (w + step - 1) // step), dtype=p.dtype)
@@ -171,7 +171,7 @@ class Tiff:
             ntx = (W + tw - 1) // tw
             tys = range(y0c // th, (y1c - 1) // th + 1)
             txs = range(x0c // tw, (x1c - 1) // tw + 1)
-            # zeilenweise Tile-Bänder (begrenzt den Speicher)
+            # tile bands row by row (limits memory)
             for ty in tys:
                 idx = [ty * ntx + tx for tx in txs]
                 band = self._decode_many(idx, (th, tw), (1, len(idx)))
@@ -187,7 +187,7 @@ class Tiff:
         rows = [r for r in range(y0c, y1c) if (r - y0) % step == 0]
         if (rps == 1 and int(p.compression) == 1 and isinstance(self.fh, HttpFile)
                 and (x1c - x0c) * p.dtype.itemsize < p.databytecounts[0] // 4):
-            # schmales Fenster in sehr breiten unkomprimierten Zeilen: nur die benötigten Bytes je Zeile
+            # narrow window in very wide uncompressed rows: only the bytes needed per row
             from concurrent.futures import ThreadPoolExecutor
             bps = p.dtype.itemsize
             n = (x1c - x0c) * bps
@@ -216,13 +216,13 @@ class Tiff:
 
     @staticmethod
     def _put(out, k, vals, off, w, step):
-        """Zeilenwerte (ab Fensterspalte off) in Ausgabezeile k schreiben, mit Spalten-Schrittweite."""
+        """Write row values (from window column off) into output row k, with a column step."""
         full = np.zeros(w, out.dtype)
         full[off:off + len(vals)] = vals
         out[k] = full[::step]
 
     def _fetch(self, idx):
-        """Rohbytes mehrerer Segmente (parallel bei HTTP, Plattencache)."""
+        """Raw bytes of several segments (parallel over HTTP, disk cache)."""
         p = self.page
         offs, cnts = p.dataoffsets, p.databytecounts
         if isinstance(self.fh, HttpFile):
@@ -239,7 +239,7 @@ class Tiff:
         p = self.page
         segs = self._fetch(idx)
         comp = int(p.compression)
-        if comp == 5:      # LZW: über libtiff (Pillow) statt imagecodecs
+        if comp == 5:      # LZW: via libtiff (Pillow) instead of imagecodecs
             import minitiff
             return minitiff.decode(segs, seg_shape, grid, p.dtype, self.tf.byteorder, 5, int(p.predictor))
         ny, nx = grid
@@ -255,7 +255,7 @@ class Tiff:
     def _decode_bytes(self, idx, data):
         p = self.page
         if int(p.predictor) == 3 and int(p.compression) in (8, 32946):
-            # Deflate + Floating-Point-Predictor (TIFF Tech Note 3) ohne imagecodecs dekodieren
+            # decode Deflate + floating-point predictor (TIFF Tech Note 3) without imagecodecs
             raw = np.frombuffer(zlib.decompress(data), np.uint8)
             bps = p.dtype.itemsize
             w = p.tilewidth if p.is_tiled else p.imagewidth

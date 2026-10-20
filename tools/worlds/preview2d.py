@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""asset pipeline Welten: 2D-Kontrollbild je Ort (Hillshade mit Sonne aus meta.json x Albedo, Spawn/Wahrzeichen markiert,
-plus Horizont-Kachel). Ausgabe out/renders/world_<ort>_map.png.
+"""Asset pipeline worlds: 2D check image per site (hillshade with the sun from meta.json x albedo, spawn/landmarks marked,
+plus the horizon tile). Output out/renders/world_<site>_map.png.
 
-    python3 tools/worlds/preview2d.py [ort ...]
+    python3 tools/worlds/preview2d.py [site ...]
 """
 import json
 import math
@@ -24,7 +24,7 @@ def load_h(d, t):
 
 def hillshade(h, mpp, sun):
     gy, gx = np.gradient(h, mpp)
-    n = np.stack([-gx, np.ones_like(h), gy], -1)      # (x Ost, y oben, z Süd): dh/dz = gy (Zeile nach Süd)
+    n = np.stack([-gx, np.ones_like(h), gy], -1)      # (x east, y up, z south): dh/dz = gy (row towards south)
     n /= np.linalg.norm(n, axis=-1, keepdims=True)
     s = np.array(sun)
     return np.clip(n @ s, 0, 1)
@@ -36,7 +36,7 @@ def main(site):
     t = m["tiles"]["near"]
     h = load_h(d, t)
     sun = m["sun"]["direction"]
-    # flacheres Licht für die Lesbarkeit, gleiche Richtung
+    # flatter light for legibility, same direction
     sh = hillshade(h, t["metersPerPixel"], sun)
     alb = np.array(Image.open(os.path.join(d, t["albedo"])).convert("RGB").resize(h.shape[::-1])).astype(np.float64) / 255
     img = np.clip(alb * (0.25 + 1.6 * sh[..., None]), 0, 1)

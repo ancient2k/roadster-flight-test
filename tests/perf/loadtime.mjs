@@ -1,6 +1,6 @@
-// Ortswechsel-Ladezeit: headed Chromium, alle 10 Orte nacheinander inkl. McGregor-Rückkehr.
-// Misst je Ort: Promise von startWorld (Klick → Session läuft), danach die Zeit bis zum ersten
-// ruckelfreien Fenster (12 aufeinanderfolgende Frames < 34 ms) und p95/max der ersten 3 s.
+// Site-switch load time: headed Chromium, all 10 sites one after another incl. the return to McGregor.
+// Measures per site: the startWorld promise (click → session running), then the time to the first
+// stutter-free window (12 consecutive frames < 34 ms) and p95/max of the first 3 s.
 // Usage: node tests/perf/loadtime.mjs <url> [quality=high] [webgl=0] [rounds=1] [fresh=0 (each site on a freshly booted page)]
 // SITES=a,b,… picks the sites; Chrome runs without occluded-window throttling (other headed browsers on a shared
 // machine would otherwise throttle rAF and the GPU process; the player's window is in front) – NOTHROTTLE=0 keeps it.

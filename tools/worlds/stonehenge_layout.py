@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Stonehenge: Erdwerke ins Nahfeld-Höhenmodell stempeln (das 30-m-DEM kennt sie nicht).
+"""Stonehenge: stamp the earthworks into the close-range elevation model (the 30 m DEM does not know them).
 
     python3 tools/worlds/stonehenge_layout.py
 
-Idempotent (Original von asset pipeline gesichert unter tools/worlds/downloads/earth_stonehenge/terrain_h16.wsf.png).
-Nach Cleal, Walker & Montague (1995) / English Heritage:
-  Graben: Kreisring um die Mitte, Mittel-Ø ~105 m (Außenkante ~110 m), ~6 m breit, heute ~0,8 m tief
-  Wall:   innen am Graben, ~6 m breit, heute ~0,4 m hoch (Gegenwall außen ~0,2 m)
-  Eingänge: Nordost (Avenue, Azimut 41…60°) und Süd (Azimut 163…172°)
-  Avenue: zwei Wälle ~12 m auseinander mit Außengräben, vom Nordosteingang 520 m entlang der Sonnwendachse (49,9°)
+Idempotent (original from the asset pipeline saved under tools/worlds/downloads/earth_stonehenge/terrain_h16.wsf.png).
+After Cleal, Walker & Montague (1995) / English Heritage:
+  ditch: circular ring around the centre, mean Ø ~105 m (outer edge ~110 m), ~6 m wide, ~0.8 m deep today
+  bank:  inside the ditch, ~6 m wide, ~0.4 m high today (counterscarp bank outside ~0.2 m)
+  entrances: north-east (Avenue, azimuth 41…60°) and south (azimuth 163…172°)
+  Avenue: two banks ~12 m apart with outer ditches, from the north-east entrance 520 m along the solstice axis (49.9°)
 """
 import json
 import math

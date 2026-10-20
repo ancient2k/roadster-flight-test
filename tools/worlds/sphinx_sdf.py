@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Sphinx von Gizeh als Signed-Distance-Feld (glatte Vereinigung von Primitiven) -> Marching
-Cubes -> PLY (glTF-Rahmen: Meter, +Y oben, Blick nach +Z, Boden y = 0 = Gehegeboden).
+"""Sphinx of Giza as a signed distance field (smooth union of primitives) -> marching
+cubes -> PLY (glTF frame: metres, +Y up, facing +Z, ground y = 0 = enclosure floor).
 
     python3 tools/worlds/sphinx_sdf.py <out.ply>
-    (danach: Blender ... build_giza.py -- --only sphinx  liest die PLY)
+    (afterwards: Blender ... build_giza.py -- --only sphinx  reads the PLY)
 
-Maße (Lehner 1991, Hawass): Länge 73 m (Pranken bis Hinterteil), Höhe 20 m, Breite 19 m; Widerrist ~13 m,
-Hinterteil ~10 m; Pranken ~15 m vor der Brust; Kopf ~4 m breit mit Nemes (an den Schultern ~9 m breit);
-Nase fehlt; Leib horizontal gebändert (Member I–III, weichere Lagen tiefer ausgewittert).
+Dimensions (Lehner 1991, Hawass): length 73 m (paws to rump), height 20 m, width 19 m; withers ~13 m,
+rump ~10 m; paws ~15 m in front of the chest; head ~4 m wide with nemes (~9 m wide at the shoulders);
+nose missing; body banded horizontally (Members I–III, softer layers weathered back further).
 """
 import sys
 

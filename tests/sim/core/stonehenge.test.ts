@@ -1,4 +1,4 @@
-// (Lead-Ergänzung): the Stonehenge stones as movable props – set stones held by their sockets, lintels loose.
+// (lead addition): the Stonehenge stones as movable props – set stones held by their sockets, lintels loose.
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { createRoadsterSim } from '../../../src/sim/vehicle';

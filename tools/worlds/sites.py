@@ -1,8 +1,8 @@
-"""asset pipeline Welten: Ortskonfiguration (Quellen, Kacheln, Spawn, Sonne, Wahrzeichen).
+"""Asset pipeline worlds: site configuration (sources, tiles, spawn, sun, landmarks).
 
-Koordinaten: center/spawn als (lat, lon) in Grad (planetozentrisch, Ost positiv).
-Kachel 'near': Spielbereich (fein), 'far': Horizont (grob, größer), beide um 'center' (+ optional offset in m).
-Sonne: Azimut von Nord über Ost, Elevation über Horizont (Grad).
+Coordinates: center/spawn as (lat, lon) in degrees (planetocentric, east positive).
+Tile 'near': play area (fine), 'far': horizon (coarse, larger), both around 'center' (+ optional offset in m).
+Sun: azimuth from north via east, elevation above the horizon (degrees).
 """
 LROC = "https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001"
 SLDEM = {"url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/LolaKaguya_Topo/Lunar_LRO_LOLAKaguya_DEMmerge_60N60S_512ppd.tif", "mode": "range", "scale": 0.5,
@@ -26,12 +26,12 @@ MARS_R = 3396190.0
 EARTH_R = 6371000.0
 
 SITES = {
-    # ------------------------------------------------------------------ Mond
+    # ------------------------------------------------------------------ Moon
     "moon_tranquility": {
         "body": "moon", "name": "Tranquility Base (Apollo 11)", "R": MOON_R,
         "description": "Mare Tranquillitatis, Landestelle Apollo 11 (20.7.1969). LM-Abstiegsstufe steht noch dort; "
                        "West Crater (Little West) ~60 m östlich, großes West-Krater ~400 m westlich.",
-        # Kachelmitte = Mitte des NAC-DTM-Streifens in Ost-West (4,2 km breit), Spawn = LM
+        # tile centre = centre of the NAC DTM strip east-west (4.2 km wide), spawn = LM
         "center": (0.67409, 23.4419),
         "spawn": {"latlon": (0.67310, 23.47298), "compassDeg": 0.0, "note": "30 m südlich der LM-Abstiegsstufe, Blick nach Norden"},
         "tiles": {
@@ -173,7 +173,7 @@ SITES = {
         "rocks": {"file": "../_shared/rocks_mars.glb", "density": "Schuttfächer am Wandfuß: dicht"},
         "license": "NASA/USGS-Daten gemeinfrei",
     },
-    # ------------------------------------------------------------------ Erde
+    # ------------------------------------------------------------------ Earth
     "earth_stonehenge": {
         "body": "earth", "name": "Stonehenge", "R": EARTH_R,
         "description": "Salisbury Plain, Wiltshire: Kreidegrasland, Steinkreis (Sarsen-Kreis, Trilithen, Blausteine), "
@@ -197,7 +197,7 @@ SITES = {
         "rocks": {},
         "license": "Copernicus DEM: Namensnennung (siehe sources)",
     },
-    # ------------------------------------------------------------------ Erde
+    # ------------------------------------------------------------------ Earth
     "earth_giza": {
         "body": "earth", "name": "Gizeh-Plateau", "R": EARTH_R,
         "description": "Pyramiden von Cheops, Chephren, Mykerinos und Sphinx. Wüstenplateau ~60 m ü. NN, Niltal im Osten.",
@@ -206,7 +206,7 @@ SITES = {
         "tiles": {
             "near": {"size": 4000.0, "n": 2049, "height": [{"url": COP30.format(t="N29_00_E031_00"), "mode": "full", **COP_CREDIT}],
                      "smoothM": 18.0, "detail": {"amplitudeM": 0.18, "maxWavelengthM": 25.0, "beta": 2.4},
-                     # Pyramiden + Sphinx-Gehege aus dem DSM entfernen (werden als GLB gesetzt)
+                     # remove the pyramids + Sphinx enclosure from the DSM (they are placed as GLBs)
                      "flatten": [{"latlon": (29.97917, 31.13417), "half": (118, 118), "margin": 25},
                                  {"latlon": (29.97611, 31.13083), "half": (110, 110), "margin": 25},
                                  {"latlon": (29.97250, 31.12806), "half": (54, 54), "margin": 25},

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""asset pipeline Welten: automatische Prüfung je Ort (public/assets/worlds/<ort>/).
+"""Asset pipeline worlds: automatic check per site (public/assets/worlds/<site>/).
 
-Prüft meta.json (Pflichtfelder, Spawn in der Kachel, Sonnenvektor normiert), Heightmaps (16 Bit, quadratisch,
-Auflösung wie angegeben, Höhenbereich plausibel, Spawn-Höhe ~0), Albedo/Normal/Splat (Größe <= 4096),
-Wahrzeichen-GLBs (vorhanden, Ursprung unten, Dreiecke/Größe über tools/blender/env/check_glb.py) und Dateigröße.
+Checks meta.json (required fields, spawn inside the tile, sun vector normalised), heightmaps (16 bit, square,
+resolution as stated, plausible height range, spawn height ~0), albedo/normal/splat (size <= 4096),
+landmark GLBs (present, origin at the bottom, triangles/size via tools/blender/env/check_glb.py) and file size.
 
-    python3 tools/worlds/check_worlds.py [ort ...]
+    python3 tools/worlds/check_worlds.py [site ...]
 """
 import json
 import math
@@ -93,7 +93,7 @@ def check(site):
               + " | ".join(l.strip() for l in line))
         import re
         mm = re.search(r"minY=(-?[0-9.]+)", out)
-        if mm and float(mm.group(1)) < -1.0:      # bis 1 m eingegrabene Fundamente/Steine sind gewollt
+        if mm and float(mm.group(1)) < -1.0:      # foundations/stones buried up to 1 m are intentional
             errs.append(f"{lm['file']}: Ursprung nicht unten (minY {mm.group(1)})")
     rk = m.get("rocks", {}).get("file")
     if rk and not os.path.exists(os.path.join(d, rk)) and not os.path.exists(os.path.join(W, "_shared", rk)):

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""automatische Prüfung der Umgebungs-GLBs (ohne Abhängigkeiten).
+"""Automatic check of the environment GLBs (no dependencies).
 
-Gibt je Datei aus: Größe, Knotenbaum (Name, Position, Mesh), Materialien (Emission, Stärke, alphaMode,
-Texturen + Auflösung), Welt-Bounding-Box (aus Accessor-min/max x Knotentransformation), Dreiecke je Mesh
-und gesamt, Licht-Empties (Weltposition + Leuchtrichtung = lokale -Z).
-Prüft Regeln (Exit-Code 1 bei Verstoß): Ursprung unten Mitte (minY ~ 0, |Mitte XZ| klein),
-Dreiecksbudget, Texturen <= 2048, Pflicht-Knoten/-Materialien, Instancing-Assets = 1 Mesh/1 Material.
+Prints per file: size, node tree (name, position, mesh), materials (emission, strength, alphaMode,
+textures + resolution), world bounding box (from accessor min/max x node transform), triangles per mesh
+and in total, light empties (world position + light direction = local -Z).
+Checks rules (exit code 1 on violation): origin bottom centre (minY ~ 0, |centre XZ| small),
+triangle budget, textures <= 2048, required nodes/materials, instancing assets = 1 mesh/1 material.
 
-  python3 tools/blender/env/check_glb.py [datei.glb ...]   (ohne Argumente: alle in public/assets/env-models)
+  python3 tools/blender/env/check_glb.py [file.glb ...]   (no arguments: all in public/assets/env-models)
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 DIR = os.path.join(ROOT, "public", "assets", "env-models")
 
-# Regeln je Asset: max. Dreiecke (LOD0), Pflicht-Materialien, Pflicht-Knoten-Präfixe, Instancing (1 Mesh/1 Mat)
+# rules per asset: max. triangles (LOD0), required materials, required node prefixes, instancing (1 mesh/1 mat)
 RULES = {
     "light_tower": dict(tris=40000, mats=["Lamp_Emissive"], nodes=["Light_"], min_lights=12),
     "stage": dict(tris=60000, mats=["Screen_Emissive", "LED_Red"]),

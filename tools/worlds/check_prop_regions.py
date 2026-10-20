@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""prüft, wie die Dreiecke einer Wahrzeichen-GLB auf die beweglichen Teile (meta.json `dynamic`) verteilt werden.
+"""Checks how the triangles of a landmark GLB are distributed over the movable parts (meta.json `dynamic`).
 
-Bildet `splitDynamicLandmarks` (src/render/worlds/landmarks.ts) nach: Ein Dreieck gehört zum ersten Teil (nach dem
-Hauptkörper), dessen Region seinen Schwerpunkt (Objektrahmen) enthält, sonst zum Hauptkörper – hat der Hauptkörper
-eine eigene Region (Stonehenge-Steine), nur innerhalb davon; der Rest bleibt statisch.
+Mirrors `splitDynamicLandmarks` (src/render/worlds/landmarks.ts): a triangle belongs to the first part (after the
+main body) whose region contains its centroid (object frame), otherwise to the main body – if the main body has
+its own region (Stonehenge stones), only inside it; the rest stays static.
 
-    python3 tools/worlds/check_prop_regions.py <datei.glb> <meta.json> [--max-static 0.05]
+    python3 tools/worlds/check_prop_regions.py <file.glb> <meta.json> [--max-static 0.05]
 
-Ausgabe: Dreiecke je Teil, statischer Rest (Anteil), Teile ohne Dreiecke. Exit 1, wenn ein Teil leer ist oder der
-statische Anteil der Objekt-Meshes über --max-static liegt.
+Output: triangles per part, static remainder (share), parts without triangles. Exit 1 if a part is empty or the
+static share of the object meshes is above --max-static.
 """
 from __future__ import annotations
 

@@ -1,12 +1,12 @@
-"""asset pipeline Welten: Felsbrocken-Sets für Instancing (public/assets/worlds/_shared/rocks_<set>.glb).
+"""Asset pipeline worlds: boulder sets for instancing (public/assets/worlds/_shared/rocks_<set>.glb).
 
   Blender -b --factory-startup -P tools/worlds/blender/build_rocks.py -- --set moon|desert|mars|stonehenge
 
-Je Set 6 Varianten als eigene Mesh-Knoten Rock_0..5 mit EINEM Material (InstancedMesh je Variante):
-  0,1 gerundet (Mond: durch Mikrometeoriten abgerundet), 2,3 kantig, 4 flache Platte, 5 länglich.
-Größe normiert auf ~1 m Durchmesser (per Instanz skalieren, z. B. 0,2–3 m), Ursprung = Bodenebene;
-die Brocken stecken ~12 % ihrer Höhe im Boden (minY < 0, gewollt), damit sie nicht „aufliegen“.
-Geometrie: konvexe Hülle aus Zufallspunkten (Bruchflächen) -> 2x unterteilt -> Rauschen -> dezimiert (~400–700 Dreiecke).
+Per set 6 variants as separate mesh nodes Rock_0..5 with ONE material (InstancedMesh per variant):
+  0,1 rounded (Moon: rounded by micrometeorites), 2,3 angular, 4 flat slab, 5 elongated.
+Size normalised to ~1 m diameter (scale per instance, e.g. 0.2–3 m), origin = ground plane;
+the boulders sit ~12 % of their height in the ground (minY < 0, on purpose) so they do not "rest on top".
+Geometry: convex hull of random points (fracture faces) -> subdivided 2x -> noise -> decimated (~400–700 triangles).
 """
 import math
 import os
@@ -27,7 +27,7 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 OUT = os.path.join(ROOT, "public", "assets", "worlds", "_shared")
 CC = os.path.join(HERE, "..", "downloads", "_cc0")
 
-STYLE = {   # Textur, Farbe, Rundung
+STYLE = {   # texture, colour, rounding
     "moon": dict(src="rock_boulder_dry", desat=1.0, gain=0.55, tint=(1.0, 0.98, 0.95), round=0.55, rough=0.9),
     "desert": dict(src="rock_boulder_dry", desat=0.3, gain=1.0, tint=(1.0, 0.9, 0.75), round=0.3, rough=0.85),
     "mars": dict(src="rock_face_03", desat=0.15, gain=0.85, tint=(1.0, 0.82, 0.7), round=0.3, rough=0.85),
@@ -58,7 +58,7 @@ def rock(name, seed, shape):
     off = Vector((seed * 3.1, seed * 1.7, 0))
     for v in bm.verts:
         p = v.co
-        # Abrunden Richtung Ellipsoid + Rauschen (grob + fein)
+        # round off towards an ellipsoid + noise (coarse + fine)
         ell = Vector((p.x / sx, p.y / sz, p.z / sy)).normalized() * 0.5
         ell = Vector((ell.x * sx, ell.y * sz, ell.z * sy))
         p2 = p.lerp(ell, rnd)
@@ -70,7 +70,7 @@ def rock(name, seed, shape):
     bm.free()
     ob = bpy.data.objects.new(name, me)
     E.link(ob)
-    # in den Boden setzen: Unterkante bei -12 % Höhe
+    # set into the ground: lower edge at -12 % of the height
     zs = [v.co.z for v in me.vertices]
     h = max(zs) - min(zs)
     for v in me.vertices:

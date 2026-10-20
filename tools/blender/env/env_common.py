@@ -1,12 +1,12 @@
-"""asset pipeline Umgebungs-Assets: gemeinsame Helfer für die Blender-Build-Skripte (Blender 5.2, headless).
+"""Asset pipeline environment assets: shared helpers for the Blender build scripts (Blender 5.2, headless).
 
-Koordinaten: Alle Geometrie wird im glTF-/three.js-Rahmen geschrieben (Meter, +Y oben, +Z = "Front",
-also die Seite, die zur Strecke / zum Publikum zeigt; renderer dreht per `headingDeg` um +Y).
-`G(x, y, z)` wandelt in Blender-Welt (x, -z, y). Der glTF-Exporter (export_yup) macht daraus wieder (x, y, z).
-Probe-Export (docs/RENDERING.md): Blender-lokal +Y eines Objekts = glTF-lokal -Z.
-`aim_empty()` richtet daher Blender-lokal +Y entlang der gewünschten Richtung aus.
+Coordinates: all geometry is written in the glTF/three.js frame (metres, +Y up, +Z = "front",
+i.e. the side facing the track / the audience; the renderer rotates about +Y via `headingDeg`).
+`G(x, y, z)` converts to the Blender world (x, -z, y). The glTF exporter (export_yup) turns it back into (x, y, z).
+Test export (docs/RENDERING.md): Blender-local +Y of an object = glTF-local -Z.
+`aim_empty()` therefore aligns Blender-local +Y with the requested direction.
 
-Texturen: CC0 von Poly Haven (fetch_cc0.sh -> cc0/), aufbereitet mit numpy nach build_tex/ (<= 1k).
+Textures: CC0 from Poly Haven (fetch_cc0.sh -> cc0/), processed with numpy into build_tex/ (<= 1k).
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ OUT = os.path.join(ROOT, "public", "assets", "env-models")
 
 
 def G(x: float, y: float, z: float) -> Vector:
-    """glTF-Rahmen (x, y oben, z Front) -> Blender (x, -z, y)."""
+    """glTF frame (x, y up, z front) -> Blender (x, -z, y)."""
     return Vector((x, -z, y))
 
 
@@ -61,7 +61,7 @@ def empty(name: str, pos=(0, 0, 0), parent=None, size=0.3):
 
 
 def aim_empty(name: str, pos, direction, parent=None, size=0.4):
-    """Empty bei pos (glTF-Rahmen), dessen glTF-lokale -Z-Achse entlang `direction` (glTF-Rahmen) zeigt."""
+    """Empty at pos (glTF frame) whose glTF-local -Z axis points along `direction` (glTF frame)."""
     e = empty(name, pos, parent, size)
     d = G(*direction).normalized()
     e.rotation_mode = "QUATERNION"
@@ -103,14 +103,14 @@ def _resize(a: np.ndarray, size: int) -> np.ndarray:
 
 
 def _keyed(name: str, *params) -> str:
-    """Cache-Dateiname mit Parameter-Hash: Änderungen an Farbe/Rauheit erzeugen automatisch neue Texturen."""
+    """Cache file name with a parameter hash: changes to colour/roughness create new textures automatically."""
     root, ext = os.path.splitext(name)
     return f"{root}_{hashlib.md5(repr(params).encode()).hexdigest()[:6]}{ext}"
 
 
 def prep_tex(src: str, dst_name: str, *, tint=(1, 1, 1), gain=1.0, gamma=1.0, desat=0.0,
              size=1024, alpha_src: str | None = None, fmt="JPEG") -> str:
-    """Kopie einer CC0-Textur mit Farbkorrektur (für Base Color: sRGB-Werte) nach build_tex/."""
+    """Copy of a CC0 texture with colour correction (for base colour: sRGB values) into build_tex/."""
     dst = os.path.join(TEX, _keyed(dst_name, src, tint, gain, gamma, desat, size, alpha_src))
     if os.path.exists(dst) and os.path.getmtime(dst) > os.path.getmtime(__file__):
         return dst
@@ -129,7 +129,7 @@ def prep_tex(src: str, dst_name: str, *, tint=(1, 1, 1), gain=1.0, gamma=1.0, de
 
 
 def prep_data(src: str, dst_name: str, size=1024, rough_scale=1.0, rough_add=0.0, metal=None) -> str:
-    """ARM/Normal-Textur verkleinern; optional Rauheit (G) / Metall (B) anpassen."""
+    """Downscale an ARM/normal texture; optionally adjust roughness (G) / metal (B)."""
     dst = os.path.join(TEX, _keyed(dst_name, src, size, rough_scale, rough_add, metal))
     if os.path.exists(dst) and os.path.getmtime(dst) > os.path.getmtime(__file__):
         return dst
@@ -142,7 +142,7 @@ def prep_data(src: str, dst_name: str, size=1024, rough_scale=1.0, rough_add=0.0
 
 
 # ------------------------------------------------------------------ materials
-TILE: dict[str, float] = {}   # Material -> Meter pro Texturkachel (UV-Generierung im MeshBuilder)
+TILE: dict[str, float] = {}   # material -> metres per texture tile (UV generation in the MeshBuilder)
 
 
 def _bsdf(m):
@@ -161,8 +161,8 @@ def _img_node(nt, path, non_color=False, x=-700, y=0):
 def material(name: str, color=(0.5, 0.5, 0.5), metallic=0.0, roughness=0.5, *, diff=None, nor=None,
              arm=None, normal_strength=1.0, emission=None, strength=0.0, alpha_mask=False,
              alpha_cutoff=0.5, double_sided=False, tile=1.0, coat=0.0, emission_tex=None):
-    """Principled-Material, das der glTF-Exporter sauber abbildet.
-    diff: sRGB-Bild (Base Color, ggf. mit Alpha), arm: AO/Rough/Metal-Bild, nor: OpenGL-Normal.
+    """Principled material that the glTF exporter maps cleanly.
+    diff: sRGB image (base colour, possibly with alpha), arm: AO/rough/metal image, nor: OpenGL normal.
     emission/strength: emissiveFactor + KHR_materials_emissive_strength."""
     m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     m.use_nodes = True
@@ -179,7 +179,7 @@ def material(name: str, color=(0.5, 0.5, 0.5), metallic=0.0, roughness=0.5, *, d
         t = _img_node(nt, diff, y=300)
         nt.links.new(t.outputs["Color"], p.inputs["Base Color"])
         if alpha_mask:
-            # Alpha-Test: Math(GREATER_THAN) -> glTF alphaMode MASK (+ alphaCutoff)
+            # alpha test: Math(GREATER_THAN) -> glTF alphaMode MASK (+ alphaCutoff)
             gt = nt.nodes.new("ShaderNodeMath")
             gt.operation = "GREATER_THAN"
             gt.inputs[1].default_value = alpha_cutoff
@@ -217,7 +217,7 @@ def material(name: str, color=(0.5, 0.5, 0.5), metallic=0.0, roughness=0.5, *, d
 
 
 def emissive(name: str, color, strength: float, base=(0.02, 0.02, 0.02), tex=None):
-    """Leuchtmaterial (z. B. Lamp_Emissive, Screen_Emissive, LED_Red)."""
+    """Emissive material (e.g. Lamp_Emissive, Screen_Emissive, LED_Red)."""
     if tex:
         return material(name, base, 0.0, 0.3, emission_tex=tex, strength=strength)
     return material(name, base, 0.0, 0.35, emission=color, strength=strength)
@@ -228,7 +228,7 @@ def cc0(*parts) -> str:
 
 
 def fbm(n: int, beta: float = 2.0, seed: int = 0) -> np.ndarray:
-    """Kachelbares 1/f^beta-Rauschen (FFT), normiert auf 0..1."""
+    """Tileable 1/f^beta noise (FFT), normalised to 0..1."""
     r = np.random.default_rng(seed)
     w = r.standard_normal((n, n))
     fy = np.fft.fftfreq(n)[:, None]
@@ -241,7 +241,7 @@ def fbm(n: int, beta: float = 2.0, seed: int = 0) -> np.ndarray:
 
 
 def _proc_metal(prefix: str, base: float, var: float, rough: float, rvar: float, metal: float, seed: int, tint=(1, 1, 1), streak=0.0):
-    """Prozedurale Metall-/Lackoberfläche: Fleckigkeit (Verzinkung/Patina), Rauheitsvariation, Laufspuren."""
+    """Procedural metal/paint surface: blotchiness (galvanising/patina), roughness variation, run-off streaks."""
     key = (base, var, rough, rvar, metal, seed, tuple(tint), streak)
     dpath = os.path.join(TEX, _keyed(prefix + "_diff.jpg", *key))
     apath = os.path.join(TEX, _keyed(prefix + "_arm.jpg", *key))
@@ -252,7 +252,7 @@ def _proc_metal(prefix: str, base: float, var: float, rough: float, rvar: float,
     b = fbm(n, 1.2, seed + 1)
     c = fbm(n, 3.0, seed + 2)
     v = base + var * ((a - 0.5) * 1.2 + (b - 0.5) * 0.5)
-    if streak:   # vertikale Laufspuren (Regen): Rauschen in Y gestreckt
+    if streak:   # vertical run-off streaks (rain): noise stretched in Y
         st = fbm(n, 2.0, seed + 3)
         st = np.repeat(st[:: 8, :], 8, axis=0)[:n]
         v = v - streak * np.clip(st - 0.55, 0, 1)
@@ -268,19 +268,19 @@ def _proc_metal(prefix: str, base: float, var: float, rough: float, rvar: float,
 
 
 def mat_galv(name="Steel_Galv", tile=1.5):
-    """Feuerverzinkter Stahl (Masten, Gerüst): hell, fleckig, metallisch."""
+    """Hot-dip galvanised steel (masts, scaffolding): bright, blotchy, metallic."""
     d, a = _proc_metal("galv", 0.62, 0.22, 0.42, 0.22, 1.0, 11, tint=(0.97, 0.985, 1.0), streak=0.12)
     return material(name, diff=d, arm=a, tile=tile)
 
 
 def mat_black_steel(name="Steel_Black", tile=1.5):
-    """Schwarz pulverbeschichteter Stahl (Bühnen-/Rampengerüst, Traversen)."""
+    """Black powder-coated steel (stage/ramp scaffolding, trusses)."""
     d, a = _proc_metal("blacksteel", 0.075, 0.05, 0.55, 0.2, 0.0, 21, streak=0.03)
     return material(name, diff=d, arm=a, tile=tile)
 
 
 def mat_tread(name="Steel_Tread", tile=1.0, gain=0.55):
-    """Riffelblech (Böden, Podeste) aus Poly Haven metal_plate."""
+    """Tread plate (floors, platforms) from Poly Haven metal_plate."""
     d = prep_tex(cc0("metal_plate", "metal_plate_diff_1k.jpg"), f"tread_diff_{int(gain*100)}.jpg", desat=0.85, gain=gain, size=512)
     a = prep_data(cc0("metal_plate", "metal_plate_arm_1k.jpg"), "tread_arm.jpg", size=512, rough_scale=0.8, rough_add=0.1, metal=1.0)
     n = prep_data(cc0("metal_plate", "metal_plate_nor_gl_1k.jpg"), "tread_nor.jpg", size=512)
@@ -295,21 +295,21 @@ def mat_concrete(name="Concrete", tile=2.5, gain=0.9):
 
 
 def mat_painted(name, color, rough=0.45, metal=0.0, tile=1.5, seed=31, var=0.18):
-    """Lackiertes Blech/Aluminium mit leichter Gebrauchsspur (prozedural)."""
+    """Painted sheet metal/aluminium with light wear (procedural)."""
     lum = max(color) or 1e-3
     d, a = _proc_metal(f"paint_{name}", 1.0, var, rough, 0.18, metal, seed, tint=(color[0], color[1], color[2]), streak=0.08)
     return material(name, diff=d, arm=a, tile=tile)
 
 
 def save_rgba(arr: np.ndarray, name: str, fmt="PNG") -> str:
-    """Prozedural erzeugte Textur (H x W x 4, linear 0..1, Zeile 0 = unten) speichern."""
+    """Save a procedurally generated texture (H x W x 4, linear 0..1, row 0 = bottom)."""
     return _save(arr, os.path.join(TEX, name), fmt)
 
 
 # ------------------------------------------------------------------ mesh builder
 class MB:
-    """Sammelt Polygone (glTF-Rahmen) mit Materialindex, UVs (Meter/TILE) und Glättung,
-    erzeugt daraus EIN Blender-Mesh. Transformationsstapel via push()/pop()."""
+    """Collects polygons (glTF frame) with material index, UVs (metres/TILE) and smoothing,
+    and builds ONE Blender mesh from them. Transform stack via push()/pop()."""
 
     def __init__(self):
         self.v: list[Vector] = []
@@ -348,7 +348,7 @@ class MB:
         return idx
 
     def box(self, c, size, mat, bevel=0.0):
-        """Achsparalleler Quader (im aktuellen Transform) Mitte c, Kantenlängen size."""
+        """Axis-aligned box (in the current transform) with centre c and edge lengths size."""
         hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
         cx, cy, cz = c
         C = [(cx + sx * hx, cy + sy * hy, cz + sz * hz) for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)]
@@ -359,7 +359,7 @@ class MB:
             self.face(idx, self._auto_uv(idx, mat), mat, False)
 
     def frame(self, a, b, up=(0, 1, 0)):
-        """Matrix: lokales +Z von a nach b, Ursprung a."""
+        """Matrix: local +Z from a to b, origin a."""
         a, b = Vector(a), Vector(b)
         z = (b - a)
         L = z.length
@@ -374,7 +374,7 @@ class MB:
         return M, L
 
     def tube(self, a, b, r, mat, seg=8, caps=True, r2=None, square=False):
-        """Rohr/Zylinder von a nach b (Radius r -> r2). square=True: Vierkantprofil."""
+        """Tube/cylinder from a to b (radius r -> r2). square=True: square profile."""
         M, L = self.frame(a, b)
         r2 = r if r2 is None else r2
         if square:
@@ -399,7 +399,7 @@ class MB:
         self.pop()
 
     def lathe(self, prof, mat, seg=16, axis_a=(0, 0, 0), axis_b=(0, 0, 1), smooth=True, cap_start=False, cap_end=False):
-        """Rotationskörper: prof = [(radius, z), ...] entlang der Achse a->b (z in Metern ab a)."""
+        """Solid of revolution: prof = [(radius, z), ...] along the axis a->b (z in metres from a)."""
         M, _ = self.frame(axis_a, axis_b)
         self.push(M)
         rings = []
@@ -424,7 +424,7 @@ class MB:
         self.pop()
 
     def disk(self, c, r, mat, normal=(0, 0, 1), seg=16, uv_full=True):
-        """Kreisscheibe (n-Eck) mit Normale `normal` (UV 0..1 über die Scheibe)."""
+        """Disc (n-gon) with normal `normal` (UV 0..1 across the disc)."""
         c = Vector(c)
         M, _ = self.frame(c, c + Vector(normal))
         self.push(M)
@@ -462,8 +462,8 @@ class MB:
         return ob
 
     def box_truss(self, a, b, w, mat, chord_r=0.025, lace_r=0.01, seg=6, lace_seg=4, up=(0, 1, 0), ends=True):
-        """Vierpunkt-Traverse (z. B. 40-cm-Alu-Traverse) von a nach b, Querschnitt w x w.
-        Gurtrohre in den Ecken, Zickzack-Diagonalen auf allen vier Seiten, Endrahmen."""
+        """Four-chord truss (e.g. 40 cm aluminium truss) from a to b, cross-section w x w.
+        Chord tubes in the corners, zigzag diagonals on all four sides, end frames."""
         M, L = self.frame(a, b, up)
         self.push(M)
         h = w / 2 - chord_r
@@ -492,7 +492,7 @@ class MB:
 
 
 def fence_panel(mb, x0, z, y0=0.0, L=2.3, mat="Steel_Galv", detail=True):
-    """Absperrgitter-Element (Länge L entlang +X ab x0): Rahmenrohr, senkrechte Stäbe, Flachfüße."""
+    """Crowd barrier element (length L along +X from x0): frame tube, vertical bars, flat feet."""
     h = 1.1
     mb.tube((x0, y0 + 0.12, z), (x0, y0 + h, z), 0.019, mat, seg=6)
     mb.tube((x0 + L, y0 + 0.12, z), (x0 + L, y0 + h, z), 0.019, mat, seg=6)
@@ -558,8 +558,8 @@ def export_glb(name: str, objects=None, lod: int = 0, out_dir: str | None = None
 
 
 def weather_colors(ob, seed=0, base=0.92, var=0.12, cell=None, up_tint=(1.04, 0.99, 0.92), up_dot=0.7, macro=0.08):
-    """Vertex-Farben (COLOR_0, multipliziert mit Base Color in three.js) für Verwitterung:
-    zufällige Helligkeit je Stein/Zelle, großräumige Flecken, Staub auf nach oben zeigenden Flächen."""
+    """Vertex colours (COLOR_0, multiplied with the base colour in three.js) for weathering:
+    random brightness per stone/cell, large-scale blotches, dust on upward-facing faces."""
     from mathutils import noise as _n
     me = ob.data
     attr = me.color_attributes.new("Col", "FLOAT_COLOR", "CORNER")

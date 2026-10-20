@@ -1,13 +1,13 @@
-"""Stadion-Flutlichtmast (light_tower.glb / light_tower_lod1.glb).
+"""Stadium floodlight mast (light_tower.glb / light_tower_lod1.glb).
 
   Blender -b --factory-startup -P tools/blender/env/build_light_tower.py [-- --lod 1]
 
-Aufbau (glTF-Rahmen, Ursprung = Mastmitte auf Geländehöhe, Front/Leuchtrichtung = +Z):
-  Betonfundament 2,4 x 2,4 m (0,45 m über Gelände) + Schaltschränke, quadratischer Gittermast
-  (1,5 m -> 0,9 m, verzinkt) bis 22,2 m, Wartungsplattform mit Geländer, Steigleiter mit Rückenschutz,
-  Lampenrahmen 5,6 x 3,6 m vor dem Mast (22,4..26 m) mit 4 x 4 LED-Scheinwerfern (Bügel, Kühlrippen,
-  Blendschute). Kabel von jeder Leuchte zum Verteilerkasten und als Bündel den Mast hinab.
-  Empties Light_0..15 im Linsenzentrum, lokale -Z = Leuchtrichtung (Reihen 0..3 von oben, Spalten von -X).
+Structure (glTF frame, origin = mast centre at ground level, front/light direction = +Z):
+  concrete foundation 2.4 x 2.4 m (0.45 m above ground) + switch cabinets, square lattice mast
+  (1.5 m -> 0.9 m, galvanised) up to 22.2 m, maintenance platform with railing, fixed ladder with back cage,
+  lamp frame 5.6 x 3.6 m in front of the mast (22.4..26 m) with 4 x 4 LED floodlights (yokes, cooling fins,
+  glare visors). Cables from every luminaire to the distribution box and as a bundle down the mast.
+  Empties Light_0..15 at the lens centre, local -Z = light direction (rows 0..3 from the top, columns from -X).
 """
 import math
 import os
@@ -20,18 +20,18 @@ from mathutils import Matrix, Vector  # noqa: E402
 import env_common as E  # noqa: E402
 
 LOD = E.lod_arg()
-H_MAST = 22.2          # Oberkante Gittermast / Plattform
-W0, W1 = 1.5, 0.9      # Mastbreite unten / oben (Achsmaß der Eckstiele)
-PED = 0.45             # Fundament-Überstand
-FRAME_Z = 1.05         # Lampenrahmen vor der Mastachse
+H_MAST = 22.2          # top of the lattice mast / platform
+W0, W1 = 1.5, 0.9      # mast width bottom / top (centre distance of the corner legs)
+PED = 0.45             # foundation overhang
+FRAME_Z = 1.05         # lamp frame in front of the mast axis
 COLS = [-2.1, -0.7, 0.7, 2.1]
-ROWS = [25.45, 24.5, 23.55, 22.6]   # Leuchtenmitten von oben nach unten
-YAW = [-13.0, -4.5, 4.5, 13.0]      # Fächer nach außen (Grad)
-PITCH = [11.0, 15.0, 20.0, 26.0]    # Neigung nach unten je Reihe (oben = weit)
+ROWS = [25.45, 24.5, 23.55, 22.6]   # luminaire centres from top to bottom
+YAW = [-13.0, -4.5, 4.5, 13.0]      # fan-out (degrees)
+PITCH = [11.0, 15.0, 20.0, 26.0]    # downward tilt per row (top = far)
 
 
 def lens_texture():
-    """LED-Linse: 7er-Wabenmuster heller Einzel-LEDs mit Reflektor-Hof (Emission, sRGB)."""
+    """LED lens: 7-cell honeycomb of bright single LEDs with a reflector halo (emission, sRGB)."""
     n = 256
     y, x = np.mgrid[0:n, 0:n].astype(np.float32) / n * 2 - 1
     img = np.zeros((n, n, 4), np.float32)
@@ -72,7 +72,7 @@ def build():
     seg_m = 6 if LOD == 0 else 4
 
     # ---------------- foundation + cabinets
-    mb.box((0, 0.03, 0), (2.4, 0.06, 2.4), "Concrete")              # Fundamentplatte (bündig, 6 cm)
+    mb.box((0, 0.03, 0), (2.4, 0.06, 2.4), "Concrete")              # foundation slab (flush, 6 cm)
     mb.box((0, PED / 2, 0), (2.0, PED, 2.0), "Concrete")
     mb.box((0, PED - 0.02, 0), (2.06, 0.04, 2.06), "Concrete")
     if LOD == 0:
@@ -84,15 +84,15 @@ def build():
                     for bz in (-1, 1):
                         mb.tube((c[0] + bx * 0.13, PED, c[2] + bz * 0.13), (c[0] + bx * 0.13, PED + 0.09, c[2] + bz * 0.13), 0.016, "Steel_Galv", seg=6)
                         mb.tube((c[0] + bx * 0.13, PED + 0.03, c[2] + bz * 0.13), (c[0] + bx * 0.13, PED + 0.055, c[2] + bz * 0.13), 0.028, "Steel_Galv", seg=6, square=True)
-    # Schaltschränke hinter dem Mast (-Z) auf eigenem Sockel
+    # switch cabinets behind the mast (-Z) on their own plinth
     mb.box((0.15, 0.06, -1.55), (1.9, 0.12, 0.7), "Concrete")
     for x in (-0.38, 0.62):
         mb.box((x, 0.12 + 0.8, -1.55), (0.85, 1.6, 0.5), "Cabinet")
-        mb.box((x, 0.12 + 1.63, -1.55), (0.93, 0.06, 0.6), "Cabinet")             # Regendach
+        mb.box((x, 0.12 + 1.63, -1.55), (0.93, 0.06, 0.6), "Cabinet")             # rain roof
         if LOD == 0:
-            mb.box((x, 0.12 + 0.8, -1.295), (0.78, 1.5, 0.012), "Cabinet")         # Tür
-            mb.box((x + 0.3, 0.12 + 0.85, -1.285), (0.03, 0.16, 0.025), "Steel_Galv")  # Griff
-    mb.tube((0.15, 0.3, -1.3), (0.15, 0.3, -0.7), 0.05, "Cable", seg=seg_m)             # Leerrohr zum Mast
+            mb.box((x, 0.12 + 0.8, -1.295), (0.78, 1.5, 0.012), "Cabinet")         # door
+            mb.box((x + 0.3, 0.12 + 0.85, -1.285), (0.03, 0.16, 0.025), "Steel_Galv")  # handle
+    mb.tube((0.15, 0.3, -1.3), (0.15, 0.3, -0.7), 0.05, "Cable", seg=seg_m)             # conduit to the mast
 
     # ---------------- lattice mast
     def corner(y, sx, sz):
@@ -123,19 +123,19 @@ def build():
                     mb.tube(corner(y, *corners[k]), corner(y2, *corners[(k + 1) % 4]), 0.024, "Steel_Galv", seg=seg_m, caps=False)
                 else:
                     mb.tube(corner(y, *corners[(k + 1) % 4]), corner(y2, *corners[k]), 0.024, "Steel_Galv", seg=seg_m, caps=False)
-        if LOD == 0 and i % 3 == 1:   # innere Aussteifung (Diagonale im Querschnitt)
+        if LOD == 0 and i % 3 == 1:   # inner bracing (diagonal in the cross-section)
             mb.tube(corner(y, -1, -1), corner(y, 1, 1), 0.02, "Steel_Galv", seg=4, caps=False)
 
     # ---------------- platform + railing (y = H_MAST)
     PW, PD = 3.4, 2.6
     pz = 0.25
     mb.box((0, H_MAST + 0.04, pz), (PW, 0.08, PD), "Steel_Tread")
-    for sx in (-1, 1):   # Konsolen
+    for sx in (-1, 1):   # brackets
         mb.tube((sx * W1 / 2, H_MAST - 1.2, -W1 / 2), (sx * PW / 2, H_MAST, pz + PD / 2), 0.03, "Steel_Galv", seg=seg_m)
         mb.tube((sx * W1 / 2, H_MAST - 1.2, W1 / 2), (sx * PW / 2, H_MAST, pz - PD / 2), 0.03, "Steel_Galv", seg=seg_m)
     rail_y = [0.5, 1.05] if LOD == 0 else [1.05]
     pts = [(-PW / 2, pz - PD / 2), (PW / 2, pz - PD / 2), (PW / 2, pz + PD / 2 - 0.0), (-PW / 2, pz + PD / 2)]
-    for k in range(3):   # Front (+Z) offen zum Lampenrahmen hin -> 3 Seiten
+    for k in range(3):   # front (+Z) open towards the lamp frame -> 3 sides
         a, b = pts[(k + 3) % 4], pts[k]
         if k == 0:
             a, b = pts[0], pts[1]
@@ -152,7 +152,7 @@ def build():
             mb.tube((px, H_MAST + 0.08, pz2), (px, H_MAST + 1.08, pz2), 0.022, "Steel_Galv", seg=seg_m)
         if LOD == 0:
             mb.box(((a[0] + b[0]) / 2, H_MAST + 0.15, (a[1] + b[1]) / 2),
-                   (abs(b[0] - a[0]) + 0.01, 0.14, abs(b[1] - a[1]) + 0.01), "Steel_Galv")   # Fußleiste
+                   (abs(b[0] - a[0]) + 0.01, 0.14, abs(b[1] - a[1]) + 0.01), "Steel_Galv")   # toe board
 
     # ---------------- ladder with cage on the back face (-Z)
     if LOD == 0:
@@ -183,15 +183,15 @@ def build():
         mb.tube((-FX, y, FRAME_Z), (FX, y, FRAME_Z), 0.06, "Steel_Galv", seg=4, square=True)
     for x in (-FX, -1.4, 0.0, 1.4, FX):
         mb.tube((x, 22.2, FRAME_Z), (x, 25.99, FRAME_Z), 0.06, "Steel_Galv", seg=4, square=True)
-    for x in (-W1 / 2, W1 / 2):   # Ausleger Mastkopf -> Rahmen
+    for x in (-W1 / 2, W1 / 2):   # outrigger mast head -> frame
         for y in (22.25, 25.93):
             mb.tube((x, y, W1 / 2), (x, y, FRAME_Z), 0.05, "Steel_Galv", seg=4, square=True)
-        mb.tube((x, H_MAST - 0.05, W1 / 2), (x, 25.93, W1 / 2), 0.07, "Steel_Galv", seg=seg_c)   # Mastverlängerung
+        mb.tube((x, H_MAST - 0.05, W1 / 2), (x, 25.93, W1 / 2), 0.07, "Steel_Galv", seg=seg_c)   # mast extension
         mb.tube((x, 22.25, W1 / 2), (x * 3.0, 25.93, FRAME_Z), 0.035, "Steel_Galv", seg=seg_m)
     if LOD == 0:
         for x0, x1 in ((-FX, -1.4), (1.4, FX)):
             mb.tube((x0, 22.25, FRAME_Z - 0.02), (x1, 25.93, FRAME_Z - 0.02), 0.025, "Steel_Galv", seg=4)
-    # Verteilerkasten hinter dem Rahmen
+    # distribution box behind the frame
     mb.box((0, 22.75, FRAME_Z - 0.32), (0.7, 0.55, 0.3), "Cabinet")
 
     # ---------------- lamps
@@ -204,7 +204,7 @@ def build():
             M, _ = mb.frame(center, center + d)
             mb.push(M)
             prof = [(0.0, -0.36), (0.20, -0.36), (0.20, -0.30)]
-            if LOD == 0:   # Kühlrippen
+            if LOD == 0:   # cooling fins
                 for k in range(5):
                     z0 = -0.30 + k * 0.045
                     prof += [(0.30, z0), (0.30, z0 + 0.018), (0.235, z0 + 0.018), (0.235, z0 + 0.045)]
@@ -213,23 +213,23 @@ def build():
                 prof += [(0.30, -0.25), (0.335, -0.08)]
             prof += [(0.335, 0.0), (0.355, 0.012), (0.355, 0.035), (0.305, 0.04)]
             mb.lathe(prof, "Lamp_Housing", seg=seg_l, cap_start=False)
-            # Blendschute (Visor), dünnwandig: innen + außen
+            # glare visor, thin-walled: inside + outside
             mb.lathe([(0.355, 0.035), (0.385, 0.19), (0.37, 0.195), (0.34, 0.045)], "Lamp_Housing", seg=seg_l)
             mb.disk((0, 0, 0.035), 0.305, "Lamp_Emissive", normal=(0, 0, 1), seg=seg_l)
-            # Bügel (Yoke): Seitenlaschen + Querjoch hinten
+            # yoke: side plates + cross yoke at the back
             for sx in (-1, 1):
                 mb.box((sx * 0.375, 0, -0.17), (0.025, 0.09, 0.5), "Lamp_Housing")
                 if LOD == 0:
-                    mb.tube((sx * 0.355, 0, 0.0), (sx * 0.41, 0, 0.0), 0.05, "Lamp_Housing", seg=10)  # Drehgelenk
+                    mb.tube((sx * 0.355, 0, 0.0), (sx * 0.41, 0, 0.0), 0.05, "Lamp_Housing", seg=10)  # swivel joint
             mb.box((0, 0, -0.43), (0.78, 0.09, 0.05), "Lamp_Housing")
             back = mb.P((0, 0, -0.45))
             cab = mb.P((0, 0.0, -0.36))
             mb.pop()
-            # Konsole zum Rahmen
+            # bracket to the frame
             mount = Vector((x, y, FRAME_Z + 0.06))
             mb.tube(back, mount, 0.045, "Steel_Galv", seg=6)
             lens_pts.append((r, c, center + d * 0.04, d, cab))
-    # Kabel: jede Leuchte mit Schlaufe zur Kabeltrasse am Riegel darunter, Trassen -> Mittelstiel -> Verteilerkasten
+    # cables: every luminaire with a loop to the cable tray on the rail below, trays -> centre leg -> distribution box
     if LOD == 0:
         for r, c, _, _, cab in lens_pts:
             a = Vector(cab)
@@ -246,7 +246,7 @@ def build():
             mb.tube((-FX + 0.1, yb + 0.07, FRAME_Z - 0.1), (FX - 0.1, yb + 0.07, FRAME_Z - 0.1), 0.028, "Cable", seg=4, caps=False)
         mb.tube((0.12, 22.32, FRAME_Z - 0.1), (0.12, 25.0, FRAME_Z - 0.1), 0.04, "Cable", seg=6, caps=False)
         mb.tube((0.12, 22.32, FRAME_Z - 0.1), (0.12, 22.9, FRAME_Z - 0.2), 0.04, "Cable", seg=6, caps=False)
-    # Kabelbündel den Mast hinab (an der Rückseite, Stiel -X/-Z)
+    # cable bundle down the mast (on the back, leg -X/-Z)
     bundle = [Vector((0.0, 22.5, FRAME_Z - 0.3)), Vector((0.0, 22.2, -W1 / 2 - 0.08))]
     for y in np.linspace(21.5, 1.2, 8 if LOD == 0 else 3):
         w = W0 + (W1 - W0) * (y / H_MAST)
@@ -259,7 +259,7 @@ def build():
     ob = mb.build("LightTower_Mesh", root, mat_order=["Steel_Galv", "Steel_Tread", "Lamp_Housing", "Lamp_Emissive", "Concrete", "Cabinet", "Cable"])
     print(f"[ws-f] light_tower LOD{LOD}: {mb.tri_count()} tris")
 
-    # Leucht-Empties: Linsenmitte, lokale -Z = Leuchtrichtung
+    # light empties: lens centre, local -Z = light direction
     for i, (r, c, p, d, _) in enumerate(lens_pts):
         E.aim_empty(f"Light_{i}", tuple(p), tuple(d), root)
     E.export_glb("light_tower", lod=LOD)

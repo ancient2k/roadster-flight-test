@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Geländehöhe (Nahkachel, bilinear) an Weltpunkten eines Ortes – für Wahrzeichen-y in meta/landmarks.
+"""Terrain height (close-range tile, bilinear) at world points of a site – for landmark y in meta/landmarks.
 
     python3 tools/worlds/height_detail.py mars_gale 8 26 [x z ...]
 """

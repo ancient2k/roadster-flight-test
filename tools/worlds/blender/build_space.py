@@ -1,13 +1,13 @@
-"""asset pipeline Welten: space_sun — Sternenhimmel, Sonnenscheibe, Referenzdaten (public/assets/worlds/space_sun/).
+"""Asset pipeline worlds: space_sun — starry sky, solar disc, reference data (public/assets/worlds/space_sun/).
 
   Blender -b --factory-startup -P tools/worlds/blender/build_space.py
 
-Quellen (tools/worlds/downloads/space_sun/, per curl):
-  starmap_2020_8k.exr  NASA/Goddard SVS Deep Star Maps 2020 (svs.gsfc.nasa.gov/4851), äquatoriale Koordinaten
-                       (ICRF/J2000), plate carrée, RA 0h in der Bildmitte, RA nimmt nach links zu, Dec +90° oben.
-  sdo_hmi_intensitygram_1024.jpg  NASA/SDO HMI Kontinuum (Quick-Look vom 18.10.2026) -> Sonnenscheibe.
-Ausgabe: stars_8k.jpg / stars_4k.jpg (sRGB, log-tonemapped), stars_2k.hdr (Radiance, linear),
-  sun_disk_1024.png (Graustufen-Helligkeit inkl. Randverdunkelung + Flecken, Alpha = Scheibe), meta.json.
+Sources (tools/worlds/downloads/space_sun/, via curl):
+  starmap_2020_8k.exr  NASA/Goddard SVS Deep Star Maps 2020 (svs.gsfc.nasa.gov/4851), equatorial coordinates
+                       (ICRF/J2000), plate carrée, RA 0h in the image centre, RA increases to the left, Dec +90° at the top.
+  sdo_hmi_intensitygram_1024.jpg  NASA/SDO HMI continuum (quick-look of 18 Oct 2026) -> solar disc.
+Output: stars_8k.jpg / stars_4k.jpg (sRGB, log-tonemapped), stars_2k.hdr (Radiance, linear),
+  sun_disk_1024.png (greyscale brightness incl. limb darkening + spots, alpha = disc), meta.json.
 """
 import json
 import math
@@ -54,11 +54,11 @@ def down(a, f):
 def main():
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    s = load(os.path.join(DL, "starmap_2020_8k.exr"))            # linear, Zeile 0 = unten (Blender)
+    s = load(os.path.join(DL, "starmap_2020_8k.exr"))            # linear, row 0 = bottom (Blender)
     rgb = np.clip(s[..., :3], 0, None)
     p50, p999 = np.percentile(rgb.mean(-1), [50, 99.9])
     print(f"[ws-f] Sternkarte {s.shape}, Median {p50:.4g}, p99.9 {p999:.4g}")
-    # Log-Tonemapping: Milchstraße sichtbar, helle Sterne gesättigt, Hintergrund nahezu schwarz
+    # log tonemapping: Milky Way visible, bright stars saturated, background almost black
     k = 1.0 / max(p999, 1e-6)
     tm = np.log1p(rgb * k * 6.0) / math.log1p(6.0 * 3.0)
     tm = np.clip(tm, 0, 1) ** 1.15
@@ -67,15 +67,15 @@ def main():
     save(out, os.path.join(OUT, "stars_8k.jpg"), "JPEG", 88)
     save(down(out, 2), os.path.join(OUT, "stars_4k.jpg"), "JPEG", 88)
     hdr = np.ones((s.shape[0] // 4, s.shape[1] // 4, 4), np.float32)
-    hdr[..., :3] = down(rgb, 4) * k            # 1.0 ~ p99,9-Helligkeit
+    hdr[..., :3] = down(rgb, 4) * k            # 1.0 ~ p99.9 brightness
     save(hdr, os.path.join(OUT, "stars_2k.hdr"), "HDR", float_buf=True)
 
-    # Sonnenscheibe aus SDO/HMI: Luminanz, Kreis-Maske (entfernt Beschriftung), weiß-gelblich normiert
+    # solar disc from SDO/HMI: luminance, circular mask (removes the labels), normalised to white-yellowish
     sd = load(os.path.join(DL, "sdo_hmi_intensitygram_1024.jpg"))
     lum = sd[..., 0] * 0.2126 + sd[..., 1] * 0.7152 + sd[..., 2] * 0.0722
     n = lum.shape[0]
     y, x = np.mgrid[0:n, 0:n].astype(np.float32)
-    # Scheibenrand automatisch finden (Schwelle)
+    # find the disc edge automatically (threshold)
     disk = lum > 0.15 * lum.max()
     cy, cx = y[disk].mean(), x[disk].mean()
     r = math.sqrt(disk.sum() / math.pi)

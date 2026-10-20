@@ -1,23 +1,23 @@
-"""asset pipeline Welten: Stonehenge im heutigen Zustand (public/assets/worlds/earth_stonehenge/stonehenge.glb).
+"""Asset pipeline worlds: Stonehenge in its present state (public/assets/worlds/earth_stonehenge/stonehenge.glb).
 
   Blender -b --factory-startup -P tools/worlds/blender/build_stonehenge.py
 
-Grundriss nach den Vermessungen von Cleal, Walker & Montague (1995) / English Heritage (Petrie-Nummerierung):
-  Sarsen-Kreis: 30 Positionen, Außen-Ø 33 m, Steine ~2,1 x 1,1 m, 4,1 m hoch, Decksteine 3,2 x 1,0 x 0,8 m.
-    Stein 1 und 30 flankieren die Sonnwendachse (Azimut 49,9°), Zählung im Uhrzeigersinn.
-    Heute stehend: 1–7, 10, 11, 16, 21, 23, 27–30; Stümpfe: 9, 12, 14, 15, 19, 22, 25, 26; umgestürzt: 8, 20.
-    Decksteine in situ: 130, 101, 102, 105, 106 (+ 122 restauriert).
-  Trilithen-Hufeisen (Öffnung nach NO): 51/52, 53/54, 55/56 (Großer Trilith, 7,3 m), 57/58, 59/60.
-    Heute: 51–54 und 57/58 mit Deckstein; 56 stehend, 55 + Deckstein 156 liegend; 60 stehend, 59 liegend.
-  Blausteinkreis (r ~11,5 m, ~30 sichtbare Steine) und -hufeisen (r ~6 m), Altarstein (liegend unter 55/56),
-  Slaughter Stone (liegend, Eingang), Heel Stone (77 m auf Azimut ~51°, geneigt), Station Stones 91 und 93.
-glTF-Rahmen: Ursprung = Kreismitte auf Bodenhöhe, +X = Ost, -Z = Nord (Modell nicht drehen: meta compassDeg 180).
-Alle Steine EIN Mesh, zwei Materialien (Sarsen, Bluestone).
-Steine als gerundete Quader-Gitter mit Verjüngung, Schiefe, Bruchflächen, großen Fehlstellen, Rinnen, Zapfen
-auf freien Pfeilern; tragende Pfeiler mit ebener Oberkante; Kreis-Decksteine gebogen; UVs je Würfelseite;
-Flechten in der Textur + Vertexfarben. Lage/Maße (STONES) unverändert -> stonehenge_stones.json und die
-88 Steinkörper in meta.json bleiben gültig (python3 tools/worlds/check_prop_regions.py). Liegende Steine liegen
-jetzt mittig auf ihrer Kollisionsbox (um die halbe Länge versetzt).
+Plan after the surveys of Cleal, Walker & Montague (1995) / English Heritage (Petrie numbering):
+  Sarsen circle: 30 positions, outer Ø 33 m, stones ~2.1 x 1.1 m, 4.1 m tall, lintels 3.2 x 1.0 x 0.8 m.
+    Stones 1 and 30 flank the solstice axis (azimuth 49.9°), numbered clockwise.
+    Standing today: 1–7, 10, 11, 16, 21, 23, 27–30; stumps: 9, 12, 14, 15, 19, 22, 25, 26; fallen: 8, 20.
+    Lintels in situ: 130, 101, 102, 105, 106 (+ 122 restored).
+  Trilithon horseshoe (opening to the NE): 51/52, 53/54, 55/56 (Great Trilithon, 7.3 m), 57/58, 59/60.
+    Today: 51–54 and 57/58 with lintel; 56 standing, 55 + lintel 156 lying; 60 standing, 59 lying.
+  Bluestone circle (r ~11.5 m, ~30 visible stones) and horseshoe (r ~6 m), Altar Stone (lying under 55/56),
+  Slaughter Stone (lying, entrance), Heel Stone (77 m at azimuth ~51°, leaning), Station Stones 91 and 93.
+glTF frame: origin = circle centre at ground level, +X = east, -Z = north (do not rotate the model: meta compassDeg 180).
+All stones are ONE mesh with two materials (sarsen, bluestone).
+Stones as rounded box grids with taper, lean, fracture faces, large missing chunks, grooves, tenons
+on free uprights; load-bearing uprights with a flat top; circle lintels curved; UVs per cube side;
+lichen in the texture + vertex colours. Positions/sizes (STONES) unchanged -> stonehenge_stones.json and the
+88 stone bodies in meta.json stay valid (python3 tools/worlds/check_prop_regions.py). Lying stones now lie
+centred on their collision box (offset by half their length).
   Blender -b --factory-startup -P tools/worlds/blender/build_stonehenge.py [-- --out <dir>]
 """
 import math
@@ -36,7 +36,7 @@ import env_common as E  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 OUT = os.path.join(ROOT, "public", "assets", "worlds", "earth_stonehenge")
-if "--out" in E.args():                # Probe-Builds außerhalb von public/
+if "--out" in E.args():                # test builds outside public/
     OUT = os.path.abspath(E.args()[E.args().index("--out") + 1])
 CC = os.path.join(HERE, "..", "downloads", "_cc0")
 AXIS = 49.9
@@ -47,17 +47,17 @@ def cc(name, m):
 
 
 def polar(az_deg, r):
-    """Azimut (von Nord über Ost) + Radius -> glTF (x, z) mit -Z = Nord."""
+    """Azimuth (from north via east) + radius -> glTF (x, z) with -Z = north."""
     a = math.radians(az_deg)
     return r * math.sin(a), -r * math.cos(a)
 
 
-STONES = []   # (bmesh-fähige Beschreibung)
+STONES = []   # (bmesh-capable description)
 
 
 def stone(pos, size, yaw_deg, mat, seed, lie=False, tilt=(0.0, 0.0), taper=0.85, rough=1.0, bury=0.25):
-    """Stein als verformter Quader. pos (x, z), size (Breite, Höhe, Dicke); yaw = Azimut-Winkel, bei dem die
-    Breitseite tangential zum Kreis liegt (Breitenrichtung (cos yaw, sin yaw) in glTF x/z). lie=True: liegend."""
+    """Stone as a deformed box. pos (x, z), size (width, height, thickness); yaw = azimuth angle at which the
+    broad side is tangential to the circle (width direction (cos yaw, sin yaw) in glTF x/z). lie=True: lying."""
     STONES.append(dict(pos=pos, size=size, yaw=yaw_deg, mat=mat, seed=seed, lie=lie, tilt=tilt, taper=taper, rough=rough, bury=bury))
 
 
@@ -67,12 +67,12 @@ def _smooth(a, b, x):
 
 
 def box_grid(dims, spacing):
-    """Quaderoberfläche als Gitter (Einheitswürfel -0,5..0,5, Kantenteilung nach Maß dims / spacing).
-    Liefert bmesh, je Fläche die Würfelachse (für die UV-Projektion ohne Zickzack-Nähte)."""
+    """Box surface as a grid (unit cube -0.5..0.5, edge subdivision from dims / spacing).
+    Returns the bmesh and the cube axis per face (for the UV projection without zigzag seams)."""
     W, T, H = dims
     n = [max(3, round(W / spacing)), max(2, round(T / spacing)), max(3, round(H / spacing))]
     bm = bmesh.new()
-    lay = bm.faces.layers.int.new("axis")   # Würfelachse je Fläche (vor dem Anlegen der Flächen erzeugen)
+    lay = bm.faces.layers.int.new("axis")   # cube axis per face (create before the faces are added)
     for a in range(3):
         b, c = [k for k in range(3) if k != a]
         for s in (-1, 1):
@@ -97,9 +97,9 @@ def box_grid(dims, spacing):
 
 
 def make_stone(d):
-    """Stein als gerundeter Quader mit Verjüngung, Bruchflächen (ebene Abschläge), Großbeulen, Rinnen
-    (senkrechte Verwitterungsrillen bei Sarsen), Zapfen auf freistehenden Pfeilern, gebogene Kreis-Decksteine.
-    UVs: Projektion je ursprünglicher Würfelseite in Metern (Kachel 3 m bzw. 2 m), je Stein versetzt."""
+    """Stone as a rounded box with taper, fracture faces (flat spalls), large bulges, grooves
+    (vertical weathering runnels on sarsens), tenons on free-standing uprights, curved circle lintels.
+    UVs: projection per original cube side in metres (tile 3 m or 2 m), offset per stone."""
     r = random.Random(d["seed"])
     w, h, t = d["size"]
     sarsen = d["mat"] == "Sarsen"
@@ -108,10 +108,10 @@ def make_stone(d):
     spacing = 0.19 if sarsen else 0.14
     bm, lay = box_grid((w, t, h), spacing)
     off = Vector((d["seed"] * 1.37, d["seed"] * 0.71, d["seed"] * 0.29))
-    rad = 0.14 if sarsen else 0.1                       # Kantenradius
+    rad = 0.14 if sarsen else 0.1                       # edge radius
     if lintel_like:
         rad = 0.12
-    # Bruchflächen: zufällige Ebenen, die 3-12 cm (Stümpfe/Heel: mehr) von Kanten und Ecken abschlagen
+    # fracture faces: random planes that knock 3-12 cm (stumps/Heel: more) off edges and corners
     cuts = []
     ncut = r.randint(4, 8) if sarsen else r.randint(3, 6)
     for _ in range(ncut):
@@ -121,11 +121,11 @@ def make_stone(d):
         cuts.append((n, depth))
     top_cut = None
     if not lintel_like and not d["lie"] and not d.get("bearing"):
-        # freie Oberkante: schräge Bruch-/Verwitterungsfläche, senkt eine Seite um bis zu ~20 cm
+        # free top: sloping fracture/weathering face, lowers one side by up to ~20 cm
         top_cut = (Vector((r.uniform(-0.25, 0.25), r.uniform(-0.25, 0.25), 1.0)).normalized(), r.uniform(0.0, 0.12) * min(rough, 1.4))
     tenons = d.get("tenons", [])
-    # Individualität je Stein: seitliche Neigung der Flanken (Schiefe), ungleiche Verjüngung links/rechts,
-    # Bauch in halber Höhe, ein bis zwei große Fehlstellen an Kanten (nicht an tragenden Oberkanten)
+    # individuality per stone: sideways lean of the flanks, uneven taper left/right,
+    # belly at half height, one or two large missing chunks at edges (not on load-bearing tops)
     skew = r.uniform(-0.07, 0.07) * w if not lintel_like else 0.0
     asym = r.uniform(-0.7, 0.7)
     belly = r.uniform(-0.03, 0.07)
@@ -135,7 +135,7 @@ def make_stone(d):
             nz = r.uniform(-0.5, 0.35 if d.get("bearing") else 0.8)
             n = Vector((math.cos(a), math.sin(a) * 0.8, nz)).normalized()
             cuts.append((n, r.uniform(0.15, 0.32) * min(rough, 1.3)))
-    hb = Vector((w / 2, t / 2, h / 2))                   # Stützmaß der Abschlagebenen (ohne Verjüngung)
+    hb = Vector((w / 2, t / 2, h / 2))                   # support distance of the spall planes (without taper)
     for v in bm.verts:
         p = v.co.copy()
         u = p.z + 0.5
@@ -148,7 +148,7 @@ def make_stone(d):
         nd = ps - q
         nrm = nd.normalized() if nd.length > 1e-9 else Vector((0, 0, 1))
         s = q + nrm * rad
-        # Abschläge
+        # spalls
         for n, depth in cuts:
             ext = abs(n.x) * hb.x + abs(n.y) * hb.y + abs(n.z) * hb.z
             dd = s.dot(n) - (ext - depth)
@@ -165,21 +165,21 @@ def make_stone(d):
         disp = (noise.noise(wp * 0.5) * 0.095 + noise.noise(wp * 1.6) * 0.035 + noise.noise(wp * 4.5) * 0.012
                 + noise.noise(wp * 11.0) * 0.004) * rough
         if sarsen and not d["lie"] and not lintel_like:
-            # senkrechte Rinnen, nach oben stärker (Regenablauf)
+            # vertical grooves, stronger towards the top (rain run-off)
             g = abs(noise.noise(Vector((sp.x * 3.2, sp.y * 3.2, sp.z * 0.25)) + off))
             disp -= (0.035 * (1 - min(g * 3.0, 1.0)) * (0.3 + 0.7 * u * u)) * rough
         if d.get("bearing") and u > 0.97:
-            disp = min(disp, 0.0) * 0.3                  # tragende Oberkante bleibt eben (Deckstein liegt auf)
+            disp = min(disp, 0.0) * 0.3                  # load-bearing top stays flat (the lintel rests on it)
         s += nrm * disp
         if d.get("bearing") and u > 0.999:
-            s.z = h / 2                                  # Oberkante exakt auf Sollhöhe
-        # Zapfen (Tenons): flache Kuppen auf der Oberseite
+            s.z = h / 2                                  # top exactly at the nominal height
+        # tenons: flat bumps on the top face
         if u > 0.99:
             for tx, tr, th in tenons:
                 dist = math.hypot(s.x - tx * w, s.y)
                 s.z += th * (1 - _smooth(tr * 0.5, tr, dist))
         v.co = Vector((s.x + skew * u, s.y, s.z + h / 2))
-    # UVs je Würfelseite (Meter / Kachel) + Versatz je Stein
+    # UVs per cube side (metres / tile) + offset per stone
     uvl = bm.loops.layers.uv.new("UVMap")
     tile = 3.0 if sarsen else 2.0
     ou, ov = r.random(), r.random()
@@ -188,7 +188,7 @@ def make_stone(d):
         a = f[lay]
         b, c = [kk for kk in range(3) if kk != a]
         for lp in f.loops:
-            # Würfelkoordinaten zurückrechnen ist nach der Verformung nicht mehr möglich -> verformte Lage nutzen
+            # reconstructing cube coordinates is impossible after the deformation -> use the deformed position
             co = lp.vert.co
             lp[uvl].uv = (co[b] / tile + ou, co[c] / tile + ov)
     me = bpy.data.meshes.new("s")
@@ -200,8 +200,8 @@ def make_stone(d):
     E.link(ob)
     x, z = d["pos"]
     if d["lie"]:
-        # liegend: um die Längsachse kippen, halb eingesunken, um die Länge zentriert wie die Kollisionsbox
-        # (früher überschrieb ein Zwischenstand die Verschiebung -h/2 mit ob.location -> Stein lag um h/2 neben seiner Box)
+        # lying: tilt about the long axis, half sunk in, centred along the length like the collision box
+        # (an intermediate step used to overwrite the -h/2 shift with ob.location -> the stone lay h/2 beside its box)
         rot = Matrix.Rotation(math.radians(90), 4, "X")
         ob.matrix_world = Matrix.Translation(E.G(x, t * 0.32, z)) @ Matrix.Rotation(math.radians(-d["yaw"]), 4, "Z") @ rot \
             @ Matrix.Translation((0, 0, -h / 2))
@@ -213,7 +213,7 @@ def make_stone(d):
     sa = me.attributes.new("stone_seed", "INT", "FACE")
     sa.data.foreach_set("value", [d["seed"]] * len(me.polygons))
     if d.get("bend"):
-        # Kreis-Deckstein folgt dem Kreisbogen: Enden um x²/(2R) zur Kreismitte versetzt
+        # circle lintel follows the circular arc: ends offset by x²/(2R) towards the circle centre
         ob.data.transform(ob.matrix_world)
         ob.matrix_world = Matrix.Identity(4)
         R = d["bend"]
@@ -228,8 +228,8 @@ def make_stone(d):
 
 
 def stone_colors(ob):
-    """Vertexfarben (COLOR_0 x Base Color): Ton je Stein, großflächige Flechtenfelder (graugrün auf Flanken,
-    hell gelbgrün auf Oberseiten), dunkle Ablaufspuren unter Oberkanten, Moos-/Feuchtesaum am Boden."""
+    """Vertex colours (COLOR_0 x base colour): tone per stone, large lichen patches (grey-green on flanks,
+    light yellow-green on tops), dark run-off streaks below the tops, moss/damp margin at the ground."""
     me = ob.data
     attr = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
     cols = np.zeros((len(me.loops), 4), np.float32)
@@ -250,19 +250,19 @@ def stone_colors(ob):
             o = Vector((sd * 3.1, sd * 1.7, 0))
             v = tone * (1 + 0.07 * noise.noise(p * 0.7 + o))
             col = [v * (1 + warm), v, v * (1 - warm)]
-            # Flechtenfelder (großräumig): Flanken graugrün, Oberseiten hell gelbgrün
+            # lichen patches (large scale): flanks grey-green, tops light yellow-green
             lic = _smooth(0.0, 0.4, noise.noise(p * 0.9 + o * 2.0) + 0.35 * noise.noise(p * 3.1 + o)) * (0.95 if sars else 0.5)
             if n.z > 0.55:
-                tint = (0.97, 1.0, 0.86)               # Oberseiten: hell gelbgrün
+                tint = (0.97, 1.0, 0.86)               # tops: light yellow-green
                 lic = max(lic, 0.7 * _smooth(0.55, 0.95, n.z))
             else:
-                tint = (0.93, 0.95, 0.9)               # Flanken: hellgraue Krustenflechten
+                tint = (0.93, 0.95, 0.9)               # flanks: light-grey crustose lichen
             col = [c * (1 - lic) + tint[i] * lic for i, c in enumerate(col)]
-            # Ablaufspuren: senkrecht gestrecktes Rauschen auf Flanken, oben stärker
+            # run-off streaks: vertically stretched noise on flanks, stronger at the top
             side = 1 - abs(n.z)
             st = max(0.0, noise.noise(Vector((p.x * 3.0, p.y * 3.0, p.z * 0.35)) + o)) * side
             col = [c * (1 - 0.4 * st) for c in col]
-            # Bodensaum: feucht/dunkler, grünlich
+            # ground margin: damp/darker, greenish
             gz = p.z
             if gz < 0.45:
                 f = 1 - _smooth(0.0, 0.45, gz)
@@ -275,8 +275,8 @@ def stone_colors(ob):
 
 
 def lichen_texture(diff_path, arm_path, out_diff, out_arm, seed=3, blue=False):
-    """Krustenflechten in die Albedo malen (kachelbar): mehrere Arten als Flecken 1-8 cm (graugrün, gelb,
-    weißlich, dunkel), Rauheit in den Flecken höher. blue=True: gefleckter Dolerit (helle Feldspat-Tupfen)."""
+    """Paint crustose lichen into the albedo (tileable): several species as 1-8 cm spots (grey-green, yellow,
+    whitish, dark), higher roughness inside the spots. blue=True: spotted dolerite (light feldspar dots)."""
     a = E._load(diff_path)
     n = a.shape[0]
     arm = E._load(arm_path)
@@ -294,22 +294,22 @@ def lichen_texture(diff_path, arm_path, out_diff, out_arm, seed=3, blue=False):
         rgb = rgb * (1 - lic[..., None]) + np.array([0.55, 0.58, 0.5], np.float32) * lic[..., None]
         arm[..., 1] = np.clip(arm[..., 1] + 0.15 * lic, 0, 1)
     else:
-        species = [((0.58, 0.62, 0.52), blob(f1, 0.6) * blob(f3, 0.42, 0.2)),        # graugrün (Parmelia-artig)
-                   ((0.80, 0.72, 0.36), blob(f2, 0.7) * blob(f3, 0.55, 0.2)),        # gelb (Candelariella)
-                   ((0.80, 0.80, 0.76), blob(f4, 0.68) * blob(f2, 0.4, 0.3)),        # weißlich (Lecanora)
-                   ((0.30, 0.31, 0.27), blob(f1, 0.73, 0.02))]                         # dunkle Punkte
+        species = [((0.58, 0.62, 0.52), blob(f1, 0.6) * blob(f3, 0.42, 0.2)),        # grey-green (Parmelia-like)
+                   ((0.80, 0.72, 0.36), blob(f2, 0.7) * blob(f3, 0.55, 0.2)),        # yellow (Candelariella)
+                   ((0.80, 0.80, 0.76), blob(f4, 0.68) * blob(f2, 0.4, 0.3)),        # whitish (Lecanora)
+                   ((0.30, 0.31, 0.27), blob(f1, 0.73, 0.02))]                         # dark dots
         for c, m in species:
             m = m[..., None] * 0.9
             rgb = rgb * (1 - m) + np.array(c, np.float32) * (0.9 + 0.2 * f3[..., None]) * m
             arm[..., 1] = np.clip(arm[..., 1] + 0.2 * m[..., 0], 0, 1)
     a[..., :3] = np.clip(rgb, 0, 1)
-    if n > 1024:                                         # ARM genügt in 1024²
+    if n > 1024:                                         # ARM is fine at 1024²
         arm = E._resize(arm, 1024)
     return E._save(a, os.path.join(E.TEX, out_diff), "JPEG", 90), E._save(arm, os.path.join(E.TEX, out_arm), "JPEG", 92)
 
 
 def lintel(a_deg, b_deg, r, top, seed, length=3.3):
-    """Deckstein zwischen zwei Kreispositionen, leicht gekrümmt (als gerader Quader angenähert)."""
+    """Lintel between two circle positions, slightly curved (approximated as a straight box)."""
     am = (a_deg + b_deg) / 2
     x, z = polar(am, r)
     STONES.append(dict(pos=(x, z), size=(length, 0.8, 1.0), yaw=am, mat="Sarsen", seed=seed, lie=False,
@@ -318,7 +318,7 @@ def lintel(a_deg, b_deg, r, top, seed, length=3.3):
 
 def build():
     E.reset()
-    # Sarsen (Silcrete) hellgrau mit Krustenflechten; Blausteine (gefleckter Dolerit) blaugrau
+    # sarsen (silcrete) light grey with crustose lichen; bluestones (spotted dolerite) blue-grey
     sd = E.prep_tex(cc("rock_boulder_dry", "diff"), "sarsen_diff.jpg", desat=0.9, gain=1.3, tint=(0.98, 0.98, 0.95), size=2048)
     sa = E.prep_data(cc("rock_boulder_dry", "arm"), "sarsen_arm.jpg", size=2048, rough_scale=0.5, rough_add=0.45, metal=0.0)
     sd, sa = lichen_texture(sd, sa, "sarsen_lichen_diff.jpg", "sarsen_lichen_arm.jpg", seed=3)
@@ -330,7 +330,7 @@ def build():
     bn = E.prep_data(cc("rock_face_03", "nor_gl"), "bluestone_nor.jpg", size=1024)
     E.material("Bluestone", diff=bd, arm=ba, nor=bn, normal_strength=1.0, tile=2.0)
 
-    R_S = 15.2                                   # Mittelradius Sarsen-Kreis (Außen-Ø 33 m)
+    R_S = 15.2                                   # mean radius of the sarsen circle (outer Ø 33 m)
     standing = {1, 2, 3, 4, 5, 6, 7, 10, 11, 16, 21, 23, 27, 28, 29, 30}
     stumps = {9, 12, 14, 15, 19, 22, 25, 26}
     fallen = {8, 20}
@@ -346,10 +346,10 @@ def build():
             stone((fx, fz), (2.1, 4.0, 1.1), az, "Sarsen", k, lie=True)
     for a, b, sid in ((30, 1, 130), (1, 2, 101), (2, 3, 102), (5, 6, 105), (6, 7, 106), (22, 23, 122)):
         if sid == 122:
-            continue   # 22 ist heute ein Stumpf -> Deckstein 122 nicht auflegen
+            continue   # 22 is a stump today -> do not place lintel 122
         lintel(AXIS + 12.0 * a - 6.0, AXIS + 12.0 * b - 6.0 + (360 if b < a else 0), R_S, 4.1, sid)
 
-    # Trilithen (Azimut der Mitte, Radius, Höhe, Zustand)
+    # trilithons (azimuth of the centre, radius, height, state)
     tri = [((51, 52), AXIS + 62, 8.6, 6.0, "ok"), ((53, 54), AXIS + 110, 7.6, 6.4, "ok"),
            ((55, 56), AXIS + 180, 7.0, 7.3, "56only"), ((57, 58), AXIS + 250, 7.6, 6.4, "ok"),
            ((59, 60), AXIS + 298, 8.6, 6.0, "60only")]
@@ -371,11 +371,11 @@ def build():
         if state == "ok":
             STONES.append(dict(pos=(cx, cz), size=(4.6, 0.9, 1.1), yaw=az, mat="Sarsen", seed=a + 100, lie=False,
                                tilt=(0, 0), taper=0.97, rough=0.6, bury=-(hh - 0.22)))
-        if state == "56only":   # Deckstein 156 liegt im Inneren
+        if state == "56only":   # lintel 156 lies inside
             fx, fz = polar(az - 15, r - 2.5)
             stone((fx, fz), (4.6, 1.1, 0.9), az + 70, "Sarsen", 156, lie=True)
 
-    # Altarstein (liegend unter dem Großen Trilith), Slaughter Stone, Heel Stone, Station Stones
+    # Altar Stone (lying under the Great Trilithon), Slaughter Stone, Heel Stone, Station Stones
     ax, az_ = polar(AXIS + 180, 4.6)
     stone((ax, az_), (4.9, 1.0, 0.5), AXIS + 90, "Bluestone", 80, lie=True)
     sx, sz = polar(AXIS - 2, 27.0)
@@ -386,7 +386,7 @@ def build():
         x, z = polar(az, r)
         stone((x, z), (1.2, h, 0.8), az, "Sarsen", sid, rough=1.4)
 
-    # Blausteine: Kreis (r 11,5 m) und Hufeisen (r 5,8 m), heute lückenhaft
+    # bluestones: circle (r 11.5 m) and horseshoe (r 5.8 m), incomplete today
     rb = random.Random(7)
     for i in range(60):
         if rb.random() < 0.45:
@@ -407,7 +407,7 @@ def build():
         x, z = polar(az, 5.8 + 0.8 * math.cos(math.radians(az - AXIS - 180)))
         stone((x, z), (0.55, rb.uniform(1.8, 2.4), 0.5), az, "Bluestone", 300 + i, taper=0.75, rough=0.7)
 
-    # Kollisionsboxen je Stein (lokal zum Kreismittelpunkt; headingDeg wie three.js rotation.y, Box-x = Steinbreite)
+    # collision boxes per stone (local to the circle centre; headingDeg like three.js rotation.y, box x = stone width)
     import json as _json
     boxes = []
     for d in STONES:
@@ -422,7 +422,7 @@ def build():
                           "size": {"x": round(w * 0.95, 2), "y": round(h - max(d["bury"], 0.0), 2), "z": round(t * 0.95, 2)}})
     os.makedirs(OUT, exist_ok=True)
     _json.dump(boxes, open(os.path.join(OUT, "stonehenge_stones.json"), "w"), separators=(",", ":"))
-    # tragende Pfeiler (Deckstein liegt auf), Zapfen auf freien Pfeilern, Kreis-Decksteine gebogen
+    # load-bearing uprights (lintel rests on them), tenons on free uprights, circle lintels curved
     lintels = [d for d in STONES if d["bury"] < 0 and not d["lie"]]
     for d in STONES:
         if d["lie"] or d["bury"] < 0:
@@ -433,7 +433,7 @@ def build():
             if top - 0.45 <= -L["bury"] <= top and dist < L["size"][0] / 2 + 0.3:
                 d["bearing"] = True
         if not d.get("bearing") and (d["seed"] <= 30 or d["seed"] in (56, 60)) and d["size"][1] > 3.5:
-            # Kreis-Pfeiler: zwei Zapfen (je ein Deckstein-Ende), Trilith-Pfeiler: ein hoher Zapfen (Stein 56)
+            # circle uprights: two tenons (one per lintel end), trilithon uprights: one tall tenon (stone 56)
             d["tenons"] = [(-0.25, 0.24, 0.12), (0.25, 0.24, 0.12)] if d["seed"] <= 30 else [(0.0, 0.32, 0.28 if d["seed"] == 56 else 0.18)]
     for L in lintels:
         if abs(L["size"][0] - 3.3) < 0.01:

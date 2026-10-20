@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""asset pipeline Welten: Gelände-Kacheln aus offiziellen DTMs/Orthobildern erzeugen.
+"""Asset pipeline worlds: build terrain tiles from official DTMs/orthoimages.
 
-    python3 tools/worlds/terrain.py moon_tranquility [weitere Orte ...]   (ohne Argument: alle)
+    python3 tools/worlds/terrain.py moon_tranquility [more sites ...]   (no argument: all)
 
-Je Ort nach public/assets/worlds/<ort>/:
-  terrain_h16.png   Höhenmodell Nahbereich (16 Bit Graustufen, n x n, Zeile 0 = Nord, Spalte 0 = West)
-  terrain_far_h16.png  Horizont-Kachel (größer, gröber; optional)
-  albedo.jpg        Farbe/Albedo der Nahkachel (sRGB, schattenarm), gleiche Ausdehnung
-  normal.png        Tangentenraum-Normalenkarte (OpenGL, +Y = Nord-Hang? siehe meta) der Nahkachel
-  splat.png         Gewichte für Detailtexturen (RGB: R = Fels/Steil, G = Feinmaterial, B = dunkel/Auswurf), 1024²
-  meta.json         Ausdehnung, Höhenbereich, Spawn, Sonne, Quellen, Wahrzeichen
-Quellen werden nach tools/worlds/downloads/<ort>/ geladen (Range-Requests für große Dateien).
-Höhen: lokale kartesische Höhe über der Tangentialebene am Spawn (Krümmung d²/2R eingerechnet), Spawn-Boden = 0.
+Per site into public/assets/worlds/<site>/:
+  terrain_h16.png   close-range elevation model (16-bit greyscale, n x n, row 0 = north, column 0 = west)
+  terrain_far_h16.png  horizon tile (larger, coarser; optional)
+  albedo.jpg        colour/albedo of the close-range tile (sRGB, little shadowing), same extent
+  normal.png        tangent-space normal map (OpenGL, +Y = north slope? see meta) of the close-range tile
+  splat.png         weights for detail textures (RGB: R = rock/steep, G = fine material, B = dark/ejecta), 1024²
+  meta.json         extent, height range, spawn, sun, sources, landmarks
+Sources are downloaded to tools/worlds/downloads/<site>/ (range requests for large files).
+Heights: local Cartesian height above the tangent plane at the spawn (curvature d²/2R included), spawn ground = 0.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ OUT = os.path.join(ROOT, "public", "assets", "worlds")
 
 
 def fetch(site: str, url: str) -> str:
-    """Datei komplett laden (für kleine/mittlere Quellen), sonst Pfad für Range-Zugriff zurückgeben."""
+    """Load a file completely (for small/medium sources), otherwise return the path for range access."""
     d = os.path.join(DL, site)
     os.makedirs(d, exist_ok=True)
     p = os.path.join(d, os.path.basename(url.split("?")[0]))
@@ -54,23 +54,23 @@ def fetch(site: str, url: str) -> str:
 
 
 def source(site: str, src: dict):
-    """Rasterquelle öffnen: {'url':..., 'mode': 'full'|'range'}."""
+    """Open a raster source: {'url':..., 'mode': 'full'|'range'}."""
     path = fetch(site, src["url"]) if src.get("mode", "full") == "full" else src["url"]
     return rtiff.open_tiff(path, os.path.join(DL, site, ".cache"))
 
 
 def sample_raster(site, src, lat, lon, kind="height"):
-    """Raster an lat/lon-Gitter abtasten. Liest nur das benötigte Fenster."""
+    """Sample a raster on a lat/lon grid. Reads only the window that is needed."""
     T = source(site, src)
     P = geo.Proj.from_tiff(T)
     col, row = P.pix(lat, lon)
     pad = 2
     x0, y0 = int(math.floor(col.min())) - pad, int(math.floor(row.min())) - pad
     x1, y1 = int(math.ceil(col.max())) + pad, int(math.ceil(row.max())) + pad
-    # Quellauflösung deutlich feiner als Ziel -> vor dem Sampling box-filtern (Aliasing vermeiden)
+    # source resolution much finer than the target -> box-filter before sampling (avoid aliasing)
     tgt_step = max(abs(col[0, 1] - col[0, 0]), abs(row[1, 0] - row[0, 0]))
     f = max(1, int(tgt_step + 0.25))
-    # große Fenster: Zeilen/Spalten dezimiert lesen (spart Download), sonst voll lesen + box-filtern
+    # large windows: read decimated rows/columns (saves download), otherwise read fully + box-filter
     decim = src.get("decimate", (x1 - x0) * (y1 - y0) > 40e6 or src.get("mode") == "range")
     if f > 1 and decim:
         win = T.window(x0, y0, x1 - x0, y1 - y0, step=f).astype(np.float64)
@@ -97,7 +97,7 @@ def sample_raster(site, src, lat, lon, kind="height"):
     else:
         col, row = col - x0, row - y0
     if kind == "height" and tgt_step < 0.9 and not bad.any():
-        v, ok = geo.cubic(win, col, row)          # grobe Quelle hochrechnen: glatt statt facettiert
+        v, ok = geo.cubic(win, col, row)          # upsample a coarse source: smooth instead of faceted
     else:
         v, ok = geo.bilinear(win, col, row, bad)
     print(f"    {os.path.basename(src['url'])}: Fenster {x1 - x0}x{y1 - y0} px (f={f}{', dezimiert' if f > 1 and decim else ''}), gültig {ok.mean() * 100:.1f} %")
@@ -117,9 +117,9 @@ def save_h16(path, h, hmin, hmax):
 
 
 def normal_map(h, mpp):
-    """Normalenkarte (OpenGL-Konvention, Textur-u = +X/Ost, Textur-v nach oben = Nord)."""
-    gy, gx = np.gradient(h, mpp)        # gy: Ableitung nach Zeile (Richtung Süd), gx: nach Ost
-    nx, ny, nz = -gx, gy, np.ones_like(h)   # dh/dNord = -gy
+    """Normal map (OpenGL convention, texture u = +X/east, texture v up = north)."""
+    gy, gx = np.gradient(h, mpp)        # gy: derivative along the row (towards south), gx: towards east
+    nx, ny, nz = -gx, gy, np.ones_like(h)   # dh/dnorth = -gy
     L = np.sqrt(nx * nx + ny * ny + nz * nz)
     rgb = np.stack([nx / L, ny / L, nz / L], -1) * 0.5 + 0.5
     return (rgb * 255 + 0.5).astype(np.uint8)
@@ -133,7 +133,7 @@ def build(site: str):
     R = S["R"]
     lat0, lon0 = S["center"]
     slat, slon = S["spawn"]["latlon"]
-    # Spawn in lokalen Koordinaten (Kachelmitte = Ursprung)
+    # spawn in local coordinates (tile centre = origin)
     sx, sn = geo.latlon_to_enu(lat0, lon0, R, slat, slon)
     sz = -sn
     meta = {
@@ -154,7 +154,7 @@ def build(site: str):
         lat, lon = geo.local_grid(lat0, lon0, R, size, n, cx, cz)
         h = np.zeros((n, n))
         ok = np.zeros((n, n), bool)
-        for src in T["height"]:            # erste Quelle mit gültigem Wert gewinnt
+        for src in T["height"]:            # the first source with a valid value wins
             v, o = sample_raster(site, src, lat, lon)
             v = v * src.get("scale", 1.0) + src.get("offset", 0.0)
             take = o & ~ok
@@ -163,7 +163,7 @@ def build(site: str):
             meta["sources"].append({k: src[k] for k in ("url", "credit", "license") if k in src} | {"use": f"{key} height"})
         print(f"    Höhe gültig: {ok.mean() * 100:.1f} % -> Lücken füllen")
         h = geo.inpaint(h, ok)
-        for fix in T.get("flatten", []):   # z. B. Pyramiden im DSM entfernen
+        for fix in T.get("flatten", []):   # e.g. remove the pyramids from the DSM
             h = flatten(h, size, n, cx, cz, {**fix, "xz": to_local(fix["latlon"], lat0, lon0, R)})
         if T.get("smoothM"):
             h = gauss_blur(h, T["smoothM"] / (size / (n - 1)))
@@ -172,8 +172,8 @@ def build(site: str):
         h -= curvature_drop(n, size, R, cx, cz, sx, sz)
         mpp = size / (n - 1)
         if hspawn is None:
-            # Bezugshöhe = Mittelpunkt der Nahkachel (Vertrag src/shared/worlds.ts: decodeHeightmap setzt die
-            # Mitte auf y = 0). Spawn-Höhe relativ dazu steht in meta.spawn.y.
+            # reference height = centre of the close-range tile (contract src/shared/worlds.ts: decodeHeightmap sets the
+            # centre to y = 0). The spawn height relative to it is stored in meta.spawn.y.
             hspawn = float(h[(n - 1) // 2, (n - 1) // 2])
             c = (sx - cx) / mpp + (n - 1) / 2
             r = (sz - cz) / mpp + (n - 1) / 2
@@ -192,13 +192,13 @@ def build(site: str):
             hn, mpp_n = h, mpp
             Image.fromarray(normal_map(h, mpp)).resize((2048, 2048), Image.LANCZOS).save(os.path.join(out, "normal.png"), optimize=True)
             meta["tiles"]["near"]["normalMap"] = "normal.png"
-            # Albedo
+            # albedo
             A = S.get("albedo")
             na = A["n"] if A else 2048
             lat_a, lon_a = geo.local_grid(lat0, lon0, R, size, na, cx, cz)
             reuse = os.environ.get("REUSE_ALBEDO") == "1" and os.path.exists(os.path.join(out, "albedo.jpg"))
             if reuse:
-                # nur Höhen neu berechnen (z. B. geänderter Höhenbezug): vorhandenes Albedo/Quellenangabe behalten
+                # recompute heights only (e.g. changed height reference): keep the existing albedo/source entries
                 alb = np.array(Image.open(os.path.join(out, "albedo.jpg")).convert("RGB"))
                 if A and A.get("source"):
                     meta["sources"].append({k: A["source"][k] for k in ("url", "credit", "license") if k in A["source"]} | {"use": "albedo"})
@@ -234,7 +234,7 @@ def build(site: str):
     meta["rocks"] = S.get("rocks", {})
     meta["license"] = S.get("license", "")
     old = os.path.join(out, "meta.json")
-    if os.path.exists(old):     # Einträge anderer Werkzeuge (z. B. footprints.py) erhalten
+    if os.path.exists(old):     # keep entries written by other tools (e.g. footprints.py)
         prev = json.load(open(old))
         for k in ("footprints",):
             if k in prev:
@@ -256,13 +256,13 @@ def height_at(h, mpp, x, z):
 
 
 def flatten(h, size, n, cx, cz, fix):
-    """Rechteck (x, z, halbe Breite, halbe Tiefe, Rand) aus dem DSM entfernen und glatt füllen."""
+    """Remove a rectangle (x, z, half width, half depth, margin) from the DSM and fill it smoothly."""
     t = (np.arange(n) / (n - 1) - 0.5) * size
     X = cx + t[None, :] + 0 * t[:, None]
     Z = cz + t[:, None] + 0 * t[None, :]
     x, z = fix["xz"]
     if fix.get("radius"):
-        # Ebene (Höhe am Mittelpunkt) im Kreis, weicher Übergang über 'margin' (für Anlagen wie Stonehenge)
+        # plane (height at the centre) inside the circle, soft transition over 'margin' (for sites like Stonehenge)
         X = cx + (np.arange(n) / (n - 1) - 0.5)[None, :] * size + 0 * np.arange(n)[:, None]
         Z = cz + (np.arange(n) / (n - 1) - 0.5)[:, None] * size + 0 * np.arange(n)[None, :]
         d = np.hypot(X - x, Z - z)
@@ -279,7 +279,7 @@ def flatten(h, size, n, cx, cz, fix):
 
 
 def gauss_blur(h, sigma_px):
-    """Gauß-Glättung per FFT (Ränder gespiegelt), z. B. gegen DSM-Rauschen grober Quellen."""
+    """Gaussian smoothing via FFT (mirrored edges), e.g. against DSM noise of coarse sources."""
     n0, n1 = h.shape
     p = np.pad(h, ((n0 // 4, n0 // 4), (n1 // 4, n1 // 4)), mode="reflect")
     fy = np.fft.fftfreq(p.shape[0])[:, None]
@@ -290,7 +290,7 @@ def gauss_blur(h, sigma_px):
 
 
 def detail_noise(n, size, d, seed=0):
-    """Feinstruktur unterhalb der Quellauflösung (für 30-m-DEMs): fBm, Amplitude in m, Grenzwellenlänge in m."""
+    """Fine structure below the source resolution (for 30 m DEMs): fBm, amplitude in m, cut-off wavelength in m."""
     r = np.random.default_rng(seed)
     w = r.standard_normal((n, n))
     fy = np.fft.fftfreq(n, d=size / (n - 1))[:, None]
@@ -305,7 +305,7 @@ def detail_noise(n, size, d, seed=0):
 
 
 def tone_albedo(v, A):
-    """Graustufen-Orthobild -> sRGB-Albedo: Perzentil-Normierung auf Ziel-Albedo (linear), Farbton."""
+    """Greyscale orthoimage -> sRGB albedo: percentile normalisation to the target albedo (linear), tint."""
     lo, hi = np.percentile(v, [0.5, 99.5])
     x = np.clip((v - lo) / max(hi - lo, 1e-6), 0, 1)
     mean_t = A.get("meanAlbedo", 0.12)
@@ -318,7 +318,7 @@ def tone_albedo(v, A):
 
 
 def procedural_albedo(h, mpp, na, A):
-    """Albedo ohne Orthobild (Erde): Grundfarbe + Hangneigung (Fels) + Rauschen, in Zielauflösung."""
+    """Albedo without an orthoimage (Earth): base colour + slope (rock) + noise, at the target resolution."""
     from PIL import Image as _I
     hh = np.array(_I.fromarray(h.astype(np.float32)).resize((na, na), _I.BILINEAR))
     gy, gx = np.gradient(hh, mpp * h.shape[0] / na)
@@ -341,8 +341,8 @@ def procedural_albedo(h, mpp, na, A):
 
 
 def splat_map(h, mpp, alb, S, na=1024):
-    """Gewichte für Detailtexturen in 1024²: R = Fels (Hang), G = Feinmaterial, B = dunkles Material (RGB).
-    (Direkt in Zielauflösung berechnet: PIL skaliert RGBA mit vormultipliziertem Alpha.)"""
+    """Weights for detail textures at 1024²: R = rock (slope), G = fine material, B = dark material (RGB).
+    (Computed directly at the target resolution: PIL scales RGBA with premultiplied alpha.)"""
     from PIL import Image as _I
     hh = np.array(_I.fromarray(h.astype(np.float32)).resize((na, na), _I.BILINEAR))
     gy, gx = np.gradient(hh, mpp * h.shape[0] / na)
@@ -351,7 +351,7 @@ def splat_map(h, mpp, alb, S, na=1024):
     rock = np.clip((slope - S.get("rockSlopeDeg", 18)) / 12, 0, 1)
     dark = np.clip((np.median(lum) - lum) / 0.15, 0, 1) * (1 - rock)
     fine = np.clip(1 - rock - dark, 0, 1)
-    out = np.stack([rock, fine, dark], -1)          # RGB (kein Alpha: Browser würden vormultiplizieren)
+    out = np.stack([rock, fine, dark], -1)          # RGB (no alpha: browsers would premultiply)
     return (out * 255 + 0.5).astype(np.uint8)
 
 

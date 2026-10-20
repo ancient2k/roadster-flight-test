@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Valles Marineris: Sporn-und-Rinnen-Relief und Schichtbänke an den Steilwänden.
+"""Valles Marineris: spur-and-gully relief and layered benches on the cliffs.
 
     python3 tools/worlds/valles_detail.py
 
-Das HRSC/MOLA-Mischmodell (200 m/px) zeichnet die 6–8 km hohen Wände von Coprates Chasma als glatte Rampen;
-feinere offizielle DTMs (HiRISE/CTX/HRSC-Einzelorbit) sind für diesen Punkt nicht erreichbar. Wie in den
-HRSC-/CTX-Bildern gliedern sich die Wände in Sporne und Rinnen (Abstand ~1–3 km, im Nahfeld feinere Runsen)
-und in harte Lagen, die Bänke bilden. Beides wird hier hangabhängig aufgeprägt:
-  - Ausrichtung: geglättetes Gefälle der Fernkachel (σ ≈ 1 km), für Nah- und Fernkachel dasselbe Feld
-    (gleiche Verschiebung im Überblendband)
-  - Sporne/Rinnen: gratartiges Rauschen quer zum Hang (λ 2400/700/180 m), längs gestreckt (×5)
-  - Bänke: Treppung der Höhe (Lagen 120 m und 22 m) mit 25 % Stufenanteil
-  - Gewicht: nur an Hängen (Neigung 12°…30°), nicht im Umkreis 900 m um den Spawn, Kachelmitte bleibt 0
-Idempotent: Original (asset pipeline) in tools/worlds/downloads/mars_valles/*.wsf.png.
+The HRSC/MOLA blend (200 m/px) draws the 6–8 km high walls of Coprates Chasma as smooth ramps;
+finer official DTMs (HiRISE/CTX/HRSC single orbit) are not available for this spot. As in the
+HRSC/CTX images, the walls break up into spurs and gullies (spacing ~1–3 km, finer runnels close up)
+and into hard layers that form benches. Both are imprinted here depending on the slope:
+  - orientation: smoothed gradient of the far tile (σ ≈ 1 km), the same field for near and far tile
+    (same displacement in the blend band)
+  - spurs/gullies: ridged noise across the slope (λ 2400/700/180 m), stretched along it (×5)
+  - benches: stair-stepped elevation (layers 120 m and 22 m) with 25 % riser share
+  - weight: only on slopes (12°…30°), not within 900 m of the spawn, the tile centre stays 0
+Idempotent: original (asset pipeline) in tools/worlds/downloads/mars_valles/*.wsf.png.
 """
 import json
 import os

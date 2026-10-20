@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# lädt die CC0-Quellen (Poly Haven, https://polyhaven.com/license) nach tools/blender/env/cc0/.
-# Nur Bilder/glTF-Daten, kein ausführbarer Code. Idempotent (vorhandene Dateien werden übersprungen).
+# downloads the CC0 sources (Poly Haven, https://polyhaven.com/license) into tools/blender/env/cc0/.
+# Images/glTF data only, no executable code. Idempotent (existing files are skipped).
 set -euo pipefail
 cd "$(dirname "$0")"
 OUT=cc0
 mkdir -p "$OUT"
 PH=https://dl.polyhaven.org/file/ph-assets
 
-get() { # url  ziel
+get() { # url  target
   [ -s "$2" ] || { echo "  ↓ $2"; curl -sfL "$1" -o "$2"; }
 }
 
-# --- Texturen (1k, Normal = OpenGL)
+# --- textures (1k, normal = OpenGL)
 for t in metal_plate concrete_wall_008 painted_metal_shutter; do
   mkdir -p "$OUT/$t"
   for m in diff nor_gl arm; do get "$PH/Textures/jpg/1k/$t/${t}_${m}_1k.jpg" "$OUT/$t/${t}_${m}_1k.jpg"; done
 done
 
-# --- Modelle (glTF 1k) + Alpha/Trocken-Varianten
+# --- models (glTF 1k) + alpha/dry variants
 for m in concrete_road_barrier grass_medium_01 shrub_02 shrub_04 dry_branches_medium_01; do
   mkdir -p "$OUT/$m/textures"
   get "$PH/Models/gltf/1k/$m/${m}_1k.gltf" "$OUT/$m/${m}_1k.gltf"

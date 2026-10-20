@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# alle Umgebungs-GLBs bauen (LOD0 + LOD1 wo vorhanden) und prüfen.
-#   tools/blender/env/build_all.sh [name ...]     z. B. build_all.sh stage light_tower
+# build all environment GLBs (LOD0 + LOD1 where available) and check them.
+#   tools/blender/env/build_all.sh [name ...]     e.g. build_all.sh stage light_tower
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 B=${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}

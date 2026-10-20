@@ -1,13 +1,13 @@
-"""EEVEE-Nachtvorschau eines Umgebungs-GLBs (McGregor-Look: nasser Asphalt, Dunst, Flutlicht).
+"""EEVEE night preview of an environment GLB (McGregor look: wet asphalt, haze, floodlight).
 
   Blender -b --factory-startup -P tools/blender/env/render_preview.py -- \
       --glb public/assets/env-models/light_tower.glb --out out/renders/env_light_tower.png \
       [--cam dist,elev,azim,target_y] [--lens 35] [--spots] [--key 1.0] [--res 1600x900]
       [--array dx,n] [--extra other.glb@x,y,z,headingDeg ...]
 
---spots: echte Spotlights an allen Light_*-Empties (Richtung = glTF-lokal -Z).
---array: das Asset n-mal im Abstand dx entlang X (Kachel-/Instancing-Vorschau).
-azim 0 = Kamera vor dem Asset (auf der +Z-Seite, Blick zur Front).
+--spots: real spotlights at all Light_* empties (direction = glTF-local -Z).
+--array: the asset n times at spacing dx along X (tiling/instancing preview).
+azim 0 = camera in front of the asset (on the +Z side, looking at the front).
 """
 import math
 import os
@@ -78,7 +78,7 @@ def mat_asphalt():
     nt.links.new(a.outputs["Color"], sep.inputs["Color"])
     wet = nt.nodes.new("ShaderNodeMath")
     wet.operation = "MULTIPLY"
-    wet.inputs[1].default_value = 0.32       # nasser Asphalt (Stream: Spiegelungen)
+    wet.inputs[1].default_value = 0.32       # wet asphalt (stream: reflections)
     nt.links.new(sep.outputs["Green"], wet.inputs[0])
     nt.links.new(wet.outputs[0], p.inputs["Roughness"])
     n = img("asphalt_nor.jpg", True)
@@ -177,7 +177,7 @@ def main():
     else:
         objs = import_glb(glb)
     import random
-    for sc_s in arg("--scatter", many=True):     # glb,anzahl,radius,seed
+    for sc_s in arg("--scatter", many=True):     # glb,count,radius,seed
         p, cnt, rad, sd = sc_s.split(",")
         rr = random.Random(int(sd))
         base = import_glb(os.path.join(ROOT, p))

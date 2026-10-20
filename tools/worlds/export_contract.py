@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""asset pipeline Welten: Vertragsformat des Leads (src/shared/worlds.ts) aus den Daten erzeugen.
+"""Asset pipeline worlds: produce the lead's contract format (src/shared/worlds.ts) from the data.
 
-Je Ort (public/assets/worlds/<siteId>/):
-  height.bin       Uint16 little-endian, size x size, zeilenweise; Zeile 0 = Norden (-Z), Zeilen entlang +Z,
-                   Spalten entlang +X (Osten). Inhalt = terrain_h16.png der Nahkachel (identische Quantisierung).
-  meta.json        + top-level TerrainMeta {size, extentM, minM, maxM, source}; alle Felder bleiben erhalten.
-  landmarks.json   [{glb, pos:{x,y,z}, headingDeg, collider:'box'|'hull', size:{x,y,z}, note}] (y = Geländehöhe,
-                   gleicher Bezug wie decodeHeightmap: Kachelmitte = 0)
-  detail_<name>_{diff,nor,arm}.jpg  Kopien aus _shared/detail (<= 1024², kachelbar)
-  materials.json   Albedo/Normal/Splat + Detailkanäle mit Kachelgrößen
+Per site (public/assets/worlds/<siteId>/):
+  height.bin       Uint16 little-endian, size x size, row-major; row 0 = north (-Z), rows along +Z,
+                   columns along +X (east). Content = terrain_h16.png of the close-range tile (identical quantisation).
+  meta.json        + top-level TerrainMeta {size, extentM, minM, maxM, source}; all fields are kept.
+  landmarks.json   [{glb, pos:{x,y,z}, headingDeg, collider:'box'|'hull', size:{x,y,z}, note}] (y = ground height,
+                   same reference as decodeHeightmap: tile centre = 0)
+  detail_<name>_{diff,nor,arm}.jpg  copies from _shared/detail (<= 1024², tileable)
+  materials.json   albedo/normal/splat + detail channels with tile sizes
 
-    python3 tools/worlds/export_contract.py [ort ...]
+    python3 tools/worlds/export_contract.py [site ...]
 """
 import json
 import os
@@ -27,14 +27,14 @@ SHARED = os.path.join(W, "_shared", "detail")
 sys.path.insert(0, os.path.join(ROOT, "tools", "blender", "env"))
 import check_glb  # noqa: E402
 
-# Kollisionsform je Wahrzeichen. Konvexe Hülle nur, wo das Objekt (fast) konvex ist; sonst Box mit Maß.
+# collision shape per landmark. Convex hull only where the object is (almost) convex; otherwise a box with dimensions.
 COLLIDER = {
     "giza_khufu.glb": ("hull", None), "giza_khafre.glb": ("hull", None), "giza_menkaure.glb": ("hull", None),
     "giza_sphinx.glb": ("hull", None),
-    # LM: nur Abstiegsstufe + Beine (GLB enthält auch EASEP/Flagge bzw. den Rover in 10–90 m Abstand)
+    # LM: descent stage + legs only (the GLB also contains the EASEP/flag or the rover at 10–90 m distance)
     "apollo_lm_descent.glb": ("box", {"x": 6.8, "y": 3.3, "z": 6.8}),
     "perseverance.glb": ("box", {"x": 2.7, "y": 2.2, "z": 3.0}),
-    # Stonehenge: viele Einzelsteine -> per-Stein-Boxen in 'stones' (eine Hülle würde den Kreis verschließen)
+    # Stonehenge: many single stones -> per-stone boxes in 'stones' (one hull would close the circle)
     "stonehenge.glb": ("box", None),
 }
 
@@ -77,7 +77,7 @@ def export(site):
     a.astype("<u2").tofile(os.path.join(d, "height.bin"))
     src = "; ".join(s["credit"] for s in m["sources"] if s.get("use") == "near height")
     m.update({"size": t["resolution"], "extentM": t["sizeM"], "minM": t["heightMinM"], "maxM": t["heightMaxM"], "source": src})
-    # Landmarks
+    # landmarks
     lms = []
     for lm in m.get("landmarks", []):
         kind, size = COLLIDER.get(lm["file"], ("hull", None))
@@ -93,7 +93,7 @@ def export(site):
                 e["note"] += "; Kollision: 'stones' (Box je Stein, lokal zum Kreismittelpunkt) statt der Gesamt-Box verwenden"
         lms.append(e)
     json.dump(lms, open(os.path.join(d, "landmarks.json"), "w"), indent=1, ensure_ascii=False)
-    # Detailtexturen + materials.json
+    # detail textures + materials.json
     det = m.get("detailTextures") or {}
     tiles = json.load(open(os.path.join(SHARED, "detail.json")))
     details = {}

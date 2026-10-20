@@ -222,7 +222,7 @@ export class CloudVolumeNode extends THREE.TempNode {
             const threads = smoothstep(float(0.55), float(0.85), float(1).sub(df).mul(0.6).add(n3.mul(0.4)))
               .mul(smoothstep(float(0.42), float(0.62), nBig));
             // + torn rags in the outermost thin vapour only (d0 ≲ 0.3 /m, outside the body;
-            // review 11: "zu wenig feine transparente Ausläufer"): fibrous, translucent tails that run
+            // review 11: "too few fine transparent wisps"): fibrous, translucent tails that run
             // out of every silhouette instead of ending at the last lobe. Inside the body (gaps between
             // lobes) nothing is added – a haze there turned the lobes into fog.
             // (the thin vapour around a cloud spans a large volume – e.g. the whole 0–60 trail – so the

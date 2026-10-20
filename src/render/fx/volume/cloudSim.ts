@@ -33,7 +33,7 @@ export interface CloudLights {
   /**
    * red stage floods (same fields as `spots`). They go into the red channel like the LED bars,
    * but as body light shadowed towards the flood – the stream finale's deep red smoke zone next to
-   * the white-lit part ("zu grau statt räumlich getrennt weiß/rot").
+   * the white-lit part ("too grey instead of spatially separated white/red").
    */
   reds?: CloudLights['spots'];
 }

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Gizeh: Sphinx-Gehege ins Nahfeld-Höhenmodell stempeln und die Königinnenpyramiden als
-Wahrzeichen eintragen (meta.json + landmarks.json). Idempotent: das unveränderte Höhenmodell wird beim
-ersten Lauf nach tools/worlds/downloads/earth_giza/terrain_h16.wsf.png gesichert und immer von dort gestempelt.
+"""Giza: stamp the Sphinx enclosure into the close-range elevation model and add the queens' pyramids as
+landmarks (meta.json + landmarks.json). Idempotent: the unchanged elevation model is saved on the
+first run to tools/worlds/downloads/earth_giza/terrain_h16.wsf.png and always stamped from there.
 
     python3 tools/worlds/giza_detail.py
 
-Gehege (Lehner 1991): ebener, aus dem Fels geschnittener Boden um die Sphinx, Westwand ~8–10 m hoch, nach Osten
-offen zu den Taltempeln. Boden hier y = -45,5 m (Nahkachel-Bezug), Rechteck x 684…790, z -114…-60.
+Enclosure (Lehner 1991): flat floor cut out of the rock around the Sphinx, west wall ~8–10 m high, open to the
+east towards the valley temples. Floor here y = -45.5 m (close-range tile reference), rectangle x 684…790, z -114…-60.
 """
 import json
 import os

@@ -1,6 +1,6 @@
 // Time-aligned validation against the stream HUD (VIDEO_REFERENCE): the sim telemetry trace is
 // sampled at the reference times (t_ref + StuntResult.startT) and compared per channel.
-// "Position, Orientierung, Zeit, Kräfte ... mit derselben Referenzphase vergleichen".
+// "compare position, orientation, time, forces ... against the same reference phase".
 import { FT } from '@shared/math';
 import { VIDEO_REFERENCE, type RefSample } from '@shared/reference';
 import type { StuntId, TelemetryFrame } from '@shared/types';
