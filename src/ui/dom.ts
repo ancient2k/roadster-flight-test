@@ -43,7 +43,3 @@ export class Emitter<E extends object> {
   off<K extends keyof E>(type: K, fn: (v: E[K]) => void): void { this.map.get(type)?.delete(fn as (v: never) => void); }
   emit<K extends keyof E>(type: K, v: E[K]): void { for (const fn of this.map.get(type) ?? []) (fn as (x: E[K]) => void)(v); }
 }
-
-/** German number formatting with a fixed number of decimals. */
-export const fmtDe = (v: number, digits = 1): string =>
-  Number.isFinite(v) ? v.toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits }) : '–';

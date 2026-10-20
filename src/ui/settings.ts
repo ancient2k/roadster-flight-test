@@ -3,6 +3,7 @@
 // because storage can be missing, full or blocked (private mode, sandboxed iframes).
 import type { AssistLevel } from '../shared/types';
 import type { Units } from './units';
+import { LOCALE_CODES, type LanguageSetting } from '../i18n';
 
 export type GraphicsQuality = 'low' | 'medium' | 'high' | 'ultra';
 export type RefillRate = 'realistic' | 'game';
@@ -11,6 +12,8 @@ export interface Settings {
   version: 1;
   graphics: { quality: GraphicsQuality; dynamicResolution: boolean; motionBlur: boolean };
   units: Units;
+  /** UI language; 'auto' follows navigator.languages (?lang= overrides both). */
+  language: LanguageSetting;
   audio: { master: number; effects: number; crowd: number; muted: boolean };
   refillRate: RefillRate;
   realism: {
@@ -32,6 +35,7 @@ export function defaultSettings(): Settings {
     version: 1,
     graphics: { quality: 'high', dynamicResolution: true, motionBlur: true },
     units: 'imperial',
+    language: 'auto',
     audio: { master: 0.8, effects: 1, crowd: 0.7, muted: false },
     refillRate: 'game',
     realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, crashDamage: true },
@@ -80,6 +84,7 @@ function mergeTyped(base: Plain, src: unknown, path: string, enums: Record<strin
 const ENUMS: Record<string, readonly string[]> = {
   'graphics.quality': ['low', 'medium', 'high', 'ultra'],
   units: ['imperial', 'metric'],
+  language: ['auto', ...LOCALE_CODES],
   refillRate: ['realistic', 'game'],
   assistDefault: ['ASSIST', 'STABILIZED', 'RAW'],
 };

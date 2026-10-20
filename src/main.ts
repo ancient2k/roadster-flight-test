@@ -1,5 +1,6 @@
 // Entry point: boots the app and exposes a debug/test hook on window.__rft.
 import { App } from './game/app';
+import { t } from './i18n';
 import type { StuntId } from '@shared/types';
 
 declare global { interface Window { __rft?: Record<string, unknown> } }
@@ -49,6 +50,6 @@ boot().catch((e) => {
   hideBootScreen();
   const pre = document.createElement('pre');
   pre.style.cssText = 'color:#f66;padding:24px;font:14px monospace';
-  pre.textContent = `Start fehlgeschlagen: ${String(e?.stack ?? e)}`;
+  pre.textContent = t('app.bootFailed', { error: String(e?.stack ?? e) });
   document.body.appendChild(pre);
 });

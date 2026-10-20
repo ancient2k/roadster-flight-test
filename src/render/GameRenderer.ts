@@ -306,7 +306,7 @@ export class GameRenderer {
   /** Phase-2 site: terrain/sky/sun or the Sun scene replace the McGregor pad. */
   private async loadSiteWorld(worldSite: SiteDef): Promise<void> {
     let wt = performance.now(), wk = 'w.start';
-    const onProgress = (msg: string) => { const n = performance.now(); this.timings[wk] = Math.round(n - wt); wt = n; wk = 'w.' + msg.replace(/[ .…]+$/, ''); };
+    const onProgress = (phase: string) => { const n = performance.now(); this.timings[wk] = Math.round(n - wt); wt = n; wk = 'w.' + phase; };
     this.world = await loadWorld(this.scene, this.renderer, worldSite, { quality: this.level, assetBase: this.assetBase, camera: this.rig.camera, onProgress });
     onProgress('end');
     const wh = this.world;

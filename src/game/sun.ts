@@ -3,6 +3,7 @@
 // presented as a radial infall from rest (Kepler, GM☉) under adjustable time compression.
 // Thermal: m·c·dT/dt = α·S(r)·A_abs − ε·σ·A_rad·T⁴   with S(r) = S0·(AU/r)².
 // DOM-free, tested in tests/game/sun.test.ts.
+import { t } from '../i18n';
 
 export const GM_SUN = 1.32712440018e20;   // m³/s²
 export const AU = 1.495978707e11;         // m
@@ -22,20 +23,24 @@ export const ROADSTER_THERMAL: CarThermal = {
   heatCapacityJK: 1950 * 900, absorbArea: 4.0, radiateArea: 25, absorptivity: 0.35, emissivity: 0.85,
 };
 
-export interface DiveStage { id: string; label: string; tempK?: number; rAU?: number }
+export type DiveStageId = 'venus' | 'paint' | 'mercury' | 'cfrp' | 'tires' | 'aluminium' | 'glass' | 'steel' | 'titanium' | 'vapor';
+/** label: translated on read (sun.stage.<id>). */
+export interface DiveStage { id: DiveStageId; readonly label: string; tempK?: number; rAU?: number }
+
+const stage = (id: DiveStageId, limit: { tempK?: number; rAU?: number }): DiveStage => ({ id, ...limit, get label() { return t(`sun.stage.${id}`); } });
 
 /** Failure / milestone stages, in order. Temperatures: realistic material limits. */
 export const STAGES: DiveStage[] = [
-  { id: 'venus', label: 'Venusbahn gekreuzt', rAU: 0.723 },
-  { id: 'paint', label: 'Lack verkohlt', tempK: 520 },
-  { id: 'mercury', label: 'Merkurbahn gekreuzt', rAU: 0.387 },
-  { id: 'cfrp', label: 'Carbon-Harz zersetzt sich', tempK: 650 },
-  { id: 'tires', label: 'Reifen brennen', tempK: 750 },
-  { id: 'aluminium', label: 'Aluminium schmilzt', tempK: 933 },
-  { id: 'glass', label: 'Scheiben erweichen', tempK: 1000 },
-  { id: 'steel', label: 'Stahl schmilzt', tempK: 1700 },
-  { id: 'titanium', label: 'Titan schmilzt', tempK: 1941 },
-  { id: 'vapor', label: 'Verglüht', tempK: 3000 },
+  stage('venus', { rAU: 0.723 }),
+  stage('paint', { tempK: 520 }),
+  stage('mercury', { rAU: 0.387 }),
+  stage('cfrp', { tempK: 650 }),
+  stage('tires', { tempK: 750 }),
+  stage('aluminium', { tempK: 933 }),
+  stage('glass', { tempK: 1000 }),
+  stage('steel', { tempK: 1700 }),
+  stage('titanium', { tempK: 1941 }),
+  stage('vapor', { tempK: 3000 }),
 ];
 
 export interface DiveState {

@@ -17,7 +17,7 @@ async function vehicleSim(env: Environment): Promise<RoadsterSim> {
 }
 
 describe('ASSIST air reserve (Earth): holding the lift button never ends in a crash', () => {
-  it('climb is limited, LUFT KNAPP warns, AUTO-LANDUNG lands softly with air left', async () => {
+  it('climb is limited, LOW_AIR warns, AUTOLAND lands softly with air left', async () => {
     const sim = await vehicleSim(EARTH);
     sim.reset({ pos: v3(0, 0, 0), quat: { x: 0, y: 0, z: 0, w: 1 } });
     const ma = new ManualAssist();
@@ -34,8 +34,8 @@ describe('ASSIST air reserve (Earth): holding the lift button never ends in a cr
     }
     const s = sim.getState();
     console.log({ maxH, touchSink, landedT, air: s.tank.airMassKg, labels: [...labels] });
-    expect(labels.has('LUFT KNAPP')).toBe(true);
-    expect(labels.has('AUTO-LANDUNG')).toBe(true);
+    expect(labels.has('LOW_AIR')).toBe(true);
+    expect(labels.has('AUTOLAND')).toBe(true);
     expect(touchSink).toBeLessThan(2.0);
     expect(s.crashed).toBe(false);
     expect(s.tank.airMassKg).toBeGreaterThan(10);
@@ -49,7 +49,7 @@ describe('ASSIST air reserve (Earth): holding the lift button never ends in a cr
     sim.step(drive, sys, ma.update(sim, { ...zero, lift: 0.4 }, 'STABILIZED'));
     expect(ma.status.lowAir).toBe(true);
     expect(ma.status.autoLand).toBe(false);
-    expect(ma.status.label).toBe('LUFT KNAPP');
+    expect(ma.status.label).toBe('LOW_AIR');
     sim.dispose();
   });
 });
@@ -122,7 +122,7 @@ describe('ASSIST in free space: attitude hold + velocity hold over the jets', ()
     expect(sim.getState().linVel.y).toBeGreaterThan(1.5);       // ≈ 2 m/s up
     run({ ...zero, lift: -1 }, 1);                               // back to 0 would need −Y thrust
     expect(ma.status.unreachableDvMs).toBeGreaterThan(1.5);
-    expect(ma.status.label).toBe('DREHEN');
+    expect(ma.status.label).toBe('ROTATE');
     run({ ...zero, roll: 1 }, Math.PI / 3.0);                    // pilot rolls the roof down (3 rad/s)
     let minSpeed = Infinity;
     run(zero, 3, () => { const v = sim.getState().linVel; minSpeed = Math.min(minSpeed, Math.hypot(v.y, v.z)); });
@@ -142,7 +142,7 @@ describe('ASSIST in free space: attitude hold + velocity hold over the jets', ()
     run({ ...zero, lift: -1 }, 3);          // the pilot holds a request the jets cannot fulfil
     const dvy = sim.getState().linVel.y - vy0;
     console.log('unreachable lift −1 for 3 s: Δvy', dvy.toFixed(2), 'm/s (before the fix: +2.50 m/s)');
-    expect(ma.status.label).toBe('DREHEN');
+    expect(ma.status.label).toBe('ROTATE');
     expect(dvy).toBeLessThan(1.8);            // 1.36 m/s (limit cycle remains: hardware resolution)
     sim.dispose();
   });

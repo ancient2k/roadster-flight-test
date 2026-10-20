@@ -47,13 +47,13 @@ test('ASSIST: holding lift until the air runs low triggers the reserve and lands
     const t = await tel(page);
     if (t.phase) phases.add(t.phase);
     maxAlt = Math.max(maxAlt, t.alt);
-    if (phases.has('AUTO-LANDUNG') && t.wheels >= 3) break;
+    if (phases.has('AUTOLAND') && t.wheels >= 3) break;
   }
   await page.keyboard.up('Space');
   await page.waitForTimeout(6000);
   const end = await tel(page);
   expect(maxAlt).toBeGreaterThan(3);
-  expect([...phases].some((p) => p === 'LUFT KNAPP' || p === 'AUTO-LANDUNG')).toBe(true);
+  expect([...phases].some((p) => p === 'LOW_AIR' || p === 'AUTOLAND')).toBe(true);
   expect(end.crashed).toBe(false);
   expect(end.wheels).toBeGreaterThanOrEqual(3);
   expect(end.alt).toBeLessThan(0.3);

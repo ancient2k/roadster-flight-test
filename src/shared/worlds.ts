@@ -4,6 +4,7 @@
 //   meta.json   – TerrainMeta (below)
 import type { Vec3 } from './math';
 import { ENVIRONMENTS, type BodyId, type Environment, type SurfaceKind } from './environment';
+import { fmtNum, t } from '../i18n';
 
 export type SiteId =
   | 'earth_mcgregor' | 'earth_stonehenge' | 'earth_giza'
@@ -26,8 +27,10 @@ export interface TerrainMeta {
 export interface SiteDef {
   id: SiteId;
   body: BodyId;
-  name: string;          // German display name
-  subtitle: string;      // short German description for the map screen
+  /** Display name (translated on read: site.<id>.name). */
+  readonly name: string;
+  /** Short description for the map screen (site.<id>.subtitle). */
+  readonly subtitle: string;
   /** 'track' = McGregor layout (TRACK), 'terrain' = heightmap, 'space' = no ground. */
   ground: 'track' | 'terrain' | 'space';
   /** Dominant ground material of the site (McGregor ramps are concrete, see colliderInfo kind 'ramp'). */
@@ -37,48 +40,68 @@ export interface SiteDef {
   sunDir: Vec3;
   /** Local time of day look. */
   look: 'night' | 'day' | 'lunar_day' | 'lunar_low_sun' | 'mars_day' | 'deep_space';
-  /** Real-world reference (for the info panel). */
-  coords: string;
+  /** Real-world reference (for the info panel), formatted for the current locale. */
+  readonly coords: string;
+  /** Latitude/longitude in degrees (+N/+E) with the number of decimals to show; null = no surface position. */
+  geo: { lat: number; lon: number; digits: [number, number] } | null;
   assetDir: string;      // public/assets/worlds/<id>
   available: boolean;    // set true once the assets exist and are integrated
 }
 
 const norm = (v: Vec3): Vec3 => { const l = Math.hypot(v.x, v.y, v.z) || 1; return { x: v.x / l, y: v.y / l, z: v.z / l }; };
 
-export const SITES: SiteDef[] = [
-  { id: 'earth_mcgregor', body: 'earth', surface: 'asphalt', name: 'McGregor Testgelände', subtitle: 'Die Vorstellung vom 15.10.2026 – alle Stunts',
+type RawSite = Omit<SiteDef, 'name' | 'subtitle' | 'coords'>;
+
+const RAW_SITES: RawSite[] = [
+  { id: 'earth_mcgregor', body: 'earth', surface: 'asphalt',
     ground: 'track', spawn: { pos: { x: 20, y: 0, z: 40 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: 0.3, y: -0.4, z: 0.2 }),
-    look: 'night', coords: '31,40° N 97,45° W', assetDir: 'assets', available: true },
-  { id: 'earth_stonehenge', body: 'earth', surface: 'grass', name: 'Stonehenge', subtitle: 'Salisbury Plain, Sarsen-Kreis bei Morgenlicht',
+    look: 'night', geo: { lat: 31.4, lon: -97.45, digits: [2, 2] }, assetDir: 'assets', available: true },
+  { id: 'earth_stonehenge', body: 'earth', surface: 'grass',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: -120 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: 0.6, y: 0.25, z: 0.75 }),
-    look: 'day', coords: '51,1789° N 1,8262° W', assetDir: 'assets/worlds/earth_stonehenge', available: true },
-  { id: 'earth_giza', body: 'earth', surface: 'sand', name: 'Gizeh-Plateau', subtitle: 'Cheops, Chephren, Mykerinos und die Sphinx',
+    look: 'day', geo: { lat: 51.1789, lon: -1.8262, digits: [4, 4] }, assetDir: 'assets/worlds/earth_stonehenge', available: true },
+  { id: 'earth_giza', body: 'earth', surface: 'sand',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: -300 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: -0.4, y: 0.55, z: 0.3 }),
-    look: 'day', coords: '29,9792° N 31,1342° O', assetDir: 'assets/worlds/earth_giza', available: true },
-  { id: 'moon_tranquility', body: 'moon', surface: 'regolith', name: 'Tranquility Base', subtitle: 'Apollo 11, Mare Tranquillitatis',
+    look: 'day', geo: { lat: 29.9792, lon: 31.1342, digits: [4, 4] }, assetDir: 'assets/worlds/earth_giza', available: true },
+  { id: 'moon_tranquility', body: 'moon', surface: 'regolith',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: -60 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: -0.8, y: 0.2, z: 0.1 }),
-    look: 'lunar_day', coords: '0,674° N 23,473° O', assetDir: 'assets/worlds/moon_tranquility', available: true },
-  { id: 'moon_hadley', body: 'moon', surface: 'regolith', name: 'Hadley-Rille', subtitle: 'Apollo 15, Rille und Mount Hadley',
+    look: 'lunar_day', geo: { lat: 0.674, lon: 23.473, digits: [3, 3] }, assetDir: 'assets/worlds/moon_tranquility', available: true },
+  { id: 'moon_hadley', body: 'moon', surface: 'regolith',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: 0 }, headingDeg: 90, speedMs: 0 }, sunDir: norm({ x: -0.7, y: 0.3, z: -0.2 }),
-    look: 'lunar_day', coords: '26,13° N 3,63° O', assetDir: 'assets/worlds/moon_hadley', available: true },
-  { id: 'moon_shackleton', body: 'moon', surface: 'regolith', name: 'Shackleton-Krater', subtitle: 'Südpol, Kraterrand im Streiflicht',
+    look: 'lunar_day', geo: { lat: 26.13, lon: 3.63, digits: [2, 2] }, assetDir: 'assets/worlds/moon_hadley', available: true },
+  { id: 'moon_shackleton', body: 'moon', surface: 'regolith',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: 0 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: 1, y: 0.03, z: 0.1 }),
-    look: 'lunar_low_sun', coords: '89,67° S 129,78° O', assetDir: 'assets/worlds/moon_shackleton', available: true },
-  { id: 'mars_jezero', body: 'mars', surface: 'mars_soil', name: 'Jezero-Krater', subtitle: 'Altes Flussdelta, Perseverance-Gebiet',
+    look: 'lunar_low_sun', geo: { lat: -89.67, lon: 129.78, digits: [2, 2] }, assetDir: 'assets/worlds/moon_shackleton', available: true },
+  { id: 'mars_jezero', body: 'mars', surface: 'mars_soil',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: 0 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: 0.5, y: 0.5, z: 0.2 }),
-    look: 'mars_day', coords: '18,38° N 77,58° O', assetDir: 'assets/worlds/mars_jezero', available: true },
-  { id: 'mars_gale', body: 'mars', surface: 'mars_soil', name: 'Gale-Krater', subtitle: 'Fuß des Mount Sharp, Curiosity-Gebiet',
+    look: 'mars_day', geo: { lat: 18.38, lon: 77.58, digits: [2, 2] }, assetDir: 'assets/worlds/mars_jezero', available: true },
+  { id: 'mars_gale', body: 'mars', surface: 'mars_soil',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: 0 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: -0.3, y: 0.6, z: 0.4 }),
-    look: 'mars_day', coords: '5,4° S 137,8° O', assetDir: 'assets/worlds/mars_gale', available: true },
-  { id: 'mars_valles', body: 'mars', surface: 'mars_soil', name: 'Valles Marineris', subtitle: 'Coprates Chasma, kilometerhohe Steilwände',
+    look: 'mars_day', geo: { lat: -5.4, lon: 137.8, digits: [1, 1] }, assetDir: 'assets/worlds/mars_gale', available: true },
+  { id: 'mars_valles', body: 'mars', surface: 'mars_soil',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: 0 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: 0.2, y: 0.7, z: -0.5 }),
-    look: 'mars_day', coords: '13,5° S 61° W', assetDir: 'assets/worlds/mars_valles', available: true },
-  { id: 'space_sun', body: 'space', surface: 'asphalt', name: 'Sonne', subtitle: 'Roadster 1 mit Starman – und ab in die Sonne',
+    look: 'mars_day', geo: { lat: -13.5, lon: -61, digits: [1, 0] }, assetDir: 'assets/worlds/mars_valles', available: true },
+  { id: 'space_sun', body: 'space', surface: 'asphalt',
     ground: 'space', spawn: { pos: { x: 0, y: 0, z: 0 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: 0, y: 0, z: 1 }),
-    look: 'deep_space', coords: 'Heliozentrische Bahn, ~1,0–1,66 AE', assetDir: 'assets/worlds/space_sun', available: true },
+    look: 'deep_space', geo: null, assetDir: 'assets/worlds/space_sun', available: true },
 ];
 
-export const BODY_NAMES: Record<BodyId, string> = { earth: 'Erde', moon: 'Mond', mars: 'Mars', space: 'Sonne' };
+/** "31.40° N 97.45° W" in the locale's number format and compass letters. */
+export function coordsText(geo: SiteDef['geo'], id?: SiteId): string {
+  if (!geo) return id === 'space_sun' ? t('site.space_sun.coords', { min: fmtNum(1, 1), max: fmtNum(1.66, 2) }) : '';
+  const [dLat, dLon] = geo.digits;
+  return `${fmtNum(Math.abs(geo.lat), dLat)}° ${t(geo.lat >= 0 ? 'geo.N' : 'geo.S')} ${fmtNum(Math.abs(geo.lon), dLon)}° ${t(geo.lon >= 0 ? 'geo.E' : 'geo.W')}`;
+}
+
+/** Same objects as RAW_SITES, with the display texts as getters (they follow the current locale). */
+export const SITES: SiteDef[] = RAW_SITES.map((r) => Object.defineProperties(r, {
+  name: { enumerable: true, get: () => t(`site.${r.id}.name`) },
+  subtitle: { enumerable: true, get: () => t(`site.${r.id}.subtitle`) },
+  coords: { enumerable: true, get: () => coordsText(r.geo, r.id) },
+}) as SiteDef);
+
+const BODY_IDS: BodyId[] = ['earth', 'moon', 'mars', 'space'];
+export const BODY_NAMES: Record<BodyId, string> = Object.defineProperties({} as Record<BodyId, string>,
+  Object.fromEntries(BODY_IDS.map((b) => [b, { enumerable: true, get: () => t(`body.${b}`) }])));
 
 export function site(id: SiteId): SiteDef {
   const s = SITES.find((x) => x.id === id);

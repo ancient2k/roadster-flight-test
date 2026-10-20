@@ -39,9 +39,16 @@ export interface WorldOptions {
   synthetic?: boolean;
   /** Render camera (heat shimmer billboard in the Sun scene). */
   camera?: THREE.Camera;
-  /** Called with progress text while loading (German). */
-  onProgress?: (msg: string) => void;
+  /**
+   * Called with the id of each loading phase. The id is language-neutral and is also the key of the
+   * phase timing ('w.<id>' in GameRenderer.timings, read by the perf tools); the display text is
+   * t(`loading.phase.<id>`) in src/i18n.
+   */
+  onProgress?: (phase: LoadPhase) => void;
 }
+
+/** Loading phases of loadWorld()/loadSunScene() (stable ids, never translated). */
+export type LoadPhase = 'heightmap' | 'textures' | 'landmarks' | 'shadows' | 'terrain' | 'starmap' | 'roadster1' | 'done';
 
 export interface WorldHandle {
   readonly site: SiteDef;
@@ -132,10 +139,10 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   const base = (opts.assetBase ?? '/').replace(/\/?$/, '/');
   const dir = base + site.assetDir.replace(/^\/+/, '');
   const look = lookParams(site.look, site.id);
-  progress('Höhenmodell laden …');
-  let assets = await loadTerrainData(dir).catch((e) => { console.warn('[worlds] Gelände:', e); return null; });
+  progress('heightmap');
+  let assets = await loadTerrainData(dir).catch((e) => { console.warn('[worlds] terrain:', e); return null; });
   if (!assets) {
-    if (opts.synthetic === false) throw new Error(`Keine Geländedaten für ${site.id}`);
+    if (opts.synthetic === false) throw new Error(`no terrain data for ${site.id}`);
     assets = syntheticAssets(bodyKind(site), site.id.length * 7 + 3);
   }
   const field = new TerrainField(assets.near, assets.far);
@@ -209,7 +216,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   group.add(sun, sun.target);
 
   // ---- textures
-  progress('Texturen laden …');
+  progress('textures');
   const dn = detailNames(site, assets);
   const fb = (name: string) => opts.devTextureBase && DETAIL_FALLBACK[name] ? { base: opts.devTextureBase, folder: DETAIL_FALLBACK[name] } : null;
   const aniso = opts.quality === 'low' ? 4 : 8;
@@ -227,13 +234,13 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   ]);
 
   // ---- landmarks (before the shadow bake: they cast baked shadows too)
-  progress('Wahrzeichen laden …');
+  progress('landmarks');
   const lm = await lmP;
   group.add(lm.group);
   // movable parts leave the static landmark before its collider and baked shadow are taken
   const propVis = splitDynamicLandmarks(lm.items, lm.group);
 
-  progress('Schatten bis zum Horizont berechnen …');
+  progress('shadows');
   const pen = Math.max(look.sunAngularRadius, 0.004);
   // only large landmarks throw shadows beyond the real-time shadow map: stamp those (rovers, LM, single
   // stones: skip – they cost seconds in the bake, R5 load budget)
@@ -286,7 +293,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
     if (visFar && visFar0) { visFar0.set(visFar); textures.shadowFar!.needsUpdate = true; }
   });
 
-  progress('Gelände aufbauen …');
+  progress('terrain');
   const terrain = new TerrainRenderer(field, look, textures, TERRAIN_QUALITY[opts.quality]);
   terrain.uniforms.sunDir.value.copy(sunDirection);
   terrain.uniforms.rtShadowRadius.value = q.shadowExt;
@@ -454,6 +461,6 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   handle.update(new THREE.Vector3(spawn.x, spawn.y + 2, spawn.z), 0);
   // load time of the world itself (read by tools/worlds/world_probe.mjs next to the game's phase timings)
   try { performance.measure(`r5:loadWorld:${site.id}`, { start: tLoad0, end: performance.now() }); } catch { /* old browsers */ }
-  progress('fertig');
+  progress('done');
   return handle;
 }

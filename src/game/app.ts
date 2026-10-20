@@ -20,6 +20,8 @@ import type { PropPose } from '@shared/props';
 import { SIM_DT, type AssistLevel, type StuntId, type VehicleState } from '@shared/types';
 import { v3 } from '@shared/math';
 import { FixedStepLoop } from './loop';
+import { t, upper } from '../i18n';
+import { AERO_LABEL, ASSIST_LABEL, FAN_LABEL } from '../ui/labels';
 import { cloneState, copyStateInto, interpolateState } from './interp';
 import { ManualController, SimSession, type Controller, type SessionMode } from './session';
 
@@ -233,7 +235,7 @@ export class App {
           let r = next;
           if (r && r.currentSite?.id !== id) {
             // a failed rebuild leaves no usable world in it: start over with a fresh world renderer
-            try { await r.setSite(site, onWorld); } catch (e) { console.warn('[app] Ortswechsel im Welt-Renderer fehlgeschlagen, neu aufbauen:', e); r.dispose(); r = this.worldRenderer = null; }
+            try { await r.setSite(site, onWorld); } catch (e) { console.warn('[app] site switch in the world renderer failed, rebuilding:', e); r.dispose(); r = this.worldRenderer = null; }
           } else if (r) r.timings = {}; // same world as last time: keep it as it is
           r ??= this.worldRenderer = await GameRenderer.create(this.worldCanvas = this.replaceCanvas(nextCanvas), {
             quality: this.settings.get().graphics.quality, forceWebGL: this.forceWebGL, site, onWorld,
@@ -256,7 +258,7 @@ export class App {
       this.sunPanel?.dispose();
       this.orbitPanel?.dispose();
       this.orbitPanel = id === 'space_sun' && this.sim.props ? new OrbitPanel(this.root) : null;
-      this.sunPanel = id === 'space_sun' ? new SunPanel(this.root, (label, final) => this.hud.flash(label.toUpperCase(), final ? 'warn' : 'info', final ? 6000 : 2600)) : null;
+      this.sunPanel = id === 'space_sun' ? new SunPanel(this.root, (label, final) => this.hud.flash(upper(label), final ? 'warn' : 'info', final ? 6000 : 2600)) : null;
       if (track) {
         this.startSession({ kind: 'manual', stunt: 'ground_flip' }, false, assist);
       } else {
@@ -346,8 +348,8 @@ export class App {
       this.resultTimer = RESULT_DELAY_S;
       this.resultTelemetry = this.session.recorder.telemetry.slice();
       if (!this.attract) {
-        if (this.session.outcome.status === 'success') { this.audio.cheer(1); this.hud.flash('ERFOLG', 'success'); }
-        else this.hud.flash('FEHLGESCHLAGEN', 'warn');
+        if (this.session.outcome.status === 'success') { this.audio.cheer(1); this.hud.flash(t('flash.success'), 'success'); }
+        else this.hud.flash(t('flash.failed'), 'warn');
       }
     }
   }
@@ -365,10 +367,10 @@ export class App {
       if (this.manual) {
         this.manual.drive = input.drive;
         Object.assign(this.manual.axes, input.thrust);
-        if (input.pressed.fanModeCycle) this.hud.flash(`LÜFTER ${this.manual.cycleFan().toUpperCase()}`);
-        if (input.pressed.aeroModeCycle) this.hud.flash(`AERO ${this.manual.cycleAero().toUpperCase()}`);
-        if (input.pressed.assistCycle) this.hud.flash(`ASSISTENZ ${this.manual.cycleAssist()}`);
-        if (input.pressed.refillToggle) { this.manual.refill = !this.manual.refill; this.hud.flash(this.manual.refill ? 'KOMPRESSOR AN' : 'KOMPRESSOR AUS'); }
+        if (input.pressed.fanModeCycle) this.hud.flash(t('flash.fan', { mode: upper(FAN_LABEL[this.manual.cycleFan()]) }));
+        if (input.pressed.aeroModeCycle) this.hud.flash(t('flash.aero', { mode: upper(AERO_LABEL[this.manual.cycleAero()]) }));
+        if (input.pressed.assistCycle) this.hud.flash(t('flash.assist', { mode: upper(ASSIST_LABEL[this.manual.cycleAssist()]) }));
+        if (input.pressed.refillToggle) { this.manual.refill = !this.manual.refill; this.hud.flash(t(this.manual.refill ? 'flash.compressorOn' : 'flash.compressorOff')); }
       }
       if (input.pressed.cameraCycle) this.renderer.cycleCamera();
       if (input.pressed.reset) this.restart();
@@ -427,11 +429,12 @@ export class App {
     el.className = 'rft-loading';
     el.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;'
       + 'background:radial-gradient(ellipse at center,#141414 0%,#000 70%);color:#fff;z-index:50;'
-      + 'font:600 14px/1.6 "RFT Display",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase';
-    el.innerHTML = `<div style="opacity:.6;font-size:12px">Lade Ort</div>`
-      + `<div style="font-size:34px;letter-spacing:.08em;margin:6px 0 2px">${site.name}</div>`
-      + `<div style="opacity:.75">${site.subtitle}</div>`
-      + `<div style="opacity:.45;font-size:12px;margin-top:4px">${site.coords}</div>`
+      + 'font:600 14px/1.6 "RFT Display",system-ui,"Noto Sans",sans-serif;letter-spacing:.12em;text-transform:uppercase';
+    const esc = (v: string) => v.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+    el.innerHTML = `<div style="opacity:.6;font-size:12px">${esc(t('loading.site'))}</div>`
+      + `<div style="font-size:34px;letter-spacing:.08em;margin:6px 0 2px">${esc(site.name)}</div>`
+      + `<div style="opacity:.75">${esc(site.subtitle)}</div>`
+      + `<div style="opacity:.45;font-size:12px;margin-top:4px">${esc(site.coords)}</div>`
       + `<div style="margin-top:26px;width:220px;height:2px;background:rgba(255,255,255,.15);overflow:hidden">`
       + `<div style="width:40%;height:100%;background:#e8212b;animation:rftload 1.1s ease-in-out infinite"></div></div>`
       + `<style>@keyframes rftload{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}</style>`;

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { InputMapper, NAV_REPEAT, radialDeadzone, linearDeadzone, slew } from '../../src/input/mapping';
-import { assignKey, assignPad, defaultBindings, keyLabel, loadBindings, padLabel, sanitizeBindings, saveBindings, BINDINGS_KEY, PAD } from '../../src/input/bindings';
+import { assignKey, assignPad, defaultBindings, keyLabel, loadBindings, padLabel, sanitizeBindings, saveBindings, BINDINGS_KEY, CONTROL_META, PAD } from '../../src/input/bindings';
 import { CONTROL_IDS, type RawInput } from '../../src/input/types';
 import type { KeyValueStorage } from '../../src/ui/settings';
+import { setLocale } from '../../src/i18n';
 
 const raw = (keys: string[] = [], pad: RawInput['pad'] = null): RawInput => ({ keys: new Set(keys), mouse: { dx: 0, dy: 0, rightHeld: false }, pad });
 const padState = (buttons: Record<number, number> = {}, axes: number[] = [0, 0, 0, 0]): NonNullable<RawInput['pad']> => {
@@ -171,11 +172,26 @@ describe('bindings', () => {
     expect(loadBindings(throwing)).toEqual(defaultBindings());
     expect(() => saveBindings(throwing, b)).not.toThrow();
   });
-  it('labels (German, layout-aware)', () => {
-    expect(keyLabel('Space')).toBe('Leertaste');
+  it('labels (English source, layout-aware)', () => {
+    expect(keyLabel('Space')).toBe('Space');
     expect(keyLabel('KeyZ', new Map([['KeyZ', 'y']]))).toBe('Y');
     expect(keyLabel('KeyQ')).toBe('Q');
+    expect(keyLabel('Minus')).toBe('-');
+    expect(keyLabel('Numpad5')).toBe('Num 5');
     expect(padLabel({ type: 'button', index: PAD.RT })).toBe('RT');
-    expect(padLabel({ type: 'axis', index: PAD.RY, dir: 1 })).toBe('Rechter Stick ↓');
+    expect(padLabel({ type: 'button', index: PAD.UP })).toBe('D-pad ↑');
+    expect(padLabel({ type: 'axis', index: PAD.RY, dir: 1 })).toBe('Right stick ↓');
+    expect(CONTROL_META.lift.label).toBe('Lift thrusters (hover)');
+    expect(CONTROL_META.lift.group).toBe('thrusters');
+  });
+  it('labels follow the UI language (German keyboard punctuation only in German)', () => {
+    setLocale('de');
+    try {
+      expect(keyLabel('Space')).toBe('Leertaste');
+      expect(keyLabel('Minus')).toBe('ß');
+      expect(padLabel({ type: 'axis', index: PAD.RY, dir: 1 })).toBe('Rechter Stick ↓');
+      expect(padLabel({ type: 'button', index: PAD.UP })).toBe('Steuerkreuz ↑');
+      expect(CONTROL_META.lift.label).toBe('Hubdüsen (Schweben)');
+    } finally { setLocale('en'); }
   });
 });

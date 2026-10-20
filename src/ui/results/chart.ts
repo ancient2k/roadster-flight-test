@@ -1,5 +1,6 @@
 // Canvas telemetry chart "Simulation vs. Tesla-Stream": stacked panels sharing one time axis.
 import { DISPLAY_FONT } from '../fonts';
+import { fmtNumMax, t, upper } from '../../i18n';
 import { niceTicks, type Pt } from './chartMath';
 
 export interface ChartPanel { label: string; unit: string; sim: Pt[]; ref: Pt[] }
@@ -24,7 +25,7 @@ export function drawChart(canvas: HTMLCanvasElement, panels: ChartPanel[], xRang
   c.clearRect(0, 0, W, H);
   if (!panels.length) {
     c.fillStyle = C.text; c.font = `600 14px ${DISPLAY_FONT}`; c.textAlign = 'center';
-    c.fillText('KEINE TELEMETRIE', W / 2, H / 2);
+    c.fillText(upper(t('chart.noTelemetry')), W / 2, H / 2);
     return;
   }
   const fs = Math.max(10, Math.min(13, W / 70));
@@ -56,7 +57,7 @@ export function drawChart(canvas: HTMLCanvasElement, panels: ChartPanel[], xRang
     for (const v of niceTicks(lo, hi, Math.max(2, Math.floor(ph / 34)))) {
       const y = Math.round(Y(v)) + 0.5;
       c.strokeStyle = C.grid; c.beginPath(); c.moveTo(padL, y); c.lineTo(W - padR, y); c.stroke();
-      c.fillStyle = C.text; c.fillText(v.toLocaleString('de-DE', { maximumFractionDigits: 2 }), padL - fs * 0.5, y);
+      c.fillStyle = C.text; c.fillText(fmtNumMax(v, 2), padL - fs * 0.5, y);
     }
     for (const t of xt) {
       const x = Math.round(X(t)) + 0.5;
@@ -67,7 +68,7 @@ export function drawChart(canvas: HTMLCanvasElement, panels: ChartPanel[], xRang
     // panel label
     c.textAlign = 'left'; c.textBaseline = 'top';
     c.fillStyle = C.label; c.font = `600 ${fs}px ${DISPLAY_FONT}`;
-    c.fillText(`${p.label.toUpperCase()}  (${p.unit.toUpperCase()})`, padL + fs * 0.5, top + fs * 0.3);
+    c.fillText(`${upper(p.label)}  (${p.unit.toUpperCase()})`, padL + fs * 0.5, top + fs * 0.3);
 
     c.save();
     c.beginPath(); c.rect(padL, top - 2, W - padL - padR, ph + 4); c.clip();
@@ -92,6 +93,6 @@ export function drawChart(canvas: HTMLCanvasElement, panels: ChartPanel[], xRang
   c.fillStyle = C.text; c.font = `600 ${fs * 0.85}px ${DISPLAY_FONT}`;
   c.textAlign = 'center'; c.textBaseline = 'top';
   const yAxis = H - padB + fs * 0.5;
-  for (const t of xt) c.fillText(t.toLocaleString('de-DE'), X(t), yAxis);
-  c.fillText('ZEIT AB MANÖVERSTART (S)', padL + (W - padL - padR) / 2, yAxis + fs * 1.25);
+  for (const x of xt) c.fillText(fmtNumMax(x, 2), X(x), yAxis);
+  c.fillText(upper(t('chart.timeAxis')), padL + (W - padL - padR) / 2, yAxis + fs * 1.25);
 }

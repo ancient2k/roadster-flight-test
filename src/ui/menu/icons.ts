@@ -1,6 +1,7 @@
 // Line icons for the stunt cards (stroke = currentColor, accent = red LED colour).
 import type { StuntId } from '../../shared/types';
 import type { SiteId } from '../../shared/worlds';
+import { fmtNum } from '../../i18n';
 
 const wrap = (body: string) =>
   `<svg viewBox="0 0 160 84" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
@@ -11,10 +12,10 @@ const CAR = (x: number, y: number, rot: number) =>
   `<g transform="translate(${x} ${y}) rotate(${rot})"><rect x="-9" y="-3.5" width="18" height="6" rx="2.5" fill="currentColor" stroke="none"/><circle cx="-5.5" cy="3.5" r="2.2" fill="#000" stroke="currentColor" stroke-width="1.2"/><circle cx="5.5" cy="3.5" r="2.2" fill="#000" stroke="currentColor" stroke-width="1.2"/></g>`;
 
 export const STUNT_ICONS: Record<StuntId, string> = {
-  ramp_hang: wrap(`<path d="${WALL}"/><path d="M84 76 V30" stroke-width="1" opacity=".45"/><path d="M90 76 V22" stroke-width="1" opacity=".45"/><path class="led" d="M18 80 H52"/>${CAR(75, 25, 200)}<path d="M100 30 h22 M100 40 h16" stroke-width="1.4" opacity=".6"/><text x="104" y="58" font-size="15" fill="currentColor" stroke="none" font-family="RFT Display">170°</text>`),
+  ramp_hang: wrap(`<path d="${WALL}"/><path d="M84 76 V30" stroke-width="1" opacity=".45"/><path d="M90 76 V22" stroke-width="1" opacity=".45"/><path class="led" d="M18 80 H52"/>${CAR(75, 25, 200)}<path d="M100 30 h22 M100 40 h16" stroke-width="1.4" opacity=".6"/><text x="104" y="58" font-size="15" fill="currentColor" stroke="none" font-family="RFT Display, system-ui, sans-serif">170°</text>`),
   ramp_launch: wrap(`<path d="${WALL}"/><path class="led" d="M18 80 H52"/><path d="M73 15 C 95 -4, 128 12, 136 60" stroke-dasharray="3 5"/>${CAR(118, 18, 140)}<path d="M128 70 v-8 M136 70 v-8 M144 70 v-8" class="led"/><path d="M110 76 H156"/>`),
   kickflip: wrap(`<path d="M8 76 H34 Q46 74 52 64 V76"/><rect x="72" y="52" width="22" height="24" rx="2"/><rect x="96" y="62" width="14" height="14" rx="2"/><rect x="58" y="64" width="12" height="12" rx="2"/><path d="M52 62 C 70 10, 110 6, 140 72" stroke-dasharray="3 5"/>${CAR(96, 20, 180)}<path d="M84 8 a12 12 0 1 1 -6 22" class="led"/><path d="M76 26 l2 5 l5 -2" class="led"/><path d="M114 76 H156"/>`),
-  zero60: wrap(`<path d="M10 76 H156"/><path d="M14 30 H40 V76 M14 30 V76" /><path class="led" d="M18 40 V70 M24 40 V70 M30 40 V70"/>${CAR(62, 70, 0)}<path d="M76 66 H120 M80 72 H140 M86 60 H110" stroke-width="1.5" opacity=".7"/><text x="112" y="36" font-size="18" fill="currentColor" stroke="none" font-family="RFT Display">0,81</text>`),
+  get zero60() { return wrap(`<path d="M10 76 H156"/><path d="M14 30 H40 V76 M14 30 V76" /><path class="led" d="M18 40 V70 M24 40 V70 M30 40 V70"/>${CAR(62, 70, 0)}<path d="M76 66 H120 M80 72 H140 M86 60 H110" stroke-width="1.5" opacity=".7"/><text x="112" y="36" font-size="18" fill="currentColor" stroke="none" font-family="RFT Display, system-ui, sans-serif">${fmtNum(0.81, 2)}</text>`); }, // decimal separator of the UI language
   ground_flip: wrap(`<path d="M8 76 H156"/>${CAR(80, 30, 120)}<path d="M80 6 a26 26 0 1 1 -24 36" class="led"/><path d="M54 34 l2 8 l7 -4" class="led"/><path d="M70 74 l-3 -8 M80 74 v-9 M90 74 l3 -8" stroke-width="1.5" opacity=".7"/>`),
 };
 

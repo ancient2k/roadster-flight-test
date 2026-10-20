@@ -24,7 +24,7 @@ export async function loadSiteData(id: SiteId, fetchFn: FetchLike = (u) => fetch
   if (site.ground === 'terrain') {
     const dir = `${base}${site.assetDir}`;
     const [mr, hr] = await Promise.all([fetchFn(`${dir}/meta.json`), fetchFn(`${dir}/height.bin`)]);
-    if (!mr.ok || !hr.ok) throw new Error(`Gelände für ${site.name} fehlt (${dir})`);
+    if (!mr.ok || !hr.ok) throw new Error(`terrain for ${site.id} missing (${dir})`);
     const meta = (await mr.json()) as TerrainMeta;
     const heights = decodeHeightmap(await hr.arrayBuffer(), meta);
     terrain = { heights, meta };

@@ -4,7 +4,8 @@
 import type { AssistLevel, StuntId, TelemetryFrame, VehicleState } from '../../shared/types';
 import { ROADSTER } from '../../shared/roadster';
 import { DISPLAY_FONT, loadFonts } from '../fonts';
-import { AERO_LABEL, ASSIST_LABEL, FAN_LABEL, airWarning, stuntInfo } from '../labels';
+import { AERO_LABEL, ASSIST_LABEL, FAN_LABEL, airWarning, phaseLabel, stuntInfo } from '../labels';
+import { t, upper } from '../../i18n';
 import * as U from '../units';
 import { ARC_SWEEP_DEG, LAYOUT, REF_H, SCALES, fillAngleRad, follow, fraction, hudScale } from './gaugeMath';
 import { CAR_FACES, HeadingTracker, SPHERE_CAMERA, paintMesh, removeYaw } from './carModel';
@@ -93,7 +94,7 @@ export class Hud {
   }
   isVisible(): boolean { return this.visible; }
 
-  /** Centered broadcast-style message ("LANDUNG 1,9 G", "STUNT GESCHAFFT"). */
+  /** Centered broadcast-style message ("SUCCESS", "FANS SUCTION"). */
   flash(message: string, kind: 'info' | 'success' | 'warn' = 'info', ms = 2200): void {
     this.flashEl.textContent = message;
     this.flashEl.dataset.kind = kind;
@@ -308,12 +309,13 @@ export class Hud {
     c.restore();
   }
 
-  private text1(t: string, x: number, y: number, px: number, weight: number, color: string, spacing: number): void {
+  /** maxW: squeeze longer (translated) text into its slot instead of overlapping the neighbour. */
+  private text1(str: string, x: number, y: number, px: number, weight: number, color: string, spacing: number, maxW?: number): void {
     const c = this.ctx as CanvasRenderingContext2D & { letterSpacing?: string };
     c.font = `${weight} ${px.toFixed(2)}px ${DISPLAY_FONT}`;
     if ('letterSpacing' in c) c.letterSpacing = `${spacing.toFixed(2)}px`;
     c.fillStyle = color;
-    c.fillText(t, x, y);
+    if (maxW !== undefined) c.fillText(str, x, y, maxW); else c.fillText(str, x, y);
     if ('letterSpacing' in c) c.letterSpacing = '0px';
   }
 
@@ -376,11 +378,11 @@ export class Hud {
   /** 0..1 pulse (1.6 Hz, wall clock) for warnings. */
   private pulse(): number { return 0.5 + 0.5 * Math.sin((performance.now() / 1000) * Math.PI * 2 * 1.6); }
 
-  /** Low-air warning from ManualAssist (phase label "LUFT KNAPP" / "AUTO-LANDUNG"): top centre, pulsing red. */
+  /** Low-air warning from ManualAssist (phase ids LOW_AIR / AUTOLAND): top centre, pulsing red. */
   private drawAirWarning(kind: 'low' | 'autoland'): void {
     const c = this.ctx, s = Math.max(0.7, this.s), p = this.pulse();
-    const title = kind === 'autoland' ? 'AUTO-LANDUNG' : 'LUFT KNAPP';
-    const sub = kind === 'autoland' ? 'TANK FAST LEER · REGLER LANDET DAS AUTO' : 'TANK FAST LEER · JETZT LANDEN';
+    const title = upper(t(kind === 'autoland' ? 'hud.autoland' : 'hud.lowAir'));
+    const sub = upper(t(kind === 'autoland' ? 'hud.autolandSub' : 'hud.lowAirSub'));
     const cx = this.cssW / 2, top = 74 * s, w = 380 * s, hgt = 66 * s;
     c.save();
     c.globalAlpha = 0.72 + 0.28 * p;
@@ -393,8 +395,8 @@ export class Hud {
     c.strokeStyle = COLORS.warn;
     c.stroke();
     c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-    this.text1(title, cx, top + 33 * s, 27 * s, 800, '#ffffff', 3 * s);
-    this.text1(sub, cx, top + 53 * s, 11 * s, 600, 'rgb(255,190,184)', 1.4 * s);
+    this.text1(title, cx, top + 33 * s, 27 * s, 800, '#ffffff', 3 * s, w - 24 * s);
+    this.text1(sub, cx, top + 53 * s, 11 * s, 600, 'rgb(255,190,184)', 1.4 * s, w - 20 * s);
     c.restore();
   }
 
@@ -406,34 +408,39 @@ export class Hud {
     // ---- top-left: mode / stunt / phase / assist
     c.textAlign = 'left';
     let yy = pad + 12 * s;
-    const modeTxt = ctx.mode === 'auto' ? 'AUTOPILOT' : 'MANUELL';
-    this.text1(modeTxt, pad, yy, 13 * s, 600, COLORS.label, 1.2 * s);
+    const leftW = Math.max(120 * s, this.cssW / 2 - 230 * s - pad); // never into the centred warning box
+    const modeTxt = t(ctx.mode === 'auto' ? 'hud.autopilot' : 'hud.manual');
+    this.text1(modeTxt, pad, yy, 13 * s, 600, COLORS.label, 1.2 * s, leftW);
     if (ctx.stunt) {
       c.textAlign = 'left';
-      this.text1(stuntInfo(ctx.stunt).title, pad, yy + 22 * s, 20 * s, 600, '#fff', 0.8 * s);
+      this.text1(upper(stuntInfo(ctx.stunt).title), pad, yy + 22 * s, 20 * s, 600, '#fff', 0.8 * s, leftW);
       yy += 22 * s;
     }
-    if (tel.phase) { this.text1(`PHASE  ${tel.phase.replace(/_/g, ' ')}`, pad, yy + 20 * s, 12 * s, 600, 'rgb(200,200,200)', 1 * s); yy += 20 * s; }
-    if (ctx.mode === 'manual' && ctx.assist) { this.text1(`ASSISTENZ  ${ASSIST_LABEL[ctx.assist]}`, pad, yy + 20 * s, 12 * s, 600, 'rgb(200,200,200)', 1 * s); }
+    if (tel.phase) { this.text1(`${t('hud.phase')}  ${phaseLabel(tel.phase)}`, pad, yy + 20 * s, 12 * s, 600, 'rgb(200,200,200)', 1 * s, leftW); yy += 20 * s; }
+    if (ctx.mode === 'manual' && ctx.assist) { this.text1(`${t('hud.assist')}  ${upper(ASSIST_LABEL[ctx.assist])}`, pad, yy + 20 * s, 12 * s, 600, 'rgb(200,200,200)', 1 * s, leftW); }
 
     // ---- top-right: systems
     c.textAlign = 'right';
     const xr = this.cssW - pad;
     const rows: Array<[string, string, string, number | null, boolean]> = [];
     const sp = U.speed(tel.speedMs, ctx.units);
-    rows.push(['TEMPO', sp.value, sp.unit, null, false]);
+    rows.push([t('hud.speed'), sp.value, sp.unit, null, false]);
     const pr = U.pressure(tel.tankPressureBar, ctx.units);
     const regBar = ROADSTER.tank.regulatorSetpointPa / 1e5;
-    rows.push(['TANKDRUCK', pr.value, pr.unit, tel.tankPressureBar / (ROADSTER.tank.fullPressurePa / 1e5), lowAir || tel.tankPressureBar < regBar]);
-    rows.push(['LUFTMASSE', tel.airMassKg.toFixed(1), 'KG', tel.airMassKg / ROADSTER.tank.fullMassKg, lowAir || tel.airMassKg < 20]);
+    rows.push([t('hud.tankPressure'), pr.value, pr.unit, tel.tankPressureBar / (ROADSTER.tank.fullPressurePa / 1e5), lowAir || tel.tankPressureBar < regBar]);
+    rows.push([t('hud.airMass'), tel.airMassKg.toFixed(1), 'KG', tel.airMassKg / ROADSTER.tank.fullMassKg, lowAir || tel.airMassKg < 20]);
     const pulse = lowAir ? this.pulse() : 1;
     const warnCol = lowAir ? `rgba(255,75,62,${0.45 + 0.55 * pulse})` : COLORS.warn;
-    rows.push(['LÜFTER', FAN_LABEL[state.fans.mode], state.fans.mode === 'off' ? '' : `${tel.fanDeltaPKPa.toFixed(1)} KPA`, state.fans.mode === 'off' ? null : state.fans.rpmNorm, false]);
-    rows.push(['AERO', AERO_LABEL[state.aero.mode], `${Math.round(state.aero.wingAngleDeg)}°`, null, false]);
+    rows.push([t('hud.fans'), upper(FAN_LABEL[state.fans.mode]), state.fans.mode === 'off' ? '' : `${tel.fanDeltaPKPa.toFixed(1)} KPA`, state.fans.mode === 'off' ? null : state.fans.rpmNorm, false]);
+    rows.push([t('hud.aero'), upper(AERO_LABEL[state.aero.mode]), `${Math.round(state.aero.wingAngleDeg)}°`, null, false]);
     yy = pad + 12 * s;
     for (const [lab, val, unit, bar, warn] of rows) {
       const valX = xr - (unit ? 52 * s : 0);
-      this.text1(lab, xr - 150 * s, yy, 11 * s, 600, COLORS.label, 1 * s);
+      // value right-aligned at valX; the label (right-aligned left of the value column) gets what is left
+      c.font = `400 ${(17 * s).toFixed(2)}px ${DISPLAY_FONT}`;
+      const valW = c.measureText(val).width;
+      const labX = Math.min(xr - 150 * s, valX - valW - 12 * s);
+      this.text1(lab, labX, yy, 11 * s, 600, COLORS.label, 1 * s, 170 * s);
       this.text1(val, valX, yy + 1 * s, 17 * s, 400, warn ? warnCol : '#fff', 0.3 * s);
       if (unit) this.text1(unit, xr, yy, 11 * s, 600, COLORS.unit, 0.8 * s);
       if (bar !== null) {
@@ -447,7 +454,7 @@ export class Hud {
       }
       yy += (bar !== null ? 30 : 25) * s;
     }
-    if (state.crashed) { c.textAlign = 'right'; this.text1('KOLLISION', xr, yy + 6 * s, 14 * s, 800, COLORS.warn, 1.5 * s); }
+    if (state.crashed) { c.textAlign = 'right'; this.text1(t('hud.collision'), xr, yy + 6 * s, 14 * s, 800, COLORS.warn, 1.5 * s); }
     c.restore();
   }
 }

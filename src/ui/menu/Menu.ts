@@ -6,9 +6,10 @@ import { TRACK } from '../../shared/track';
 import { FT } from '../../shared/math';
 import { VIDEO_REFERENCE } from '../../shared/reference';
 import { CONTROL_IDS, type ControlId, type MenuNav } from '../../input/types';
-import { CONTROL_META } from '../../input/bindings';
+import { CONTROL_META, groupLabel, type ControlGroup } from '../../input/bindings';
 import type { InputManager } from '../../input/InputManager';
-import { Emitter, fmtDe, h, svg } from '../dom';
+import { Emitter, h, svg } from '../dom';
+import { LOCALE_CODES, LOCALE_NAMES, applyLanguageSetting, fmtDate, fmtNum, fmtPct, getLocale, matchLocale, onLocaleChange, t, type LanguageSetting } from '../../i18n';
 import { loadFonts } from '../fonts';
 import { ASSIST_DESC, ASSIST_LABEL, REFERENCE_LABEL, STUNTS, reasonText, stuntInfo } from '../labels';
 import type { Settings, SettingsStore } from '../settings';
@@ -29,7 +30,7 @@ export interface ResultData {
   mode: 'auto' | 'manual';
   stunt?: StuntId;
   success: boolean;
-  /** Short German reason, e.g. "Dach berührt Boden" or "Landung zu hart (3,1 g)". */
+  /** GNC reason id/text (English, translated for display by reasonText()). */
   reason?: string;
   /** Measured values keyed like TRACK.sites[].reference (SI units: m, g, °, kg, s). */
   metrics: Partial<Record<string, number>>;
@@ -56,16 +57,16 @@ export interface MenuOptions {
   input?: InputManager;
   /** 'keyart': opaque title backdrop; 'scene': translucent so the 3D scene shows through. */
   backdrop?: 'keyart' | 'scene';
-  /** Show the "Welten" entry on the title screen (Phase 2). The screen is always reachable via show('worlds'). */
+  /** Show the "Worlds" entry on the title screen (Phase 2). The screen is always reachable via show('worlds'). */
   worlds?: boolean;
 }
 
-const FREE_SITES: Array<{ id: FreeSite; label: string; hint: string }> = [
-  { id: 'ground_flip', label: 'Freie Fläche', hint: 'Asphalt-Pad, viel Platz zum Schweben' },
-  { id: 'ramp_hang', label: 'Wandrampe', hint: 'Lüfter ansaugen und die Wand hoch' },
-  { id: 'kickflip', label: 'Kicker', hint: 'Kicker vor Semi und Fahrzeugreihe' },
-  { id: 'zero60', label: 'Startgerade', hint: 'Beschleunigungsstrecke mit Tor' },
-];
+const FREE_SITES: FreeSite[] = ['ground_flip', 'ramp_hang', 'kickflip', 'zero60'];
+const freeLabel = (id: FreeSite) => t(`free.site.${id}`);
+const freeHint = (id: FreeSite) => t(`free.site.${id}.hint`);
+
+/** Date of the Tesla livestream the reference values come from. */
+const STREAM_DATE = '2026-10-15';
 
 type SettingsTab = 'grafik' | 'anzeige' | 'audio' | 'steuerung' | 'simulation';
 
@@ -95,6 +96,8 @@ export class Menu extends Emitter<MenuEvents> {
     const onKey = (e: KeyboardEvent) => this.onKey(e);
     window.addEventListener('keydown', onKey);
     this.disposers.push(() => window.removeEventListener('keydown', onKey));
+    applyLanguageSetting(opts.settings.get().language);
+    this.disposers.push(onLocaleChange(() => { if (this.isOpen()) this.render(); }));
     if (opts.input) this.disposers.push(opts.input.onBindingsChange(() => { if (this.screen === 'settings' && this.settingsTab === 'steuerung' && !this.capturing) this.render(); }));
   }
 
@@ -174,7 +177,7 @@ export class Menu extends Emitter<MenuEvents> {
     this.screenEl.replaceChildren(view);
     this.screenEl.setAttribute('role', 'dialog');
     this.screenEl.setAttribute('aria-modal', 'true');
-    this.screenEl.setAttribute('aria-label', view.dataset.title ?? 'Menü');
+    this.screenEl.setAttribute('aria-label', view.dataset.title ?? t('menu.menu'));
     requestAnimationFrame(() => this.focusFirst());
   }
 
@@ -226,28 +229,28 @@ export class Menu extends Emitter<MenuEvents> {
     const btn = (label: string, sub: string, fn: () => void, auto = false) =>
       h('button', { class: 'rft-mainbtn', onclick: () => { this.emit('uiSound', 'select'); fn(); }, 'data-autofocus': auto || null },
         h('span', { class: 'rft-mainbtn-label', text: label }), h('span', { class: 'rft-mainbtn-sub', text: sub }));
-    return h('section', { class: 'rft-title', 'data-title': 'Hauptmenü' },
+    return h('section', { class: 'rft-title', 'data-title': t('menu.main') },
       h('div', { class: 'rft-title-block' },
-        h('p', { class: 'rft-eyebrow', text: 'Kaltgas-Düsen · Lüfter-Ansaugung · 10 Düsen · 690 bar' }),
+        h('p', { class: 'rft-eyebrow', text: t('menu.eyebrow') }),
         h('h1', { class: 'rft-logo' }, h('span', { class: 'l1', text: 'Roadster' }), h('span', { class: 'l2', text: 'Flight Test' })),
-        h('p', { class: 'rft-tagline', text: 'Die fünf Stunts aus dem Livestream – physikalisch nachgeflogen.' }),
+        h('p', { class: 'rft-tagline', text: t('menu.tagline') }),
       ),
-      h('nav', { class: 'rft-mainnav', 'aria-label': 'Hauptmenü' },
-        btn('Stunts nachfliegen', 'Autopilot · 5 Manöver aus dem Video', () => this.show('stunts'), true),
-        btn('Freies Testen', 'Manuell fliegen mit Assistenzstufe', () => this.show('free')),
-        this.opts.worlds ? btn('Welten', 'Erde · Mond · Mars · Sonne', () => this.show('worlds')) : null,
-        btn('Einstellungen', 'Grafik · Einheiten · Audio · Steuerung', () => this.show('settings')),
-        btn('Hilfe & Steuerung', 'Tastenbelegung und HUD-Erklärung', () => this.show('help')),
+      h('nav', { class: 'rft-mainnav', 'aria-label': t('menu.main') },
+        btn(t('menu.stunts'), t('menu.stuntsSub'), () => this.show('stunts'), true),
+        btn(t('menu.free'), t('menu.freeSub'), () => this.show('free')),
+        this.opts.worlds ? btn(t('menu.worlds'), t('menu.worldsSub'), () => this.show('worlds')) : null,
+        btn(t('menu.settings'), t('menu.settingsSub'), () => this.show('settings')),
+        btn(t('menu.help'), t('menu.helpSub'), () => this.show('help')),
       ),
       h('footer', { class: 'rft-footer' },
-        h('span', { text: 'Inoffizielles Fan-Projekt · keine Verbindung zu Tesla, Inc. oder SpaceX' }),
-        h('span', { class: 'rft-hintkeys', text: '↑↓ wählen · Eingabe bestätigen · Esc zurück' })),
+        h('span', { text: t('menu.disclaimer') }),
+        h('span', { class: 'rft-hintkeys', text: t('menu.hintKeys') })),
     );
   }
 
   private header(title: string, sub?: string): HTMLElement {
     return h('header', { class: 'rft-header' },
-      h('button', { class: 'rft-back', 'aria-label': 'Zurück', onclick: () => this.back() }, '←'),
+      h('button', { class: 'rft-back', 'aria-label': t('menu.back'), onclick: () => this.back() }, '←'),
       h('div', null, h('h2', { text: title }), sub ? h('p', { text: sub }) : null));
   }
 
@@ -268,11 +271,11 @@ export class Menu extends Emitter<MenuEvents> {
       h('span', { class: 'rft-card-short', text: st.short }),
       h('span', { class: 'rft-card-desc', text: st.description }),
       h('span', { class: 'rft-chips' }, ...chips.map((c) => h('span', { class: 'rft-chip' }, h('b', { text: c.value }), ` ${c.label}`))),
-      h('span', { class: 'rft-card-foot' }, h('span', { text: `Stream ${st.videoTime}` }), best ? h('span', { class: 'rft-best', text: `Bestwert ${best}` }) : null),
+      h('span', { class: 'rft-card-foot' }, h('span', { text: t('stunts.stream', { time: st.videoTime }) }), best ? h('span', { class: 'rft-best', text: t('stunts.best', { value: best }) }) : null),
       );
     });
-    return h('section', { class: 'rft-page', 'data-title': 'Stunt wählen' },
-      this.header('Stunt wählen', 'Der Autopilot fliegt das Manöver mit derselben Physik nach, die du im manuellen Modus steuerst.'),
+    return h('section', { class: 'rft-page', 'data-title': t('stunts.title') },
+      this.header(t('stunts.title'), t('stunts.sub')),
       h('div', { class: 'rft-cards' }, ...cards));
   }
 
@@ -282,29 +285,31 @@ export class Menu extends Emitter<MenuEvents> {
         class: 'rft-option', 'aria-pressed': String(this.freeAssist === lvl), 'data-autofocus': this.freeAssist === lvl || null,
         onclick: () => { this.freeAssist = lvl; this.emit('uiSound', 'move'); this.render(); },
       }, svg(ASSIST_ICONS[lvl], 'rft-option-icon'), h('span', { class: 'rft-option-title', text: ASSIST_LABEL[lvl] }), h('span', { class: 'rft-option-desc', text: ASSIST_DESC[lvl] })));
-    const sites = FREE_SITES.map((s) => h('button', {
-      class: 'rft-seg', 'aria-pressed': String(this.freeSite === s.id), title: s.hint,
-      onclick: () => { this.freeSite = s.id; this.emit('uiSound', 'move'); this.render(); },
-    }, s.label));
+    const sites = FREE_SITES.map((id) => h('button', {
+      class: 'rft-seg', 'aria-pressed': String(this.freeSite === id), title: freeHint(id),
+      onclick: () => { this.freeSite = id; this.emit('uiSound', 'move'); this.render(); },
+    }, freeLabel(id)));
     const inp = this.opts.input;
     const hint = (id: ControlId) => (inp ? inp.hint(id) : '');
-    return h('section', { class: 'rft-page', 'data-title': 'Freies Testen' },
-      this.header('Freies Testen', 'Du fliegst selbst. Die Assistenzstufe bestimmt, wie viel der Regler übernimmt.'),
-      h('h3', { class: 'rft-subhead', text: 'Assistenzstufe' }),
+    return h('section', { class: 'rft-page', 'data-title': t('free.title') },
+      this.header(t('free.title'), t('free.sub')),
+      h('h3', { class: 'rft-subhead', text: t('free.assist') }),
       h('div', { class: 'rft-options' }, ...assistCards),
-      h('h3', { class: 'rft-subhead', text: 'Startort' }),
-      h('div', { class: 'rft-segs', role: 'group', 'aria-label': 'Startort' }, ...sites),
-      h('p', { class: 'rft-note', text: FREE_SITES.find((s) => s.id === this.freeSite)!.hint }),
-      inp ? h('p', { class: 'rft-note dim' },
-        `Fahren ${hint('throttle')}/${hint('brake')}/${hint('steerLeft')}/${hint('steerRight')} · Hub ${hint('lift')} · Boost ${hint('boost')} · Rollen ${hint('rollLeft')}/${hint('rollRight')} · Nicken ${hint('pitchDown')}/${hint('pitchUp')} · Gieren ${hint('yawLeft')}/${hint('yawRight')} · Lüfter ${hint('fanModeCycle')}`) : null,
+      h('h3', { class: 'rft-subhead', text: t('free.site') }),
+      h('div', { class: 'rft-segs', role: 'group', 'aria-label': t('free.site') }, ...sites),
+      h('p', { class: 'rft-note', text: freeHint(this.freeSite) }),
+      inp ? h('p', { class: 'rft-note dim' }, t('free.controls', {
+        throttle: hint('throttle'), brake: hint('brake'), left: hint('steerLeft'), right: hint('steerRight'), lift: hint('lift'), boost: hint('boost'),
+        rollL: hint('rollLeft'), rollR: hint('rollRight'), pitchD: hint('pitchDown'), pitchU: hint('pitchUp'), yawL: hint('yawLeft'), yawR: hint('yawRight'), fan: hint('fanModeCycle'),
+      })) : null,
       h('div', { class: 'rft-actions' },
-        h('button', { class: 'rft-primary', onclick: () => { this.emit('uiSound', 'select'); this.hide(); this.emit('startFree', { assist: this.freeAssist, site: this.freeSite }); } }, 'Losfliegen')),
+        h('button', { class: 'rft-primary', onclick: () => { this.emit('uiSound', 'select'); this.hide(); this.emit('startFree', { assist: this.freeAssist, site: this.freeSite }); } }, t('free.go'))),
     );
   }
 
   private worldsView(): HTMLElement {
     const body = BODIES.find((b) => b.id === this.worldBody)!;
-    const tabs = h('div', { class: 'rft-tabs rft-bodytabs', role: 'tablist', 'aria-label': 'Himmelskörper' },
+    const tabs = h('div', { class: 'rft-tabs rft-bodytabs', role: 'tablist', 'aria-label': t('worlds.bodies') },
       ...BODIES.map((b) => h('button', {
         role: 'tab', class: 'rft-tab', 'aria-selected': String(b.id === this.worldBody), id: `wtab-${b.id}`, 'aria-controls': 'rft-worldpanel',
         'data-autofocus': b.id === this.worldBody || null,
@@ -313,9 +318,9 @@ export class Menu extends Emitter<MenuEvents> {
     const facts = h('div', { class: 'rft-chips rft-bodyfacts' }, ...bodyFacts(body.id).map((f) => h('span', { class: 'rft-chip' }, h('b', { text: f.value }), ` ${f.label}`)));
     const cards = sitesOf(body.id).map((w, i) => h('button', {
       class: `rft-card rft-world${w.available ? '' : ' wip'}`, 'aria-disabled': w.available ? null : 'true',
-      'aria-label': `${w.name}, ${w.subtitle}${w.available ? '' : ', in Arbeit'}`, 'data-world': w.id,
+      'aria-label': t(w.available ? 'worlds.cardAria' : 'worlds.cardAriaWip', { name: w.name, subtitle: w.subtitle }), 'data-world': w.id,
       onclick: () => {
-        if (!w.available) { this.emit('uiSound', 'back'); this.toast(`${w.name} ist noch in Arbeit.`); return; }
+        if (!w.available) { this.emit('uiSound', 'back'); this.toast(t('worlds.wipToast', { name: w.name })); return; }
         this.emit('uiSound', 'select'); this.hide(); this.emit('startWorld', { body: w.body, site: w.id });
       },
     },
@@ -326,9 +331,9 @@ export class Menu extends Emitter<MenuEvents> {
     h('span', { class: 'rft-chips' },
       h('span', { class: 'rft-chip rft-gravity' }, h('b', { text: 'g' }), ` ${gravityText(w.body)}`)),
     h('span', { class: 'rft-card-desc rft-coords', text: w.coords }),
-    h('span', { class: 'rft-card-foot' }, w.available ? h('span', { class: 'rft-best', text: 'Verfügbar' }) : h('span', { class: 'rft-wip', text: 'In Arbeit' }))));
-    return h('section', { class: 'rft-page', 'data-title': 'Welten' },
-      this.header('Welten', 'Dieselbe Physik unter anderer Schwerkraft und Atmosphäre.'),
+    h('span', { class: 'rft-card-foot' }, w.available ? h('span', { class: 'rft-best', text: t('worlds.available') }) : h('span', { class: 'rft-wip', text: t('worlds.wip') }))));
+    return h('section', { class: 'rft-page', 'data-title': t('worlds.title') },
+      this.header(t('worlds.title'), t('worlds.sub')),
       tabs,
       h('div', { id: 'rft-worldpanel', role: 'tabpanel', 'aria-labelledby': `wtab-${body.id}` },
         h('p', { class: 'rft-note', text: body.tagline }), facts,
@@ -337,21 +342,21 @@ export class Menu extends Emitter<MenuEvents> {
 
   private pauseView(): HTMLElement {
     const b = (label: string, fn: () => void, auto = false) => h('button', { class: 'rft-listbtn', onclick: () => { this.emit('uiSound', 'select'); fn(); }, 'data-autofocus': auto || null }, label);
-    return h('section', { class: 'rft-pause', 'data-title': 'Pause' },
-      h('h2', { class: 'rft-pause-title', text: 'Pause' }),
+    return h('section', { class: 'rft-pause', 'data-title': t('pause.title') },
+      h('h2', { class: 'rft-pause-title', text: t('pause.title') }),
       h('div', { class: 'rft-list' },
-        b('Fortsetzen', () => { this.hide(); this.emit('resume', undefined); }, true),
-        b('Neu starten', () => { this.hide(); this.emit('restart', undefined); }),
-        b('Einstellungen', () => this.show('settings')),
-        b('Hilfe & Steuerung', () => this.show('help')),
-        b('Hauptmenü', () => { this.emit('quitToTitle', undefined); this.show('title'); }),
+        b(t('pause.resume'), () => { this.hide(); this.emit('resume', undefined); }, true),
+        b(t('pause.restart'), () => { this.hide(); this.emit('restart', undefined); }),
+        b(t('menu.settings'), () => this.show('settings')),
+        b(t('menu.help'), () => this.show('help')),
+        b(t('menu.main'), () => { this.emit('quitToTitle', undefined); this.show('title'); }),
       ));
   }
 
   // ------------------------------------------------------------------ settings
   private settingsView(): HTMLElement {
-    const tabs: Array<[SettingsTab, string]> = [['grafik', 'Grafik'], ['anzeige', 'Anzeige'], ['audio', 'Audio'], ['steuerung', 'Steuerung'], ['simulation', 'Simulation']];
-    const tabBar = h('div', { class: 'rft-tabs', role: 'tablist', 'aria-label': 'Einstellungen' },
+    const tabs: Array<[SettingsTab, string]> = [['grafik', t('settings.tab.graphics')], ['anzeige', t('settings.tab.display')], ['audio', t('settings.tab.audio')], ['steuerung', t('settings.tab.controls')], ['simulation', t('settings.tab.simulation')]];
+    const tabBar = h('div', { class: 'rft-tabs', role: 'tablist', 'aria-label': t('settings.title') },
       ...tabs.map(([id, label]) => h('button', {
         role: 'tab', class: 'rft-tab', 'aria-selected': String(this.settingsTab === id), id: `tab-${id}`, 'aria-controls': 'rft-tabpanel',
         'data-autofocus': this.settingsTab === id || null,
@@ -365,55 +370,56 @@ export class Menu extends Emitter<MenuEvents> {
     switch (this.settingsTab) {
       case 'grafik':
         panel.append(
-          this.segRow('Qualität', [['low', 'Niedrig'], ['medium', 'Mittel'], ['high', 'Hoch'], ['ultra', 'Ultra']], s.graphics.quality, (v) => upd((d) => { d.graphics.quality = v as Settings['graphics']['quality']; }, 'graphics.quality'),
-            'Ultra: volle Auflösung für AO/SSR, Mach-Diamanten in voller Dichte. Niedrig: für integrierte Grafik.'),
-          this.toggleRow('Dynamische Auflösung', s.graphics.dynamicResolution, (v) => upd((d) => { d.graphics.dynamicResolution = v; }, 'graphics.dynamicResolution'), 'Hält 60 fps, indem die Renderauflösung bei Last sinkt.'),
-          this.toggleRow('Bewegungsunschärfe', s.graphics.motionBlur, (v) => upd((d) => { d.graphics.motionBlur = v; }, 'graphics.motionBlur')),
+          this.segRow(t('settings.quality'), (['low', 'medium', 'high', 'ultra'] as const).map((q) => [q, t(`quality.${q}`)] as [string, string]), s.graphics.quality, (v) => upd((d) => { d.graphics.quality = v as Settings['graphics']['quality']; }, 'graphics.quality'),
+            t('settings.qualityNote')),
+          this.toggleRow(t('settings.dynRes'), s.graphics.dynamicResolution, (v) => upd((d) => { d.graphics.dynamicResolution = v; }, 'graphics.dynamicResolution'), t('settings.dynResNote')),
+          this.toggleRow(t('settings.motionBlur'), s.graphics.motionBlur, (v) => upd((d) => { d.graphics.motionBlur = v; }, 'graphics.motionBlur')),
         );
         break;
       case 'anzeige':
         panel.append(
-          this.segRow('Einheiten', [['imperial', 'ft · mph (wie im Stream)'], ['metric', 'm · km/h']], s.units, (v) => upd((d) => { d.units = v as Units; }, 'units'), 'Downforce bleibt in kg, genau wie im Stream.'),
-          this.rangeRow('HUD-Größe', s.hud.scale, 0.5, 2, 0.05, (v) => `${Math.round(v * 100)} %`, (v) => upd((d) => { d.hud.scale = v; }, 'hud.scale')),
-          this.toggleRow('HUD anzeigen', s.hud.visible, (v) => upd((d) => { d.hud.visible = v; }, 'hud.visible')),
-          this.toggleRow('Zusatzanzeigen', s.hud.showExtras, (v) => upd((d) => { d.hud.showExtras = v; }, 'hud.showExtras'), 'Tankdruck, Luftmasse, Lüfter, Aero und Phase am oberen Rand.'),
+          this.languageRow(s.language, (v) => { upd((d) => { d.language = v; }, 'language'); applyLanguageSetting(v); }),
+          this.segRow(t('settings.units'), [['imperial', t('units.imperial')], ['metric', t('units.metric')]], s.units, (v) => upd((d) => { d.units = v as Units; }, 'units'), t('settings.unitsNote')),
+          this.rangeRow(t('settings.hudScale'), s.hud.scale, 0.5, 2, 0.05, pct, (v) => upd((d) => { d.hud.scale = v; }, 'hud.scale')),
+          this.toggleRow(t('settings.hudVisible'), s.hud.visible, (v) => upd((d) => { d.hud.visible = v; }, 'hud.visible')),
+          this.toggleRow(t('settings.hudExtras'), s.hud.showExtras, (v) => upd((d) => { d.hud.showExtras = v; }, 'hud.showExtras'), t('settings.hudExtrasNote')),
         );
         break;
       case 'audio':
         panel.append(
-          this.rangeRow('Gesamtlautstärke', s.audio.master, 0, 1, 0.01, pct, (v) => upd((d) => { d.audio.master = v; }, 'audio.master')),
-          this.rangeRow('Effekte', s.audio.effects, 0, 1, 0.01, pct, (v) => upd((d) => { d.audio.effects = v; }, 'audio.effects')),
-          this.rangeRow('Publikum', s.audio.crowd, 0, 1, 0.01, pct, (v) => upd((d) => { d.audio.crowd = v; }, 'audio.crowd')),
-          this.toggleRow('Stumm', s.audio.muted, (v) => upd((d) => { d.audio.muted = v; }, 'audio.muted')),
+          this.rangeRow(t('settings.master'), s.audio.master, 0, 1, 0.01, pct, (v) => upd((d) => { d.audio.master = v; }, 'audio.master')),
+          this.rangeRow(t('settings.effects'), s.audio.effects, 0, 1, 0.01, pct, (v) => upd((d) => { d.audio.effects = v; }, 'audio.effects')),
+          this.rangeRow(t('settings.crowd'), s.audio.crowd, 0, 1, 0.01, pct, (v) => upd((d) => { d.audio.crowd = v; }, 'audio.crowd')),
+          this.toggleRow(t('settings.mute'), s.audio.muted, (v) => upd((d) => { d.audio.muted = v; }, 'audio.muted')),
         );
         break;
       case 'steuerung':
         panel.append(
-          this.toggleRow('Nicken invertieren', s.controls.invertPitch, (v) => upd((d) => { d.controls.invertPitch = v; }, 'controls.invertPitch')),
-          this.toggleRow('Maus für Lage (rechte Taste halten)', s.controls.mouseAttitude, (v) => upd((d) => { d.controls.mouseAttitude = v; }, 'controls.mouseAttitude')),
-          this.rangeRow('Mausempfindlichkeit', s.controls.mouseSensitivity, 0.1, 5, 0.1, (v) => fmtDe(v, 1), (v) => upd((d) => { d.controls.mouseSensitivity = v; }, 'controls.mouseSensitivity')),
-          this.rangeRow('Stick-Totzone', s.controls.stickDeadzone, 0, 0.6, 0.01, pct, (v) => upd((d) => { d.controls.stickDeadzone = v; }, 'controls.stickDeadzone')),
-          this.rangeRow('Trigger-Totzone', s.controls.triggerDeadzone, 0, 0.5, 0.01, pct, (v) => upd((d) => { d.controls.triggerDeadzone = v; }, 'controls.triggerDeadzone')),
+          this.toggleRow(t('settings.invertPitch'), s.controls.invertPitch, (v) => upd((d) => { d.controls.invertPitch = v; }, 'controls.invertPitch')),
+          this.toggleRow(t('settings.mouseAttitude'), s.controls.mouseAttitude, (v) => upd((d) => { d.controls.mouseAttitude = v; }, 'controls.mouseAttitude')),
+          this.rangeRow(t('settings.mouseSensitivity'), s.controls.mouseSensitivity, 0.1, 5, 0.1, (v) => fmtNum(v, 1), (v) => upd((d) => { d.controls.mouseSensitivity = v; }, 'controls.mouseSensitivity')),
+          this.rangeRow(t('settings.stickDeadzone'), s.controls.stickDeadzone, 0, 0.6, 0.01, pct, (v) => upd((d) => { d.controls.stickDeadzone = v; }, 'controls.stickDeadzone')),
+          this.rangeRow(t('settings.triggerDeadzone'), s.controls.triggerDeadzone, 0, 0.5, 0.01, pct, (v) => upd((d) => { d.controls.triggerDeadzone = v; }, 'controls.triggerDeadzone')),
           this.bindingsTable(),
         );
         break;
       case 'simulation':
         panel.append(
-          this.segRow('Tank-Nachfüllrate', [['realistic', 'Realistisch (6–7 h)'], ['game', 'Spiel (20 s)']], s.refillRate, (v) => upd((d) => { d.refillRate = v as Settings['refillRate']; }, 'refillRate'),
-            'Der Bordkompressor füllt die zwei COPV-Tanks (600 l, 250 kg Luft, 690 bar).'),
-          this.segRow('Standard-Assistenz', (['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((a) => [a, ASSIST_LABEL[a]] as [string, string]), s.assistDefault, (v) => upd((d) => { d.assistDefault = v as AssistLevel; }, 'assistDefault')),
-          this.toggleRow('Unendlich Druckluft', s.realism.infiniteAir, (v) => upd((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'), 'Spielhilfe: Tank leert sich nicht.'),
-          this.toggleRow('Ventilverzögerung', s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), '8 ms Öffnen, 15 ms Mindest-Einschaltzeit.'),
-          this.toggleRow('Sensorrauschen', s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), 'Der Regler sieht einen verrauschten Zustand.'),
-          this.toggleRow('Wind', s.realism.wind, (v) => upd((d) => { d.realism.wind = v; }, 'realism.wind'), 'Böen über dem Pad.'),
-          this.toggleRow('Kollisionsschaden', s.realism.crashDamage, (v) => upd((d) => { d.realism.crashDamage = v; }, 'realism.crashDamage'), 'Aufsetzen mit Dach oder Seite beendet den Lauf.'),
+          this.segRow(t('settings.refill'), [['realistic', t('refill.realistic')], ['game', t('refill.game')]], s.refillRate, (v) => upd((d) => { d.refillRate = v as Settings['refillRate']; }, 'refillRate'),
+            t('settings.refillNote')),
+          this.segRow(t('settings.assistDefault'), (['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((a) => [a, ASSIST_LABEL[a]] as [string, string]), s.assistDefault, (v) => upd((d) => { d.assistDefault = v as AssistLevel; }, 'assistDefault')),
+          this.toggleRow(t('settings.infiniteAir'), s.realism.infiniteAir, (v) => upd((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'), t('settings.infiniteAirNote')),
+          this.toggleRow(t('settings.valveDelays'), s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), t('settings.valveDelaysNote')),
+          this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
+          this.toggleRow(t('settings.wind'), s.realism.wind, (v) => upd((d) => { d.realism.wind = v; }, 'realism.wind'), t('settings.windNote')),
+          this.toggleRow(t('settings.crashDamage'), s.realism.crashDamage, (v) => upd((d) => { d.realism.crashDamage = v; }, 'realism.crashDamage'), t('settings.crashDamageNote')),
         );
         break;
     }
-    return h('section', { class: 'rft-page rft-settings', 'data-title': 'Einstellungen' },
-      this.header('Einstellungen', 'Änderungen gelten sofort und werden lokal gespeichert.'),
+    return h('section', { class: 'rft-page rft-settings', 'data-title': t('settings.title') },
+      this.header(t('settings.title'), t('settings.sub')),
       tabBar, panel,
-      h('div', { class: 'rft-actions' }, h('button', { class: 'rft-ghost', onclick: () => { st.reset(); this.opts.input?.resetBindings(); this.emit('settingsChanged', st.get()); this.render(); } }, 'Alles zurücksetzen')));
+      h('div', { class: 'rft-actions' }, h('button', { class: 'rft-ghost', onclick: () => { st.reset(); this.opts.input?.resetBindings(); applyLanguageSetting(st.get().language); this.emit('settingsChanged', st.get()); this.render(); } }, t('settings.resetAll'))));
   }
 
   private row(label: string, control: HTMLElement, note?: string): HTMLElement {
@@ -452,6 +458,20 @@ export class Menu extends Emitter<MenuEvents> {
     return this.row(label, h('div', { class: 'rft-rangewrap' }, inp, out));
   }
 
+  /** Language picker (native names; "Automatic" shows the language the browser preferences resolve to). */
+  private languageRow(value: LanguageSetting, onSet: (v: LanguageSetting) => void): HTMLElement {
+    const prefs = typeof navigator !== 'undefined' ? (navigator.languages?.length ? navigator.languages : [navigator.language]) : [];
+    const sel = h('select', { class: 'rft-select', 'aria-label': t('settings.language'), 'data-setting': 'language' },
+      h('option', { value: 'auto', selected: value === 'auto' || null, text: t('settings.languageAuto', { name: LOCALE_NAMES[matchLocale(prefs)] }) }),
+      ...LOCALE_CODES.map((c) => h('option', { value: c, lang: c, selected: value === c || null, text: LOCALE_NAMES[c] }))) as HTMLSelectElement;
+    sel.addEventListener('change', () => {
+      this.emit('uiSound', 'move');
+      onSet(sel.value as LanguageSetting);
+      requestAnimationFrame(() => this.screenEl.querySelector<HTMLElement>('[data-setting="language"]')?.focus());
+    });
+    return this.row(t('settings.language'), sel, getLocale() === 'en' || getLocale() === 'de' ? undefined : t('settings.languageNote'));
+  }
+
   private refocus(groupLabel: string, v: string): void {
     requestAnimationFrame(() => {
       const g = [...this.screenEl.querySelectorAll<HTMLElement>('.rft-segs')].find((x) => x.dataset.label === groupLabel);
@@ -462,43 +482,43 @@ export class Menu extends Emitter<MenuEvents> {
   private bindingsTable(): HTMLElement {
     const inp = this.opts.input;
     const wrap = h('div', { class: 'rft-bindings' });
-    if (!inp) { wrap.append(h('p', { class: 'rft-note', text: 'Steuerung wird im Spiel angezeigt.' })); return wrap; }
+    if (!inp) { wrap.append(h('p', { class: 'rft-note', text: t('bind.noInput') })); return wrap; }
     const b = inp.getBindings();
-    const groups = new Map<string, ControlId[]>();
+    const groups = new Map<ControlGroup, ControlId[]>();
     for (const id of CONTROL_IDS) { const g = CONTROL_META[id].group; groups.set(g, [...(groups.get(g) ?? []), id]); }
     const table = h('table', { class: 'rft-bindtable' },
-      h('thead', null, h('tr', null, h('th', { text: 'Aktion' }), h('th', { text: 'Taste 1' }), h('th', { text: 'Taste 2' }), h('th', { text: 'Gamepad' }))));
+      h('thead', null, h('tr', null, h('th', { text: t('bind.action') }), h('th', { text: t('bind.key1') }), h('th', { text: t('bind.key2') }), h('th', { text: t('bind.gamepad') }))));
     const tbody = h('tbody');
     for (const [g, ids] of groups) {
-      tbody.append(h('tr', { class: 'grp' }, h('th', { colspan: '4', text: g })));
+      tbody.append(h('tr', { class: 'grp' }, h('th', { colspan: '4', text: groupLabel(g) })));
       for (const id of ids) {
         const keyCell = (slot: number) => {
           const code = b[id].keys[slot];
-          const btn = h('button', { class: 'rft-keycap', 'aria-label': `${CONTROL_META[id].label}, Taste ${slot + 1}: ${code ? inp.keyLabel(code) : 'frei'}. Zum Ändern drücken.` }, code ? inp.keyLabel(code) : '—');
+          const btn = h('button', { class: 'rft-keycap', 'aria-label': t('bind.keyAria', { action: CONTROL_META[id].label, slot: slot + 1, key: code ? inp.keyLabel(code) : t('bind.unbound') }) }, code ? inp.keyLabel(code) : '—');
           btn.onclick = async () => {
             this.capturing = true;
-            btn.textContent = 'Taste drücken …'; btn.classList.add('capturing');
+            btn.textContent = t('bind.pressKey'); btn.classList.add('capturing');
             const got = await inp.captureKey();
             this.capturing = false;
             if (got === 'Backspace' || got === 'Delete') inp.clearBinding(id, 'key', slot);
             else if (got) {
               const stolen = inp.bindKey(id, got, slot);
-              if (stolen.length) this.toast(`${inp.keyLabel(got)} entfernt von: ${stolen.map((s) => CONTROL_META[s].label).join(', ')}`);
+              if (stolen.length) this.toast(t('bind.stolen', { key: inp.keyLabel(got), actions: stolen.map((s) => CONTROL_META[s].label).join(', ') }));
             }
             this.render();
           };
           return h('td', null, btn);
         };
         const padCode = b[id].pad[0];
-        const padBtn = h('button', { class: 'rft-keycap pad', 'aria-label': `${CONTROL_META[id].label}, Gamepad: ${padCode ? inp.padLabel(padCode) : 'frei'}` }, padCode ? inp.padLabel(padCode) : '—');
+        const padBtn = h('button', { class: 'rft-keycap pad', 'aria-label': t('bind.padAria', { action: CONTROL_META[id].label, button: padCode ? inp.padLabel(padCode) : t('bind.unbound') }) }, padCode ? inp.padLabel(padCode) : '—');
         padBtn.onclick = async () => {
           this.capturing = true;
-          padBtn.textContent = 'Gamepad-Taste …'; padBtn.classList.add('capturing');
+          padBtn.textContent = t('bind.pressPad'); padBtn.classList.add('capturing');
           const got = await inp.capturePad();
           this.capturing = false;
           if (got) {
             const stolen = inp.bindPad(id, got, 0);
-            if (stolen.length) this.toast(`${inp.padLabel(got)} entfernt von: ${stolen.map((s) => CONTROL_META[s].label).join(', ')}`);
+            if (stolen.length) this.toast(t('bind.stolen', { key: inp.padLabel(got), actions: stolen.map((s) => CONTROL_META[s].label).join(', ') }));
           }
           this.render();
         };
@@ -507,8 +527,8 @@ export class Menu extends Emitter<MenuEvents> {
     }
     table.append(tbody);
     wrap.append(
-      h('div', { class: 'rft-bindhead' }, h('span', { text: 'Belegung · Feld wählen und neue Taste drücken (Rücktaste = löschen, Esc = abbrechen)' }),
-        h('button', { class: 'rft-ghost', onclick: () => { inp.resetBindings(); this.render(); } }, 'Standardbelegung')),
+      h('div', { class: 'rft-bindhead' }, h('span', { text: t('bind.head') }),
+        h('button', { class: 'rft-ghost', onclick: () => { inp.resetBindings(); this.render(); } }, t('bind.defaults'))),
       table);
     return wrap;
   }
@@ -523,10 +543,10 @@ export class Menu extends Emitter<MenuEvents> {
   // ------------------------------------------------------------------ help
   private helpView(): HTMLElement {
     const inp = this.opts.input;
-    const groups = new Map<string, ControlId[]>();
+    const groups = new Map<ControlGroup, ControlId[]>();
     for (const id of CONTROL_IDS) { const g = CONTROL_META[id].group; groups.set(g, [...(groups.get(g) ?? []), id]); }
     const cols = [...groups].map(([g, ids]) => h('div', { class: 'rft-helpcol' },
-      h('h3', { text: g }),
+      h('h3', { text: groupLabel(g) }),
       h('dl', null, ...ids.flatMap((id) => {
         const b = inp?.getBindings()[id];
         const keys = b ? b.keys.map((k) => inp!.keyLabel(k)) : [];
@@ -534,17 +554,18 @@ export class Menu extends Emitter<MenuEvents> {
         return [h('dt', { text: CONTROL_META[id].label }), h('dd', null, ...keys.map((k) => h('kbd', { text: k })), pad ? h('kbd', { class: 'pad', text: pad }) : null)];
       }))));
     const hudItems: Array<[string, string]> = [
-      ['G-FORCE', 'Gefilterte Beschleunigung (10 Hz), wie ein Beschleunigungsmesser. Skala bis 4 g.'],
-      ['Lage-Kugel', 'Das Auto in seiner Lage zum Horizont (Pitch und Roll; der Kurs ist herausgerechnet).'],
-      ['Draufsicht', 'Die 10 Düsen: 4 Heck (Boost), 4 Hubdüsen an den Ecken, 2 Gierdüsen vorn. Helligkeit = Ventilöffnung.'],
-      ['ALTITUDE', 'Unterster Karosseriepunkt über dem Boden. Skala bis 75 ft (23 m).'],
-      ['DOWNFORCE · PITCH', 'Auf der Wandrampe: Ansaugkraft der Lüfter plus Aero in kg, Pitch bis 180°.'],
+      // the ring captions stay English like the stream graphics
+      ['G-FORCE', t('help.hud.gforce')],
+      [t('help.hud.sphere'), t('help.hud.sphereText')],
+      [t('help.hud.topView'), t('help.hud.topViewText')],
+      ['ALTITUDE', t('help.hud.altitude')],
+      ['DOWNFORCE · PITCH', t('help.hud.dfPitch')],
     ];
-    return h('section', { class: 'rft-page rft-help', 'data-title': 'Hilfe und Steuerung' },
-      this.header('Hilfe & Steuerung', 'Belegung ändern unter Einstellungen → Steuerung.'),
+    return h('section', { class: 'rft-page rft-help', 'data-title': t('help.aria') },
+      this.header(t('help.title'), t('help.sub')),
       h('div', { class: 'rft-helpgrid' }, ...cols,
         h('div', { class: 'rft-helpcol hud' }, h('h3', { text: 'HUD' }), h('dl', null, ...hudItems.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { class: 'txt', text: v })])))),
-      h('div', { class: 'rft-actions' }, h('button', { class: 'rft-primary', 'data-autofocus': true, onclick: () => this.back() }, 'Verstanden')));
+      h('div', { class: 'rft-actions' }, h('button', { class: 'rft-primary', 'data-autofocus': true, onclick: () => this.back() }, t('help.ok'))));
   }
 
   // ------------------------------------------------------------------ results
@@ -557,7 +578,7 @@ export class Menu extends Emitter<MenuEvents> {
     const site = r.stunt ? TRACK.sites.find((s) => s.stunt === r.stunt) : undefined;
 
     // metrics table (reference keys first, then extra sim metrics)
-    // only metrics with a German label are shown (never raw keys)
+    // only metrics with a label are shown (never raw keys)
     const keys = [...new Set([...Object.keys(site?.reference ?? {}), ...Object.keys(r.metrics)])].filter((k) => REFERENCE_LABEL[k]);
     const rows = keys.map((k) => {
       const meta = REFERENCE_LABEL[k] ?? { label: k, unit: '' };
@@ -571,7 +592,7 @@ export class Menu extends Emitter<MenuEvents> {
         h('td', null, g ? h('span', { class: `rft-badge ${g.level}`, text: devText(g.ratio) }) : null));
     });
 
-    const canvas = h('canvas', { class: 'rft-chart', role: 'img', 'aria-label': 'Telemetrie-Diagramm Simulation gegen Tesla-Stream' }) as HTMLCanvasElement;
+    const canvas = h('canvas', { class: 'rft-chart', role: 'img', 'aria-label': t('results.chartAria') }) as HTMLCanvasElement;
     const panels = this.chartPanels(r, units);
     const redraw = () => drawChart(canvas, panels.panels);
     requestAnimationFrame(redraw);
@@ -581,27 +602,27 @@ export class Menu extends Emitter<MenuEvents> {
 
     const nextStunt = r.stunt ? STUNTS[(STUNTS.findIndex((s) => s.id === r.stunt) + 1) % STUNTS.length].id : null;
     const btn = (label: string, fn: () => void, cls = 'rft-ghost', auto = false) => h('button', { class: cls, onclick: () => { this.emit('uiSound', 'select'); fn(); }, 'data-autofocus': auto || null }, label);
-    return h('section', { class: `rft-page rft-results ${r.success ? 'ok' : 'fail'}`, 'data-title': 'Ergebnis' },
+    return h('section', { class: `rft-page rft-results ${r.success ? 'ok' : 'fail'}`, 'data-title': t('results.title') },
       h('header', { class: 'rft-result-head' },
-        h('p', { class: 'rft-eyebrow', text: r.mode === 'auto' ? `Autopilot · ${info?.title ?? ''}` : `Freies Testen${info ? ' · ' + info.title : ''}` }),
-        h('h2', { class: 'rft-result-title', text: r.success ? 'Stunt geschafft' : 'Fehlgeschlagen' }),
+        h('p', { class: 'rft-eyebrow', text: r.mode === 'auto' ? t('results.autopilot', { stunt: info?.title ?? '' }) : info ? t('results.freeStunt', { stunt: info.title }) : t('results.free') }),
+        h('h2', { class: 'rft-result-title', text: t(r.success ? 'results.success' : 'results.failed') }),
         reason ? h('p', { class: 'rft-result-reason', text: reason }) : null),
       h('div', { class: 'rft-result-grid' },
         h('div', { class: 'rft-result-metrics' },
-          h('h3', { class: 'rft-subhead', text: 'Kennzahlen' }),
+          h('h3', { class: 'rft-subhead', text: t('results.metrics') }),
           h('table', { class: 'rft-metrics' },
-            h('thead', null, h('tr', null, h('th', { text: 'Kennzahl' }), h('th', { text: 'Simulation' }), h('th', { text: 'Tesla-Stream' }), h('th', { text: 'Abw.' }))),
+            h('thead', null, h('tr', null, h('th', { text: t('results.metric') }), h('th', { text: t('results.sim') }), h('th', { text: t('results.stream') }), h('th', { text: t('results.dev') }))),
             h('tbody', null, ...rows)),
-          h('p', { class: 'rft-note dim', text: 'Grün: innerhalb ±15 %, gelb: ±30 %. Referenz: HUD-Werte aus dem Livestream vom 15.10.2026.' })),
+          h('p', { class: 'rft-note dim', text: t('results.legendNote', { date: fmtDate(STREAM_DATE) }) })),
         h('div', { class: 'rft-result-chart' },
-          h('div', { class: 'rft-legend' }, h('span', { class: 'sim', text: 'Simulation' }), panels.hasRef ? h('span', { class: 'ref', text: 'Tesla-Stream' }) : null,
+          h('div', { class: 'rft-legend' }, h('span', { class: 'sim', text: t('results.sim') }), panels.hasRef ? h('span', { class: 'ref', text: t('results.stream') }) : null,
             panels.note ? h('span', { class: 'note', text: panels.note }) : null),
           canvas)),
       h('div', { class: 'rft-actions' },
-        btn('Wiederholen', () => { this.hide(); this.emit('restart', undefined); }, 'rft-primary', true),
-        r.mode === 'auto' && nextStunt ? btn('Nächster Stunt', () => { this.hide(); this.emit('startStunt', nextStunt); }) : null,
-        btn('Stunt-Auswahl', () => this.show('stunts')),
-        btn('Hauptmenü', () => { this.emit('quitToTitle', undefined); this.show('title'); })));
+        btn(t('results.retry'), () => { this.hide(); this.emit('restart', undefined); }, 'rft-primary', true),
+        r.mode === 'auto' && nextStunt ? btn(t('results.next'), () => { this.hide(); this.emit('startStunt', nextStunt); }) : null,
+        btn(t('results.select'), () => this.show('stunts')),
+        btn(t('menu.main'), () => { this.emit('quitToTitle', undefined); this.show('title'); })));
   }
 
   private chartPanels(r: ResultData, units: Units): { panels: ChartPanel[]; hasRef: boolean; note: string } {
@@ -617,15 +638,15 @@ export class Menu extends Emitter<MenuEvents> {
         const refAlt = refSeries(ref, alt, 'metric');
         const tEnd = r.telemetry[r.telemetry.length - 1].t;
         t0 = bestOffset(simAll, refAlt, [r.telemetry[0].t - 5, tEnd], 0.05);
-        note = 'Zeitachse automatisch ausgerichtet';
+        note = t('results.autoAligned');
       }
     }
-    const panels = defs.map((d) => ({ label: d.label, unit: d.unit(units), sim: simSeries(r.telemetry, d, units, t0!), ref: ref ? refSeries(ref, d, units) : [] }));
+    const panels = defs.map((d) => ({ label: t(d.label), unit: d.unit(units), sim: simSeries(r.telemetry, d, units, t0!), ref: ref ? refSeries(ref, d, units) : [] }));
     let hasRef = !!ref?.length;
     if (r.stunt === 'zero60') {
       // no video curve for the drag run: plot speed with the Tesla target point (60 mph at 0.81 s)
       const target = TRACK.sites.find((x) => x.stunt === 'zero60')?.reference.zeroToSixtyS ?? 0.81;
-      panels.unshift({ label: 'Tempo', unit: SPEED_SERIES.unit(units), sim: simSeries(r.telemetry, SPEED_SERIES, units, t0!), ref: [{ t: 0, v: 0 }, { t: target, v: units === 'imperial' ? 60 : 96.56 }] });
+      panels.unshift({ label: t('results.speed'), unit: SPEED_SERIES.unit(units), sim: simSeries(r.telemetry, SPEED_SERIES, units, t0!), ref: [{ t: 0, v: 0 }, { t: target, v: units === 'imperial' ? 60 : 96.56 }] });
       hasRef = true;
     }
     return { panels, hasRef, note };
@@ -700,22 +721,22 @@ export class Menu extends Emitter<MenuEvents> {
 }
 
 // ------------------------------------------------------------------ formatting helpers
-const pct = (v: number) => `${Math.round(v * 100)} %`;
+const pct = (v: number) => fmtPct(v);
 const devText = (ratio: number) => {
   const d = Math.round((ratio - 1) * 100);
-  return d === 0 ? '±0 %' : `${d > 0 ? '+' : '−'}${Math.abs(d)} %`;
+  return d === 0 ? `±${fmtPct(0)}` : fmtPct(d / 100, { sign: true });
 };
 
 export function fmtRef(key: string, v: number, units: Units): { value: string; unit: string } {
   const kind = REFERENCE_LABEL[key]?.kind;
   switch (kind) {
-    case 'alt': return units === 'imperial' ? { value: fmtDe(v / FT, 1), unit: 'ft' } : { value: fmtDe(v, 1), unit: 'm' };
-    case 'deg': return { value: fmtDe(v, 0), unit: '°' };
-    case 'g': return { value: fmtDe(v, 1), unit: 'g' };
-    case 'kg': return { value: Math.round(v).toLocaleString('de-DE'), unit: 'kg' };
-    case 'kg1': return { value: fmtDe(v, v < 100 ? 1 : 0), unit: 'kg' };
-    case 's': return { value: fmtDe(v, v < 10 ? 2 : 0), unit: 's' };
-    default: return { value: fmtDe(v, 2), unit: REFERENCE_LABEL[key]?.unit ?? '' };
+    case 'alt': return units === 'imperial' ? { value: fmtNum(v / FT, 1), unit: 'ft' } : { value: fmtNum(v, 1), unit: 'm' };
+    case 'deg': return { value: fmtNum(v, 0), unit: '°' };
+    case 'g': return { value: fmtNum(v, 1), unit: 'g' };
+    case 'kg': return { value: fmtNum(Math.round(v), 0), unit: 'kg' };
+    case 'kg1': return { value: fmtNum(v, v < 100 ? 1 : 0), unit: 'kg' };
+    case 's': return { value: fmtNum(v, v < 10 ? 2 : 0), unit: 's' };
+    default: return { value: fmtNum(v, 2), unit: REFERENCE_LABEL[key]?.unit ?? '' };
   }
 }
 

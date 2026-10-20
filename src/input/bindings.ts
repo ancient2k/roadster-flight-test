@@ -1,5 +1,6 @@
-// Default control layout, German labels and persistence of user rebinding.
+// Default control layout, localised labels and persistence of user rebinding.
 import type { KeyValueStorage } from '../ui/settings';
+import { getLocale, t, type MsgKey } from '../i18n';
 import { CONTROL_IDS, type Binding, type Bindings, type ControlId, type PadBinding } from './types';
 
 const b = (index: number): PadBinding => ({ type: 'button', index });
@@ -44,37 +45,45 @@ export function defaultBindings(): Bindings {
   };
 }
 
-export interface ControlMeta { label: string; group: 'Fahren' | 'Düsen' | 'Systeme' | 'Spiel' }
+export type ControlGroup = 'drive' | 'thrusters' | 'systems' | 'game';
+/** label is translated on read (control.<id>); group is an id (controls.group.<id> for display). */
+export interface ControlMeta { readonly label: string; group: ControlGroup }
 
-export const CONTROL_META: Record<ControlId, ControlMeta> = {
-  throttle: { label: 'Gas', group: 'Fahren' },
-  brake: { label: 'Bremse', group: 'Fahren' },
-  steerLeft: { label: 'Lenken links', group: 'Fahren' },
-  steerRight: { label: 'Lenken rechts', group: 'Fahren' },
-  handbrake: { label: 'Handbremse', group: 'Fahren' },
-  launchMode: { label: 'Launch-Modus (halten)', group: 'Fahren' },
-  reverseToggle: { label: 'Rückwärtsgang', group: 'Fahren' },
-  lift: { label: 'Hubdüsen (Schweben)', group: 'Düsen' },
-  liftDown: { label: 'Hubdüsen abwärts', group: 'Düsen' },
-  boost: { label: 'Heckdüsen (Boost)', group: 'Düsen' },
-  pitchUp: { label: 'Nase hoch', group: 'Düsen' },
-  pitchDown: { label: 'Nase runter', group: 'Düsen' },
-  rollLeft: { label: 'Rollen links', group: 'Düsen' },
-  rollRight: { label: 'Rollen rechts', group: 'Düsen' },
-  yawLeft: { label: 'Gieren links', group: 'Düsen' },
-  yawRight: { label: 'Gieren rechts', group: 'Düsen' },
-  fanModeCycle: { label: 'Lüfter-Modus wechseln', group: 'Systeme' },
-  aeroModeCycle: { label: 'Aero-Modus wechseln', group: 'Systeme' },
-  refillToggle: { label: 'Kompressor (Nachfüllen)', group: 'Systeme' },
-  assistCycle: { label: 'Assistenzstufe wechseln', group: 'Systeme' },
-  cameraCycle: { label: 'Kamera wechseln', group: 'Spiel' },
-  pause: { label: 'Pause', group: 'Spiel' },
-  reset: { label: 'Zurücksetzen', group: 'Spiel' },
-  slowMo: { label: 'Zeitlupe', group: 'Spiel' },
-  photoMode: { label: 'Fotomodus', group: 'Spiel' },
-  menu: { label: 'Menü', group: 'Spiel' },
-  help: { label: 'Hilfe', group: 'Spiel' },
+const GROUP: Record<ControlId, ControlGroup> = {
+  throttle: 'drive',
+  brake: 'drive',
+  steerLeft: 'drive',
+  steerRight: 'drive',
+  handbrake: 'drive',
+  launchMode: 'drive',
+  reverseToggle: 'drive',
+  lift: 'thrusters',
+  liftDown: 'thrusters',
+  boost: 'thrusters',
+  pitchUp: 'thrusters',
+  pitchDown: 'thrusters',
+  rollLeft: 'thrusters',
+  rollRight: 'thrusters',
+  yawLeft: 'thrusters',
+  yawRight: 'thrusters',
+  fanModeCycle: 'systems',
+  aeroModeCycle: 'systems',
+  refillToggle: 'systems',
+  assistCycle: 'systems',
+  cameraCycle: 'game',
+  pause: 'game',
+  reset: 'game',
+  slowMo: 'game',
+  photoMode: 'game',
+  menu: 'game',
+  help: 'game',
 };
+
+export const CONTROL_META: Record<ControlId, ControlMeta> = Object.fromEntries(
+  (Object.keys(GROUP) as ControlId[]).map((id) => [id, { group: GROUP[id], get label() { return t(`control.${id}`); } }]),
+) as Record<ControlId, ControlMeta>;
+
+export const groupLabel = (g: ControlGroup): string => t(`controls.group.${g}`);
 
 export const BINDINGS_KEY = 'rft.bindings.v1';
 
@@ -151,12 +160,22 @@ export function assignPad(bindings: Bindings, id: ControlId, p: PadBinding, slot
 }
 
 // ------------------------------------------------------------------ labels
-const KEY_NAMES: Record<string, string> = {
-  Space: 'Leertaste', ShiftLeft: 'Umschalt', ShiftRight: 'Umschalt rechts', ControlLeft: 'Strg', ControlRight: 'Strg rechts',
-  AltLeft: 'Alt', AltRight: 'Alt Gr', Escape: 'Esc', Backspace: 'Rücktaste', Enter: 'Eingabe', Tab: 'Tab',
-  ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', CapsLock: 'Feststell',
+/** Named keys with a translated label (key.<code>). */
+const KEY_KEYS: Partial<Record<string, MsgKey>> = {
+  Space: 'key.Space', ShiftLeft: 'key.ShiftLeft', ShiftRight: 'key.ShiftRight', ControlLeft: 'key.ControlLeft', ControlRight: 'key.ControlRight',
+  AltRight: 'key.AltRight', Backspace: 'key.Backspace', Enter: 'key.Enter', CapsLock: 'key.CapsLock',
+};
+const KEY_FIXED: Record<string, string> = {
+  AltLeft: 'Alt', Escape: 'Esc', Tab: 'Tab', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+};
+/** Printed punctuation keys without a layout map: German layout when the UI is German, otherwise US. */
+const PUNCT_DE: Record<string, string> = {
   Minus: 'ß', Equal: '´', BracketLeft: 'Ü', BracketRight: '+', Semicolon: 'Ö', Quote: 'Ä', Backquote: '^',
   Backslash: '#', Comma: ',', Period: '.', Slash: '-', IntlBackslash: '<',
+};
+const PUNCT_US: Record<string, string> = {
+  Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Backquote: '`',
+  Backslash: '\\', Comma: ',', Period: '.', Slash: '/', IntlBackslash: '<',
 };
 
 /**
@@ -166,19 +185,26 @@ const KEY_NAMES: Record<string, string> = {
 export function keyLabel(code: string, layoutMap?: ReadonlyMap<string, string> | null): string {
   const fromLayout = layoutMap?.get(code);
   if (fromLayout && fromLayout.trim()) return fromLayout.toUpperCase();
-  if (KEY_NAMES[code]) return KEY_NAMES[code];
+  const named = KEY_KEYS[code];
+  if (named) return t(named);
+  if (KEY_FIXED[code]) return KEY_FIXED[code];
+  const punct = (getLocale() === 'de' ? PUNCT_DE : PUNCT_US)[code];
+  if (punct) return punct;
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
-  if (code.startsWith('Numpad')) return `Num ${code.slice(6)}`;
+  if (code.startsWith('Numpad')) return t('key.numpad', { n: code.slice(6) });
   return code;
 }
 
-const PAD_BUTTON_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Ansicht', 'Menü', 'L3', 'R3', 'Steuerkreuz ↑', 'Steuerkreuz ↓', 'Steuerkreuz ←', 'Steuerkreuz →', 'Home'];
-const PAD_AXIS_NAMES = ['Linker Stick', 'Linker Stick', 'Rechter Stick', 'Rechter Stick'];
+const PAD_BUTTON_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', null, null, 'L3', 'R3', null, null, null, null, 'Home'];
+const PAD_BUTTON_KEYS: Partial<Record<number, () => string>> = {
+  8: () => t('pad.view'), 9: () => t('pad.menu'),
+  12: () => t('pad.dpad', { dir: '↑' }), 13: () => t('pad.dpad', { dir: '↓' }), 14: () => t('pad.dpad', { dir: '←' }), 15: () => t('pad.dpad', { dir: '→' }),
+};
 
 export function padLabel(p: PadBinding): string {
-  if (p.type === 'button') return PAD_BUTTON_NAMES[p.index] ?? `Taste ${p.index}`;
-  const base = PAD_AXIS_NAMES[p.index] ?? `Achse ${p.index}`;
+  if (p.type === 'button') return PAD_BUTTON_NAMES[p.index] ?? PAD_BUTTON_KEYS[p.index]?.() ?? t('pad.button', { n: p.index });
+  const base = p.index === 0 || p.index === 1 ? t('pad.leftStick') : p.index === 2 || p.index === 3 ? t('pad.rightStick') : t('pad.axis', { n: p.index });
   const horiz = p.index % 2 === 0;
   return `${base} ${horiz ? (p.dir > 0 ? '→' : '←') : (p.dir > 0 ? '↓' : '↑')}`;
 }

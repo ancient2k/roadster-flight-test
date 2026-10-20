@@ -27,8 +27,8 @@ export interface ManualStatus {
   reserveKg: number;
   /** Highest wheel height the remaining air still covers (ASSIST climb limit). */
   maxAltitudeM: number;
-  /** HUD label also written to sim.setPhaseLabel. */
-  label: '' | 'LUFT KNAPP' | 'AUTO-LANDUNG' | 'DREHEN';
+  /** HUD phase id (translated by the UI, see phase.* in src/i18n) also written to sim.setPhaseLabel. */
+  label: '' | 'LOW_AIR' | 'AUTOLAND' | 'ROTATE';
 }
 
 const ZERO_G = 0.05;           // m/s²
@@ -60,7 +60,7 @@ const VEL_DEADBAND = 0.12;     // m/s
  *  ASSIST in free space (|g| < 0.05 m/s²): attitude hold + velocity hold over the jets (lift/boost
  *              sticks move the velocity target) inside RCS-style deadbands (5°, 0.15 rad/s, 0.12 m/s).
  *              Velocity errors the jets cannot reach in the held attitude (−Y, −Z) are reported
- *              (status.unreachableDvMs, label 'DREHEN'); the pilot turns the car (see space()).
+ *              (status.unreachableDvMs, label 'ROTATE'); the pilot turns the car (see space()).
  * Axes: lift/pitch/roll/yaw in −1..1, boost 0..1. pitch +1 = nose up, roll +1 = right side down,
  * yaw +1 = nose right.
  */
@@ -145,9 +145,9 @@ export class ManualAssist {
       else if (level === 'ASSIST' && this.belowReserveS > 0.25) st.autoLand = true;
     }
     st.label = level === 'RAW' ? ''
-      : st.autoLand && level === 'ASSIST' ? 'AUTO-LANDUNG'
-        : st.zeroG && level === 'ASSIST' && st.unreachableDvMs > 0.5 ? 'DREHEN'
-          : st.lowAir ? 'LUFT KNAPP' : '';
+      : st.autoLand && level === 'ASSIST' ? 'AUTOLAND'
+        : st.zeroG && level === 'ASSIST' && st.unreachableDvMs > 0.5 ? 'ROTATE'
+          : st.lowAir ? 'LOW_AIR' : '';
   }
 
   // ---------------------------------------------------------------- RAW

@@ -4,25 +4,26 @@ import { FT } from '../../shared/math';
 import type { RefSample } from '../../shared/reference';
 import type { TelemetryFrame } from '../../shared/types';
 import type { Units } from '../units';
+import type { MsgKey } from '../../i18n';
 
 export type SeriesKey = 'altitude' | 'pitch' | 'g' | 'downforce';
 
-export interface SeriesDef { key: SeriesKey; label: string; unit: (u: Units) => string; fromTel: (f: TelemetryFrame, u: Units) => number; fromRef: (r: RefSample, u: Units) => number | undefined }
+export interface SeriesDef { key: SeriesKey; /** i18n key of the panel caption. */ label: MsgKey; unit: (u: Units) => string; fromTel: (f: TelemetryFrame, u: Units) => number; fromRef: (r: RefSample, u: Units) => number | undefined }
 
 export const SERIES: SeriesDef[] = [
   {
-    key: 'altitude', label: 'Höhe', unit: (u) => (u === 'imperial' ? 'ft' : 'm'),
+    key: 'altitude', label: 'series.altitude', unit: (u) => (u === 'imperial' ? 'ft' : 'm'),
     fromTel: (f, u) => (u === 'imperial' ? f.altitudeM / FT : f.altitudeM),
     fromRef: (r, u) => (r.altitudeFt === undefined ? undefined : u === 'imperial' ? r.altitudeFt : r.altitudeFt * FT),
   },
-  { key: 'pitch', label: 'Pitch', unit: () => '°', fromTel: (f) => f.pitchDeg, fromRef: (r) => r.pitchDeg },
-  { key: 'g', label: 'G-Kraft', unit: () => 'g', fromTel: (f) => f.gForce, fromRef: (r) => r.g },
-  { key: 'downforce', label: 'Downforce', unit: () => 'kg', fromTel: (f) => f.downforceKg, fromRef: (r) => r.downforceKg },
+  { key: 'pitch', label: 'series.pitch', unit: () => '°', fromTel: (f) => f.pitchDeg, fromRef: (r) => r.pitchDeg },
+  { key: 'g', label: 'series.g', unit: () => 'g', fromTel: (f) => f.gForce, fromRef: (r) => r.g },
+  { key: 'downforce', label: 'series.downforce', unit: () => 'kg', fromTel: (f) => f.downforceKg, fromRef: (r) => r.downforceKg },
 ];
 
 /** Speed (not in the HUD video data; used for the 0-60 run). */
 export const SPEED_SERIES: SeriesDef = {
-  key: 'g', label: 'Tempo', unit: (u) => (u === 'imperial' ? 'mph' : 'km/h'),
+  key: 'g', label: 'results.speed', unit: (u) => (u === 'imperial' ? 'mph' : 'km/h'),
   fromTel: (f, u) => (u === 'imperial' ? f.speedMs / 0.44704 : f.speedMs * 3.6),
   fromRef: () => undefined,
 };

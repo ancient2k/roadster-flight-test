@@ -221,7 +221,7 @@ export async function loadSunScene(scene: THREE.Scene, renderer: THREE.WebGPURen
   group.name = `World:${site.id}`;
   scene.add(group);
 
-  progress('Sternenkarte laden …');
+  progress('starmap');
   const big = opts.quality === 'ultra' || opts.quality === 'high';
   const [stars, spots] = await Promise.all([
     loadTex(`${dir}/${big ? 'stars_8k.jpg' : 'stars_4k.jpg'}`, { srgb: true, flipY: true, anisotropy: 4 }),
@@ -284,7 +284,7 @@ export async function loadSunScene(scene: THREE.Scene, renderer: THREE.WebGPURen
     scene.environmentIntensity = 1;
   } catch (e) { console.warn('[worlds] Weltraum-PMREM fehlgeschlagen:', e); }
 
-  progress('Roadster 1 laden …');
+  progress('roadster1');
   const r1 = await loadRoadster1(base);
   const r1Holder = new THREE.Group();
   r1Holder.name = 'Roadster1';
