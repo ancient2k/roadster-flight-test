@@ -57,7 +57,7 @@ export const ru: Messages = {
   'free.controls': 'Езда {throttle}/{brake}/{left}/{right} · Подъём {lift} · Буст {boost} · Крен {rollL}/{rollR} · Тангаж {pitchD}/{pitchU} · Рыскание {yawL}/{yawR} · Вентиляторы {fan}',
   'free.go': 'Взлететь',
 
-  'assist.ASSIST': 'С помощью',
+  'assist.ASSIST': 'Ассистент',
   'assist.STABILIZED': 'Стабилизация',
   'assist.RAW': 'Напрямую',
   'assist.ASSIST.desc': 'Удерживает положение, выравнивает машину и садится автоматически. Идеально для начала.',

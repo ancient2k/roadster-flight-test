@@ -9,7 +9,7 @@
 //      heightMinM, heightMaxM, albedo, normalMap, splat}, spawn, sun, landmarks[], rocks, detailTextures.
 //      Heights are already relative to the ground at the spawn — NOT re-zeroed here, so render and
 //      physics (buildTerrainColliders) see the identical array if they both use loadTerrainData().
-import { decodeHeightmap, type TerrainMeta } from '../../shared/worlds';
+import { decodeHeightmap, type TerrainMeta } from '../../shared/heightmap';
 import type { Vec3 } from '../../shared/math';
 import { decodePngGrey } from './png16';
 
