@@ -10,6 +10,8 @@ import type {
 import { neutralDrive, neutralSystems, zeroThrust } from '@shared/types';
 import { ROADSTER } from '@shared/roadster';
 import { Recorder } from './recorder';
+import { AutoGear } from '../input/autoGear';
+import { qrot } from '@shared/math';
 
 export interface ControlOutput {
   drive: DriveInput;
@@ -48,6 +50,7 @@ export class ManualController implements Controller {
   settleMinS = 1.5;
   settleMaxS = 5;
   private settled = false;
+  readonly gear = new AutoGear();
 
   update(): ControlOutput {
     const st0 = this.sim.getState();
@@ -61,7 +64,9 @@ export class ManualController implements Controller {
     const systems: SystemsInput = { ...neutralSystems(), fanMode: this.fanMode, aeroMode: this.aeroMode, refill: this.refill };
     // Auto-hold (as on Tesla cars): standing still on the wheels without pedal input holds the brakes.
     const st = this.sim.getState();
-    let drive = this.drive;
+    // automatic reverse gear: S held at standstill reverses, W at standstill goes forward again
+    const fwd = qrot(st.quat, { x: 0, y: 0, z: 1 });
+    let drive = this.gear.update(this.drive, st.linVel.x * fwd.x + st.linVel.y * fwd.y + st.linVel.z * fwd.z, this.sim.dt);
     if (st.groundContact && st.speedMs < 0.6 && drive.throttle < 0.02 && drive.brake < 0.02) drive = { ...drive, brake: 0.6 };
     return { drive, systems, thrust, phase: '' };
   }
@@ -128,7 +133,9 @@ export class SimSession {
     if (this.outcome.status === 'running') {
       const r = this.controller.result?.() as { success?: boolean; reason?: string } | null | undefined;
       if (r && typeof r.success === 'boolean') this.outcome = { status: r.success ? 'success' : 'failed', reason: r.reason, result: r };
-      else if (this.sim.getState().crashed && this.mode.kind === 'auto') this.outcome = { status: 'failed', reason: 'crash' };
+      else if (this.sim.getState().crashed && this.mode.kind === 'auto') this.outcome = { status: 'failed', reason: this.sim.getState().damage?.totalLoss ? 'totalLoss' : 'crash' };
+      // vehicle damage "Realistic": a total loss also ends a free run
+      else if (this.sim.getState().damage?.totalLoss) this.outcome = { status: 'failed', reason: 'totalLoss' };
     }
   }
 

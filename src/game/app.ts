@@ -1,7 +1,8 @@
 // App shell: wires renderer, vehicle physics (+ core), GNC, input/HUD/menus/audio
 // around the headless SimSession and the fixed-step loop.
 import { GameRenderer, type WorldHandle } from '../render';
-import { createRoadsterSim } from '@sim/vehicle';
+import { createRoadsterSim, setDamageMode } from '@sim/vehicle';
+import { steepStoneWithoutGrip } from '@sim/vehicle/fans';
 import type { RoadsterSim } from '@sim/core/roadsterSim';
 import { Autopilot, ManualAssist, type StuntResult } from '@sim/gnc';
 import { InputManager } from '../input/InputManager';
@@ -87,6 +88,8 @@ export class App {
   private resultTimer = -1;
   private resultTelemetry: ReturnType<SimSession['recorder']['telemetry']['slice']> | null = null;
   private resultShown = false;
+  /** Next time (performance.now) the pyramid fan hint may show again. */
+  private pyramidHintAt = 0;
   private attract = true;           // title-screen demo run in the background
   ready = false;
   frameMs = 0;
@@ -146,6 +149,7 @@ export class App {
   startSession(mode: SessionMode, attract = false, assist?: AssistLevel): void {
     this.attract = attract;
     this.manual = null;
+    setDamageMode(this.sim, attract ? 'off' : this.settings.get().realism.damage); // the demo never takes damage
     this.session = new SimSession(this.sim, mode, this.makeController);
     if (assist && this.manual) (this.manual as ManualController).assist = assist;
     this.session.infiniteAir = this.settings.get().realism.infiniteAir;
@@ -371,6 +375,8 @@ export class App {
         if (input.pressed.aeroModeCycle) this.hud.flash(t('flash.aero', { mode: upper(AERO_LABEL[this.manual.cycleAero()]) }));
         if (input.pressed.assistCycle) this.hud.flash(t('flash.assist', { mode: upper(ASSIST_LABEL[this.manual.cycleAssist()]) }));
         if (input.pressed.refillToggle) { this.manual.refill = !this.manual.refill; this.hud.flash(t(this.manual.refill ? 'flash.compressorOn' : 'flash.compressorOff')); }
+        // pyramid faces need the fan suction: hint (at most every 20 s) while on steep stone without GRIP
+        if (steepStoneWithoutGrip(this.sim, this.manual.fanMode) && performance.now() > this.pyramidHintAt) { this.pyramidHintAt = performance.now() + 20_000; this.hud.flash(t('pyramid.needFans', { mode: upper(FAN_LABEL.grip) }), 'warn', 4500); }
       }
       if (input.pressed.cameraCycle) this.renderer.cycleCamera();
       if (input.pressed.reset) this.restart();
@@ -384,7 +390,7 @@ export class App {
       if (this.resultTimer <= 0) {
         this.resultShown = true;
         if (this.attract) { this.startSession(this.session.mode, true); }
-        else if (this.session.mode.kind === 'auto') this.showResults();
+        else if (this.session.mode.kind === 'auto' || this.session.outcome.reason === 'totalLoss') this.showResults();
       }
     }
 
@@ -445,9 +451,9 @@ export class App {
   private showResults(): void {
     const r = this.session.outcome.result as (StuntResult & { startT?: number }) | undefined;
     const mode = this.session.mode;
-    const stunt = mode.stunt ?? 'ground_flip';
+    const stunt = mode.stunt; // undefined: free run ended by a total loss (no stunt reference)
     // Only show figures that have a video reference, plus air used and duration.
-    const keys = new Set([...Object.keys(siteFor(stunt).reference), 'airUsedKg', 'durationS']);
+    const keys = new Set([...(stunt ? Object.keys(siteFor(stunt).reference) : []), 'airUsedKg', 'durationS']);
     const metrics: Record<string, number> = {};
     for (const [k, v] of Object.entries(r?.metrics ?? {})) if (keys.has(k) && Number.isFinite(v)) metrics[k] = v;
     if (r) { metrics.airUsedKg ??= r.airUsedKg; metrics.durationS ??= r.durationS; }
@@ -457,6 +463,7 @@ export class App {
     this.menu.showResults({
       mode: mode.kind, stunt, success: this.session.outcome.status === 'success',
       reason: r?.reason ?? this.session.outcome.reason, metrics, telemetry: tel, startT,
+      damage: this.sim.getState().damage ? structuredClone(this.sim.getState().damage) : undefined,
     });
   }
 

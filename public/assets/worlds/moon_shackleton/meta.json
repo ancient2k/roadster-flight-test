@@ -40,7 +40,6 @@
       "heightMinM": -1659.3,
       "heightMaxM": 82.3,
       "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
-      "normalMap": "normal.png",
       "albedo": "albedo.jpg",
       "albedoNote": "Prozedural (am Pol gibt es keine schattenfreien Bilder); Hochland-Albedo ~0,11–0,14.",
       "splat": "splat.png"

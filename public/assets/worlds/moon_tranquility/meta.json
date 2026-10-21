@@ -46,7 +46,6 @@
       "heightMinM": -49.2,
       "heightMaxM": 51.7,
       "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
-      "normalMap": "normal.png",
       "albedo": "albedo.jpg",
       "albedoNote": "Hochsonnen-NAC-Mosaik (kaum Schatten) -> echte Albedo inkl. heller Abgas-Zone um das LM. Lineare Mittel-Albedo 0,11 (Mare).",
       "splat": "splat.png"

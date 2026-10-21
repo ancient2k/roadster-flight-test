@@ -11,6 +11,39 @@
 - **Cameras** (`cameraMath.ts`, `camera/`): chase, orbit and photo cameras plus fixed broadcast cameras modelled on
   the framing of the live stream for each stunt.
 
+## Temporal stability (ghosting, flicker)
+
+- **Camera cuts** (`post.ts`): three keeps the previous view matrix per camera object, so the velocity
+  buffer of the first frame after a broadcast cut still holds the motion from the old shot. TRAA then
+  reprojected the re-seeded history by a whole-screen offset and the motion blur smeared the cut frame
+  along those vectors. `PostChain.resetHistory()` now shows the cut frame straight from the beauty buffer
+  (no TRAA, no motion blur) and re-seeds the history on that frame and the next.
+- **Motion blur** (`post.ts`): 180° shutter (`motionAmount` 0.25) and a gather that only takes samples
+  moving like the centre pixel. The previous 360° average of every tap let the static background show
+  through the leading and trailing parts of a launching car (a "ghost car").
+- **Sub-pixel emitters** (`world/materials.ts` `pixelFloor()`): LED posts and bars, tower lamp lenses and
+  site lights are a few centimetres thick and cover less than a pixel from the long-lens cameras. TRAA's
+  variance clipping drops them whenever the jitter misses them, so they blinked. Their thin axes are
+  widened to at least 2 px in the vertex shader and their emission is scaled by the same ratio
+  (`PIXEL_ANGLE` is set per frame by `GameRenderer`). Instanced emitters are merged into one static mesh
+  for this.
+- **Grass** (`worlds/grass.ts`): three takes an instance's previous-frame matrix by index. The camera-centred
+  lattice was re-written in lattice order on every re-scatter (≈ every 0.6 m of travel), so every slot held
+  another clump and every blade got a bogus motion vector; with the old motion blur the lawn flashed white
+  while driving at Stonehenge. Each lattice cell now keeps its instance slot. Related: three's
+  `positionPrevious` ignores `material.positionNode`, so materials that move vertices there (worlds:
+  rocks, terrain geomorphing) also carry motion vectors without that offset.
+- **Measuring** (`tests/render/flickerGhost.mjs`, metrics in `frameMetrics.ts`): fixed-step capture of the
+  title demo and the auto stunts (loop stopped, 1/60 s per frame, seeded `Math.random`, dynamic resolution
+  held), per frame a 192×108 luma grid of 10×10-pixel box means, a trace of shot/cut/exposure/light slots,
+  and optionally a reference run without temporal history (`--ref`) for the ghosting trail, `--freeze N`
+  (static scene, pure render flicker), `--video` and `--seq world:<site>` (free drive in a world). Block metrics must use box means: a scaled
+  `drawImage` samples single pixels and aliases thin lights in the measurement itself. The sign-reversal
+  energy penalises a steady ±15 % shimmer more than a light that slowly builds up and drops out, so the
+  blink of thin lights is judged per pixel (share of frames below half the pixel's maximum).
+- Not changed: the ground-cloud volume is simulated at 24 Hz in a worker and swapped as a whole, so it
+  moves in steps at 60 fps; dynamic-resolution steps restart the TRAA history (one soft frame).
+
 ## Effects
 
 - **Cold-gas jets** (`fx/jets.ts`): under-expanded supersonic plumes with Mach diamonds whose spacing and
@@ -27,7 +60,8 @@
 ## Worlds
 
 Each site is a folder in `public/assets/worlds/<site>/` with `meta.json` (extent, height range, spawn, sun,
-sources, landmarks), 16-bit heightmap tiles (near and far), albedo, normal and splat maps and landmark models.
+sources, landmarks), 16-bit heightmap tiles (near and far), albedo and splat maps and landmark models; the detail
+textures are shared by all sites (`_shared/detail/`).
 
 - **Terrain** (`worlds/terrain.ts`, `chunk.ts`, `lod.ts`): near and far tiles with geomorphing LOD, detail
   textures, procedural small craters below the DEM resolution (Moon, Mars), sedimentary layering on Martian slopes.
@@ -55,10 +89,32 @@ All models are generated reproducibly by scripts — nothing is hand-modelled or
 | Terrain | `tools/worlds/terrain.py`, `sites.py` (download, reprojection, tiling) | `public/assets/worlds/<site>/` |
 | Landmarks | `tools/worlds/blender/build_*.py` (Apollo, Stonehenge, Giza) | world GLBs |
 | HUD font "RFT Display" | `src/ui/fonts/build_font.py` | `public/assets/fonts/*.woff` |
+| Web compression | `npm run compress-assets` (`tools/compress-assets.mjs`, `tools/share-textures.mjs`) | the GLBs above, in place |
 
 The car body was fitted to stills of the live stream by silhouette overlap (`tools/blender/v3/iou.py`,
 `fit.py`); the binary silhouette masks are in `tools/blender/v3/masks/`. The stream stills themselves are not
 part of this repository, so the fitting tools need your own reference images (`refs.json`).
+
+**Compression** (run after rebuilding a model): geometry is stored with `EXT_meshopt_compression` without filters,
+so the decoded vertices are bit-identical to the Blender export; PNG textures become WebP (colour maps lossy q90,
+normal and metal/rough maps lossless), JPEG textures stay as they are. Names, empty nodes and extras are kept.
+Images that several GLBs of a folder embed identically (the Giza pyramids) are moved to `<folder>/tex/` and loaded
+once. Every `GLTFLoader` needs `setMeshoptDecoder`; tests read compressed GLBs through `tests/assets/glbFile.ts`.
+
+Download size (GitHub Pages, gzip; `tests/perf/_bootsize.mjs`; files already loaded are cached):
+
+| | before | after |
+|---|---|---|
+| Start (McGregor, car, props) | 26.5 MB | 21.3 MB |
+| Giza | 25.5 MB | 15.9 MB |
+| Stonehenge | 15.8 MB | 15.6 MB |
+| Jezero | 15.0 MB | 13.3 MB |
+| Tranquility Base | 12.9 MB | 12.9 MB |
+| Sun | 9.1 MB | 8.7 MB |
+
+The rest is mostly the 16-bit heightmaps (`terrain_h16.png`, ≈ 5–6 MB per site; a delta-coded format would save
+only ≈ 18 %) and the JPEG textures. The deployed site shrank from 336 MB to 182 MB: the old contract files
+(`height.bin`, per-site detail copies, `normal.png`) were never loaded by the game and are no longer shipped.
 
 Blender 5.2 runs headless for all build scripts. Raw downloads go to `tools/worlds/downloads/` (not versioned);
 rendered previews go to `out/renders/`.

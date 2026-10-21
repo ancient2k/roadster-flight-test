@@ -52,7 +52,6 @@
       "heightMinM": -70.0,
       "heightMaxM": 35.6,
       "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
-      "normalMap": "normal.png",
       "albedo": "albedo.jpg",
       "albedoNote": "Prozedural (Sand/Kalkstein) aus Hangneigung + Rauschen; Detailtexturen sand/limestone.",
       "splat": "splat.png"

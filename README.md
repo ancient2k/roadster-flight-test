@@ -42,8 +42,8 @@ sub-folder. WebGPU requires HTTPS; without WebGPU the game switches to WebGL2 wi
 automatically. A GitHub Pages workflow is in `.github/workflows/pages.yml`.
 
 **Browsers:** automatically tested with Chromium on macOS (Apple M1 Pro), with WebGPU and with the WebGL2
-fallback. A desktop with a dedicated or Apple-silicon GPU is recommended. Download size: ≈ 18 MB once
-(program and car), plus 17–51 MB per world.
+fallback. A desktop with a dedicated or Apple-silicon GPU is recommended. Download size: ≈ 21 MB at the start
+(program, car, McGregor), plus 9–16 MB per world.
 
 URL parameters: `?q=low|medium|high|ultra` (graphics), `?stunt=<id>` (straight into a stunt), `?nomenu`,
 `?webgl`, `?lang=<code>` (UI language, e.g. `?lang=ja`).
@@ -55,6 +55,7 @@ Default bindings; they can be changed in the game under Settings → Controls.
 | Action | Keyboard | Gamepad |
 |---|---|---|
 | Throttle / brake / steer | W / S / A, D | RT / LT / left stick |
+| Reverse | S at standstill (release and press again after braking to a stop); W returns to forward | LT at standstill |
 | Lift thrusters | Space | A |
 | Rear thrusters (boost) | Shift | X |
 | Pitch / roll / yaw | K, I / Q, E / J, L | right stick / LB, RB |

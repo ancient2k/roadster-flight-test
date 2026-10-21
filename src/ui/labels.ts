@@ -77,7 +77,7 @@ export const CHECK_KEY: Record<string, MsgKey> = {
   'no contact with Semi / car row': 'check.noContactRow',
   'no ramp contact in flight': 'check.noRampContact',
   'lifted off from the flat pad': 'check.flatLiftoff',
-  'leaves the top at ≈ 19.5 m (±15 %)': 'check.leaveTop',
+  'leaves the top at ≈ 20.7 m (±15 %)': 'check.leaveTop',
   '0–60 mph 0.81 s ±0.1 s': 'check.zero60',
   'not crashed': 'check.notCrashed',
   'stunt completed': 'check.completed',
@@ -87,6 +87,7 @@ export const CHECK_LABEL: Record<string, string> = lazyRecord(Object.keys(CHECK_
 
 const REASON_EXACT: Record<string, MsgKey> = {
   crash: 'reason.crash',
+  totalLoss: 'damage.totalLoss',
   timeout: 'reason.timeout',
   'lost the wall': 'reason.lostWall',
   'insufficient air': 'reason.insufficientAir',

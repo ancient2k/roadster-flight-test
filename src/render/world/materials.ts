@@ -3,7 +3,9 @@
 import * as THREE from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 import {
-  texture, uv, vec2, vec3, float, mix, positionWorld, mx_noise_float, smoothstep, clamp, normalMap, fract, uniform,
+  texture, uv, vec2, vec3, vec4, float, mix, positionWorld, mx_noise_float, smoothstep, clamp, normalMap, fract, uniform,
+  attribute, positionLocal, modelViewMatrix, max, step, pow, varying, materialColor,
+  materialEmissive,
 } from 'three/tsl';
 
 export interface TextureSet { diff: THREE.Texture; nor: THREE.Texture; arm: THREE.Texture }
@@ -327,5 +329,173 @@ export function makeLedMaterial(color: THREE.ColorRepresentation, intensity: num
   const c = new THREE.Color(color).multiplyScalar(intensity);
   const m = new THREE.MeshBasicNodeMaterial({ color: c });
   m.fog = true;
+  m.userData.led = true; // pixelFloor() candidates (track.ts)
+  return m;
+}
+
+// ---------------------------------------------------------------- sub-pixel emitters
+//
+// LED posts and bars, lamp lenses of the tower heads and site lights are a few centimetres thick:
+// from the long-lens broadcast cameras 100–250 m away they cover less than a pixel. The TRAA jitter
+// then hits them in some frames and misses them in others, and the variance clipping (which only
+// trusts the 3×3 neighbourhood of the current frame) throws the history away whenever they are
+// missed: the lights blink from frame to frame ("flickering lights", strongest along the runway LED
+// lines and on the distant tower heads). pixelFloor() widens the thin axes of such emitters to at
+// least `minPx` pixels in the vertex shader and dims them by the same ratio, so the light that
+// reaches the frame stays the same while every frame samples it.
+
+/** Half extent (m) below which an axis of an emitter part counts as thin; below 3 mm as flat. */
+const THIN_HALF = 0.3, FLAT_HALF = 0.003;
+const floorMats = new WeakMap<THREE.Material, THREE.Material>();
+/**
+ * World size of one pixel per metre of view depth, 2 / (P11 · drawing-buffer height) of the main
+ * camera; GameRenderer sets it every frame (three's cameraProjectionMatrix node did not follow the
+ * broadcast lens changes in this vertex path – the widening came out 4× too large).
+ */
+export const PIXEL_ANGLE = uniform(0.002);
+
+/**
+ * Applies the pixel floor to every mesh below `root` whose material matches. Instanced meshes are
+ * merged into one static mesh first (the widening directions live in mesh space). Parts are the
+ * connected islands of the geometry (welded positions); an island widens along its thin axes when
+ * at least two are thin (posts, bars, lamps – not plates, which only look thin edge-on).
+ */
+export function pixelFloor(root: THREE.Object3D, match: (m: THREE.Material) => boolean, minPx = 2): number {
+  const meshes: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || Array.isArray(mesh.material) || mesh.userData.pixelFloor || !match(mesh.material)) return;
+    if ((mesh as THREE.InstancedMesh).isInstancedMesh && (mesh as THREE.InstancedMesh).instanceColor) return;
+    meshes.push(mesh);
+  });
+  for (const mesh of meshes) {
+    if (!addThinAttributes(mesh.geometry.clone())) continue; // no thin part (in geometry space)
+    let target = mesh;
+    let geo = mesh.geometry;
+    if ((mesh as THREE.InstancedMesh).isInstancedMesh) {
+      geo = bakeInstances(mesh as THREE.InstancedMesh);
+      target = new THREE.Mesh(geo, mesh.material);
+      target.name = mesh.name;
+      target.position.copy(mesh.position); target.quaternion.copy(mesh.quaternion); target.scale.copy(mesh.scale);
+      target.castShadow = mesh.castShadow; target.receiveShadow = mesh.receiveShadow;
+      target.layers.mask = mesh.layers.mask; target.renderOrder = mesh.renderOrder; target.visible = mesh.visible;
+      mesh.parent?.add(target);
+      mesh.removeFromParent();
+    } else {
+      geo = geo.clone(); // geometries may be shared with meshes of other materials
+      target.geometry = geo;
+    }
+    if (!addThinAttributes(geo)) continue;
+    target.userData.pixelFloor = true;
+    target.material = pixelFloorMaterial(mesh.material as THREE.Material, minPx);
+  }
+  return meshes.length;
+}
+
+/** One static geometry with every instance transformed into mesh space (position, normal, uv). */
+function bakeInstances(im: THREE.InstancedMesh): THREE.BufferGeometry {
+  const src = im.geometry.index ? im.geometry.toNonIndexed() : im.geometry;
+  const n = src.attributes.position.count, count = im.count;
+  const pos = new Float32Array(n * count * 3), nor = src.attributes.normal ? new Float32Array(n * count * 3) : null;
+  const uvs = src.attributes.uv ? new Float32Array(n * count * 2) : null;
+  const m = new THREE.Matrix4(), nm = new THREE.Matrix3(), v = new THREE.Vector3();
+  for (let i = 0; i < count; i++) {
+    im.getMatrixAt(i, m);
+    nm.getNormalMatrix(m);
+    for (let k = 0; k < n; k++) {
+      const o = (i * n + k) * 3;
+      v.fromBufferAttribute(src.attributes.position, k).applyMatrix4(m).toArray(pos, o);
+      if (nor) v.fromBufferAttribute(src.attributes.normal, k).applyMatrix3(nm).normalize().toArray(nor, o);
+      if (uvs) { uvs[(i * n + k) * 2] = src.attributes.uv.getX(k); uvs[(i * n + k) * 2 + 1] = src.attributes.uv.getY(k); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  if (nor) g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  if (uvs) g.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  g.computeBoundingSphere();
+  return g;
+}
+
+/**
+ * aaDir (sign of the vertex offset from its island centre on the thin axes) and aaHalf (xyz = half
+ * extent of the thin axes, 0 elsewhere; w = fade exponent: (thin axes − 1) / thin axes, the share
+ * of the widened axes that shows in the image). Returns false when no island is thin.
+ */
+export function addThinAttributes(geo: THREE.BufferGeometry): boolean {
+  const P = geo.attributes.position, n = P.count;
+  // weld coincident vertices (flat-shaded parts repeat their corners per face), then union the
+  // vertices of each triangle
+  const id = new Int32Array(n), keys = new Map<string, number>();
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(P.getX(i) * 1000)},${Math.round(P.getY(i) * 1000)},${Math.round(P.getZ(i) * 1000)}`;
+    let w = keys.get(k);
+    if (w === undefined) { w = keys.size; keys.set(k, w); }
+    id[i] = w;
+  }
+  const parent = new Int32Array(keys.size).map((_, i) => i);
+  const find = (a: number): number => { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
+  const unite = (a: number, b: number) => { a = find(a); b = find(b); if (a !== b) parent[a] = b; };
+  const idx = geo.index;
+  const tri = idx ? idx.count : n;
+  for (let t = 0; t + 2 < tri; t += 3) {
+    const a = idx ? idx.getX(t) : t, b = idx ? idx.getX(t + 1) : t + 1, c = idx ? idx.getX(t + 2) : t + 2;
+    unite(id[a], id[b]); unite(id[b], id[c]);
+  }
+  const lo = new Map<number, THREE.Vector3>(), hi = new Map<number, THREE.Vector3>();
+  const v = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const r = find(id[i]);
+    v.fromBufferAttribute(P, i);
+    if (!lo.has(r)) { lo.set(r, v.clone()); hi.set(r, v.clone()); } else { lo.get(r)!.min(v); hi.get(r)!.max(v); }
+  }
+  const dir = new Float32Array(n * 3), half = new Float32Array(n * 4);
+  let any = false;
+  for (let i = 0; i < n; i++) {
+    const r = find(id[i]), a = lo.get(r)!, b = hi.get(r)!;
+    const h = [(b.x - a.x) / 2, (b.y - a.y) / 2, (b.z - a.z) / 2];
+    const thin = h.map((x) => x < THIN_HALF && x > FLAT_HALF);
+    const nThin = thin.filter(Boolean).length;
+    if (nThin < 2) continue;
+    // a disc (flat third axis) shows both widened axes, a bar only one of its two
+    const flat = h.some((x) => x <= FLAT_HALF);
+    any = true;
+    const c = [(a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2], p = [P.getX(i), P.getY(i), P.getZ(i)];
+    for (let k = 0; k < 3; k++) {
+      if (!thin[k]) continue;
+      const d = p[k] - c[k];
+      dir[i * 3 + k] = Math.abs(d) < h[k] * 0.05 ? 0 : Math.sign(d);
+      half[i * 4 + k] = h[k];
+    }
+    half[i * 4 + 3] = flat && nThin === 2 ? 1 : (nThin - 1) / nThin;
+  }
+  if (!any) return false;
+  geo.setAttribute('aaDir', new THREE.BufferAttribute(dir, 3));
+  geo.setAttribute('aaHalf', new THREE.BufferAttribute(half, 4));
+  return true;
+}
+
+/** Copy of an emitter material that widens the thin axes to minPx and fades by the coverage ratio. */
+function pixelFloorMaterial(src: THREE.Material, minPx: number): THREE.Material {
+  const cached = floorMats.get(src);
+  if (cached) return cached;
+  const m = src.clone() as THREE.Material & {
+    positionNode: Node | null; colorNode: Node | null; emissiveNode: Node | null; isMeshBasicMaterial?: boolean;
+  };
+  m.name = src.name;
+  const dir = attribute('aaDir', 'vec3'), half = attribute('aaHalf', 'vec4');
+  const depth = modelViewMatrix.mul(vec4(positionLocal, 1)).z.negate().max(0.05);
+  // world size of one pixel at the vertex
+  const pix = depth.mul(PIXEL_ANGLE);
+  const thin = step(1e-6, half.xyz);
+  const extra = max(pix.mul(minPx * 0.5).sub(half.xyz), 0).mul(thin);
+  m.positionNode = positionLocal.add(dir.mul(extra));
+  const ratio = mix(vec3(1), half.xyz.div(half.xyz.add(extra).max(1e-6)), thin);
+  const fade = varying(pow(ratio.x.mul(ratio.y).mul(ratio.z), half.w));
+  const prev = (src as unknown as { colorNode?: Node | null; emissiveNode?: Node | null });
+  if (prev.colorNode) m.colorNode = (prev.colorNode as unknown as { mul(x: unknown): Node }).mul(fade);
+  else if (m.isMeshBasicMaterial || (src as THREE.MeshBasicMaterial).isMeshBasicMaterial || src.type === 'MeshBasicNodeMaterial') m.colorNode = materialColor.mul(fade);
+  else m.emissiveNode = ((prev.emissiveNode ?? materialEmissive) as unknown as { mul(x: unknown): Node }).mul(fade);
+  floorMats.set(src, m);
   return m;
 }

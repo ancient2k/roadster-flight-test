@@ -1,6 +1,7 @@
 // Shared contracts between sim (physics + GNC), game integration, render and UI.
 // Shared contracts between simulation, renderer and UI: change with care, all layers depend on them.
 import type { Quat, Vec3 } from './math';
+import type { DamageState } from './damage';
 
 export const NOZZLE_COUNT = 10;
 export type NozzleGroup = 'main' | 'lift' | 'yaw';
@@ -113,6 +114,8 @@ export interface VehicleState {
   bodyContact: boolean;       // chassis touching geometry (crash indicator)
   heightAboveGroundM: number; // CoG to nearest surface below (world -Y ray)
   crashed: boolean;
+  /** Vehicle damage (only with the setting "Vehicle damage: Realistic", see src/shared/damage.ts). */
+  damage?: DamageState;
 }
 
 /** Values in the style of the Tesla stream HUD (+ extras). */

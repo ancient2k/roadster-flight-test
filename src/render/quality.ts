@@ -57,9 +57,65 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualitySettings> = {
   },
 };
 
+// ------------------------------------------------------------------ device profile (phones, tablets)
+export interface DeviceInfo {
+  maxTouchPoints: number;
+  /** matchMedia('(pointer: coarse)') */
+  coarsePointer: boolean;
+  /** matchMedia('(hover: hover)') – a mouse or trackpad is present */
+  canHover: boolean;
+  /** Smaller CSS-pixel side of the screen. */
+  minScreen: number;
+  userAgent: string;
+  /** navigator.deviceMemory (GB, Chromium only). */
+  deviceMemory?: number;
+}
+export type DeviceProfile = 'desktop' | 'mobile';
+
+/**
+ * Phones and tablets: touch-first (coarse pointer, no hover) or a mobile user agent. iPadOS reports a
+ * desktop Mac UA, so the touch/hover test catches it; touch laptops keep hover and stay desktop.
+ */
+export function classifyDevice(d: DeviceInfo): DeviceProfile {
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(d.userAgent)) return 'mobile';
+  if (d.maxTouchPoints > 0 && d.coarsePointer && !d.canHover) return 'mobile';
+  if (d.maxTouchPoints > 1 && /Macintosh/.test(d.userAgent) && d.minScreen <= 1366) return 'mobile'; // iPadOS
+  return 'desktop';
+}
+
+/** First-run quality when the player has not chosen one yet. */
+export function defaultQualityFor(profile: DeviceProfile): QualityLevel {
+  return profile === 'mobile' ? 'low' : 'high';
+}
+
+/** Budgets that apply on phones/tablets on top of any preset (GPU memory, fill rate, thermal limits). */
+export const MOBILE_CAPS = {
+  maxPixelRatio: 1, shadowMapSize: 1024, particleBudget: 1500, crowdCount: 300, starCount: 1000,
+  lightSlots: 3, shadowSlots: 1, aoSamples: 8,
+} as const;
+
+let deviceProfile: DeviceProfile = 'desktop';
+/** Set once at startup (src/main.ts); settingsForBackend then applies MOBILE_CAPS. */
+export function setDeviceProfile(p: DeviceProfile): void { deviceProfile = p; }
+export function getDeviceProfile(): DeviceProfile { return deviceProfile; }
+
 /** Effects that the WebGL2 fallback drops (cost / support) on top of the chosen preset. */
-export function settingsForBackend(level: QualityLevel, backend: 'webgpu' | 'webgl2'): QualitySettings {
+export function settingsForBackend(level: QualityLevel, backend: 'webgpu' | 'webgl2', profile: DeviceProfile = deviceProfile): QualitySettings {
   const s = { ...QUALITY_PRESETS[level], resolutionSteps: [...QUALITY_PRESETS[level].resolutionSteps] };
+  if (profile === 'mobile') {
+    const c = MOBILE_CAPS;
+    s.maxPixelRatio = Math.min(s.maxPixelRatio, c.maxPixelRatio);
+    s.shadowMapSize = Math.min(s.shadowMapSize, c.shadowMapSize);
+    s.particleBudget = Math.min(s.particleBudget, c.particleBudget);
+    s.crowdCount = Math.min(s.crowdCount, c.crowdCount);
+    s.starCount = Math.min(s.starCount, c.starCount);
+    s.lightSlots = Math.min(s.lightSlots, c.lightSlots);
+    s.shadowSlots = Math.min(s.shadowSlots, c.shadowSlots);
+    s.aoSamples = Math.min(s.aoSamples, c.aoSamples);
+    s.ssr = false;
+    s.motionBlur = false;
+    if (!s.resolutionSteps.includes(0.5)) s.resolutionSteps.push(0.5);
+  }
   if (backend === 'webgl2') {
     s.ssr = false;
     s.motionBlur = false;

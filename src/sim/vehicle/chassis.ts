@@ -131,10 +131,12 @@ export class ChassisModule implements ForceModule {
     const maxStep = STEER.rateDegPerS * DEG * dt;
     this.steerAngle += clamp(target - this.steerAngle, -maxStep, maxStep);
     const tanD = Math.tan(this.steerAngle);
+    const dmg = this.bus.damage; // damage.ts: bent links (toe), worn tyres/rims (grip), torn-off wheels
     for (const w of this.wheels) {
-      if (!w.spec.steered) { w.steer = 0; continue; }
+      const toe = dmg.toeRad[this.wheels.indexOf(w)];
+      if (!w.spec.steered) { w.steer = toe; continue; }
       const ideal = Math.atan2(GEOM.wheelbase * tanD, GEOM.wheelbase - w.spec.pos.x * tanD);
-      w.steer = this.steerAngle + XS_ACK * (ideal - this.steerAngle);
+      w.steer = this.steerAngle + XS_ACK * (ideal - this.steerAngle) + toe;
     }
 
     // ---------------------------------------------------------- suspension geometry (casts)
@@ -143,6 +145,7 @@ export class ChassisModule implements ForceModule {
     let nContact = 0; const nSum = v3();
     for (const w of this.wheels) {
       const s = w.spec;
+      if (dmg.wheelLost[this.wheels.indexOf(w)]) { w.contact = false; w.c = 0; w.cdot = 0; w.sink = 0; w.zLoad = 0; w.zSlip = 0; w.nSoil = 0; continue; }
       const startBody = { x: s.pos.x, y: s.pos.y - SUSP.restCompressionM + travel + margin, z: s.pos.z };
       const start = sim.toWorld(startBody);
       const qs = qmul(q, qmul(qaxisAngle({ x: 0, y: 1, z: 0 }, w.steer), Q_AXIS_X));
@@ -213,7 +216,7 @@ export class ChassisModule implements ForceModule {
       w.bumpStopN = bumpStopForce(w.c);
       w.strutN = Math.max(0, SUSP.springNPerM * w.c + damperForce(w.cdot) + hydraulicStopForce(w.c, w.cdot) + w.bumpStopN + arb[i]);
       w.N = w.strutN / Math.max(v3dot(w.n, yb), 0.3);
-      w.D = w.prof.tire.peak(w.N, w.spec.width * (FOOTPRINT_M + Math.sqrt(2 * w.r * w.sink)));
+      w.D = w.prof.tire.peak(w.N, w.spec.width * (FOOTPRINT_M + Math.sqrt(2 * w.r * w.sink))) * dmg.gripScale[i];
     }
     this.updateSoil(sim, dt, vFwd);
     let muSum = 0;

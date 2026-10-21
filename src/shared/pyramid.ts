@@ -5,8 +5,13 @@
 // car with a 16° approach angle and ~9 cm floor clearance can actually drive up:
 //  - foot: a concave talus (sand/rubble fillet, radius TALUS_R) from the ground into the 52° face. Rendered as
 //    a sand mesh; debris and drift sand at the foot are real at Giza (esp. Menkaure, the queens' pyramids).
-//  - crest: the face-to-platform edge is rounded (radius up to CREST_R) where the summit platform is wide
-//    enough (Khufu), so the floor does not ground on the edge. Pointed tops stay pointed.
+//  - crest: the face-to-platform edge is rounded (radius up to CREST_R, per axis capped by the platform
+//    half-width, so a narrow platform becomes a low dome). The floor sags L²/8R below the wheels on a convex
+//    arc (L = 2.65 m wheelbase): 15 cm at R 6 m – more than the 10 cm ride height, which is less again under
+//    full suction – so the car grounded on the crest, the front wheels lifted, the fan demand control backed
+//    off (scraping) and a player who arrived at walking pace or stopped on the edge hung there at full
+//    throttle. R 12 m: 7 cm. Game simplification: the collider edge lies up to R (sec(θ/2) - 1) ≈ 1.3 m
+//    inside the sharp frustum edge of the (ruined, stepped) summit. Pointed tops stay pointed.
 // Local frame: rotate world by -heading about the landmark centre; faces are ±x / ±z.
 
 export interface PyramidFit {
@@ -20,7 +25,7 @@ export interface PyramidFit {
 }
 
 export const TALUS_R = 14; // m: front lip (16° approach angle) clears the transition by ≥ 8 cm (tests/sim/vehicle/pyramid.test.ts)
-export const CREST_R = 6;
+export const CREST_R = 12; // m: breakover on the summit edge, see above (tests/sim/vehicle/pyramid_player.test.ts)
 
 const rot = (x: number, z: number, c: number, s: number): [number, number] => [c * x - s * z, s * x + c * z];
 
@@ -99,19 +104,47 @@ export function toWorld(f: PyramidFit, lx: number, lz: number): [number, number]
   return [f.cx + x, f.cz + z];
 }
 
-/** Convex hull points (world xyz…) of the frustum with a rounded crest. */
-export function pyramidHullPoints(f: PyramidFit, crestR = CREST_R, segs = 8): Float32Array {
-  const th = f.slope, tanHalf = Math.tan(th / 2);
-  const R = Math.max(0, Math.min(crestR, Math.min(f.bx, f.bz) / tanHalf));
-  const t = R * tanHalf;
-  // profile (inset from the summit corner: dw ≤ 0 inward, y): straight face below the arc, arc to the top plane
-  const prof: [number, number][] = [];
-  if (R > 0.05) {
-    for (let k = 0; k <= segs; k++) {
-      const phi = th * (1 - k / segs);
-      prof.push([-t + R * Math.sin(phi), f.yTop - R + R * Math.cos(phi)]);
-    }
-  } else prof.push([0, f.yTop]);
+/**
+ * Crest profile of one axis: half-width at height y of the frustum with the face-to-platform edge rounded to
+ * radius R (capped so the arc ends on the platform, i.e. at most the whole platform half-width b).
+ */
+function crestHalfWidth(b: number, th: number, yTop: number, R: number, y: number): number {
+  const face = b + (yTop - y) / Math.tan(th);
+  if (R < 0.05) return face;
+  const t = R * Math.tan(th / 2);
+  const yc = yTop - R, dy = y - yc;
+  if (y < yc + R * Math.cos(th)) return face;
+  return b - t + Math.sqrt(Math.max(0, R * R - dy * dy));
+}
+
+/**
+ * Face angles (rad) of the ±x and ±z faces. `slope` is their mean; the eroded queens' pyramids differ by up
+ * to 8° between the axes (G3-c 53° / 46°), and a talus or crest built with the mean angle met the steeper or
+ * shallower face with a step – the talus top stood 0.5 m proud of G3-c's north face and the car hung on it.
+ */
+export function axisSlopes(f: PyramidFit): [number, number] {
+  const H = Math.max(1e-3, f.yTop - f.y0);
+  return [Math.atan2(H, Math.max(1e-3, f.ax - f.bx)), Math.atan2(H, Math.max(1e-3, f.az - f.bz))];
+}
+
+/** Crest radii (x, z) actually used: CREST_R capped by each axis' summit half-width. */
+export function crestRadii(f: PyramidFit, crestR = CREST_R): [number, number] {
+  const [tx, tz] = axisSlopes(f);
+  return [Math.max(0, Math.min(crestR, f.bx / Math.tan(tx / 2))), Math.max(0, Math.min(crestR, f.bz / Math.tan(tz / 2)))];
+}
+
+/** Convex hull points (world xyz…) of the frustum with a rounded crest (rings of 4 corners, bottom to top). */
+export function pyramidHullPoints(f: PyramidFit, crestR = CREST_R, segs = 12): Float32Array {
+  const [thx, thz] = axisSlopes(f);
+  const [Rx, Rz] = crestRadii(f, crestR);
+  // ring heights: the arc of each axis sampled evenly in angle (both axes share the rings, so merge them)
+  const ys = new Set<number>([f.yTop]);
+  for (const [R, th] of [[Rx, thx], [Rz, thz]]) {
+    if (R < 0.05) continue;
+    for (let k = 0; k < segs; k++) ys.add(f.yTop - R + R * Math.cos(th * (1 - k / segs)));
+  }
+  // (rings closer than 5 cm merged: equal axes give near-identical heights → degenerate slivers)
+  const levels = [...ys].sort((a, b) => a - b).filter((y, i, l) => i === l.length - 1 || l[i + 1] - y > 0.05);
   const out: number[] = [];
   const ring = (hx: number, hz: number, y: number) => {
     for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
@@ -120,7 +153,9 @@ export function pyramidHullPoints(f: PyramidFit, crestR = CREST_R, segs = 8): Fl
     }
   };
   ring(f.ax, f.az, f.y0);
-  for (const [dw, y] of prof) ring(Math.max(0.05, f.bx + dw), Math.max(0.05, f.bz + dw), y);
+  for (const y of levels) {
+    ring(Math.max(0.05, crestHalfWidth(f.bx, thx, f.yTop, Rx, y)), Math.max(0.05, crestHalfWidth(f.bz, thz, f.yTop, Rz, y)), y);
+  }
   return new Float32Array(out);
 }
 
@@ -129,18 +164,21 @@ export function pyramidHullPoints(f: PyramidFit, crestR = CREST_R, segs = 8): Fl
  * face, following the terrain; swept around the corners so there are no gaps or side walls.
  */
 export function pyramidTalus(f: PyramidFit, groundAt: (x: number, z: number) => number, R = TALUS_R, station = 4, cornerSegs = 4, arcSegs = 14): Float32Array {
-  const th = f.slope, tf = R * Math.tan(th / 2);
-  const k = 1 / Math.tan(th); // horizontal inset per metre of height
-  // profile: outward horizontal distance d from the foot line, height above the foot ground g
+  // profile for face angle th: outward horizontal distance d from the foot line, height above the foot ground;
   // arc from the ground tangent (d = tf, 0) to the face tangent (d = -tf cos th, tf sin th); last point 5 cm into the face
-  const prof: [number, number][] = [];
-  for (let i = 0; i <= arcSegs; i++) {
-    const phi = th * (i / arcSegs);
-    prof.push([tf - R * Math.sin(phi), R - R * Math.cos(phi)]);
-  }
-  prof.push([prof[arcSegs][0] - 0.05 * Math.sin(th) - 0.3 * k, prof[arcSegs][1] + 0.3]);
-  // stations around the perimeter: foot point (local), outward normal (local), foot ground height
-  type St = { px: number; pz: number; nx: number; nz: number };
+  const profile = (th: number): [number, number][] => {
+    const tf = R * Math.tan(th / 2), k = 1 / Math.tan(th); // k: horizontal inset per metre of height
+    const prof: [number, number][] = [];
+    for (let i = 0; i <= arcSegs; i++) {
+      const phi = th * (i / arcSegs);
+      prof.push([tf - R * Math.sin(phi), R - R * Math.cos(phi)]);
+    }
+    prof.push([prof[arcSegs][0] - 0.05 * Math.sin(th) - 0.3 * k, prof[arcSegs][1] + 0.3]);
+    return prof;
+  };
+  const [thx, thz] = axisSlopes(f);
+  // stations around the perimeter: foot point (local), outward normal (local), face angle (blended round the corners)
+  type St = { px: number; pz: number; nx: number; nz: number; th: number };
   const sts: St[] = [];
   // foot ground height at a local point: two fixed-point passes (the foot line moves with the ground height)
   const footAt = (u: number, side: number): { px: number; pz: number; g: number } => {
@@ -161,10 +199,11 @@ export function pyramidTalus(f: PyramidFit, groundAt: (x: number, z: number) => 
     const len = 2 * (side % 2 === 0 ? f.az : f.ax);
     const n = Math.max(2, Math.ceil(len / station));
     const [nx, nz] = normals[side];
+    const th = side % 2 === 0 ? thx : thz, thNext = side % 2 === 0 ? thz : thx;
     for (let i = 0; i < n; i++) {
       const u = -1 + (2 * i) / n;
       const p = footAt(u, side);
-      sts.push({ px: p.px, pz: p.pz, nx, nz });
+      sts.push({ px: p.px, pz: p.pz, nx, nz, th });
     }
     // corner (u = +1): sweep the normal from this face to the next
     const p = footAt(1, side);
@@ -173,13 +212,14 @@ export function pyramidTalus(f: PyramidFit, groundAt: (x: number, z: number) => 
       const a = (j / cornerSegs) * (Math.PI / 2);
       const ca = Math.cos(a), sa = Math.sin(a);
       const ex = nx * ca + mx * sa, ez = nz * ca + mz * sa;
-      sts.push({ px: p.px, pz: p.pz, nx: ex, nz: ez });
+      sts.push({ px: p.px, pz: p.pz, nx: ex, nz: ez, th: th * ca * ca + thNext * sa * sa });
     }
   }
   // grid of world points; the ground height follows the terrain under each profile point (outer lip sinks 10 cm)
-  const W = prof.length;
+  const W = arcSegs + 2;
   const P: number[][] = [];
   for (const st of sts) {
+    const prof = profile(st.th);
     const [fx, fz] = toWorld(f, st.px, st.pz);
     const g = groundAt(fx, fz);
     const row: number[] = [];
@@ -205,15 +245,27 @@ export function pyramidTalus(f: PyramidFit, groundAt: (x: number, z: number) => 
   return new Float32Array(tris);
 }
 
-/** Height of the frustum surface at world (x, z), -Infinity outside the base (camera/jet ground, no rounding). */
-export function pyramidHeightAt(f: PyramidFit, x: number, z: number): number {
+/**
+ * Height of the frustum surface at world (x, z), -Infinity outside the base. Without crestR the sharp frustum
+ * (camera/jet ground); with crestR (CREST_R as in the collider) the summit edge is rounded like the collision mesh.
+ */
+export function pyramidHeightAt(f: PyramidFit, x: number, z: number, crestR?: number): number {
   const c = Math.cos(-f.heading), s = Math.sin(-f.heading);
   const [lx, lz] = rot(x - f.cx, z - f.cz, c, s);
   const ux = Math.abs(lx), uz = Math.abs(lz);
   if (ux > f.ax || uz > f.az) return -Infinity;
   const H = f.yTop - f.y0;
-  const yx = ux <= f.bx ? f.yTop : f.y0 + ((f.ax - ux) / Math.max(1e-3, f.ax - f.bx)) * H;
-  const yz = uz <= f.bz ? f.yTop : f.y0 + ((f.az - uz) / Math.max(1e-3, f.az - f.bz)) * H;
+  let yx = ux <= f.bx ? f.yTop : f.y0 + ((f.ax - ux) / Math.max(1e-3, f.ax - f.bx)) * H;
+  let yz = uz <= f.bz ? f.yTop : f.y0 + ((f.az - uz) / Math.max(1e-3, f.az - f.bz)) * H;
+  if (crestR != null) {
+    const [thx, thz] = axisSlopes(f), [Rx, Rz] = crestRadii(f, crestR);
+    const arc = (u: number, b: number, R: number, th: number, y: number) => {
+      const t = R * Math.tan(th / 2), d = u - (b - t);
+      if (R < 0.05 || d > R * Math.sin(th)) return y;
+      return d <= 0 ? f.yTop : Math.min(y, f.yTop - R + Math.sqrt(R * R - d * d));
+    };
+    yx = arc(ux, f.bx, Rx, thx, yx); yz = arc(uz, f.bz, Rz, thz, yz);
+  }
   return Math.min(yx, yz);
 }
 
@@ -222,7 +274,7 @@ export function pyramidHeightAt(f: PyramidFit, x: number, z: number): number {
  * this instead of a convex-hull collider: wheel shape casts against one 230-m convex polyhedron intermittently
  * missed the face (GJK tolerance at that scale) and the car peeled off the wall; triangle casts are robust.
  */
-export function pyramidHullMesh(f: PyramidFit, crestR = CREST_R, segs = 8): Float32Array {
+export function pyramidHullMesh(f: PyramidFit, crestR = CREST_R, segs = 12): Float32Array {
   const p = pyramidHullPoints(f, crestR, segs);
   const levels = p.length / 12;
   const P = (k: number, i: number): [number, number, number] => { const o = (k * 4 + (i % 4)) * 3; return [p[o], p[o + 1], p[o + 2]]; };

@@ -2,16 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Roadster Flight Test</title>
     <link rel="icon" href="data:," />
-    <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#app{position:fixed;inset:0}</style>
+    <style>html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavior:none}#app{position:fixed;inset:0}</style>
     <style>
       #boot{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#000;color:#ddd;font:600 13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.32em;transition:opacity .4s}
       #boot .t{font-size:clamp(18px,3.2vw,34px);letter-spacing:.42em;color:#fff;text-align:center;padding:0 16px}
       #boot .bar{width:min(360px,70vw);height:3px;background:#222;overflow:hidden;border-radius:2px}
-      #boot .bar i{display:block;height:100%;width:0;background:#e31937;transition:width .3s}
+      #boot .bar i{position:relative;display:block;height:100%;width:0;background:#e31937;overflow:hidden;transition:width .25s linear}
+      #boot .bar i::after{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:bootsh 1.3s linear infinite}
+      @keyframes bootsh{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+      @media (prefers-reduced-motion:reduce){#boot .bar i::after{animation:none;display:none}}
       #boot .mb{font-variant-numeric:tabular-nums;letter-spacing:.12em;color:#888;min-height:1.4em}
+      #boot .ph{letter-spacing:.14em;color:#777;font-weight:500;min-height:1.4em;text-align:center;padding:0 16px}
+      #boot .msg{max-width:min(30em,88vw);text-align:center;letter-spacing:.02em;font-weight:500;color:#ddd;line-height:1.5}
+      #boot .msg p{margin:0 0 14px}
+      #boot .msg .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+      #boot .msg button{font:600 12px/1 system-ui,-apple-system,sans-serif;letter-spacing:.14em;text-transform:uppercase;padding:12px 18px;border-radius:4px;border:1px solid #666;background:#111;color:#eee;cursor:pointer}
+      #boot .msg button:first-child{background:#e31937;border-color:#e31937;color:#fff}
+      #boot .msg details{margin-top:14px;text-align:left;color:#888}
+      #boot .msg pre{white-space:pre-wrap;word-break:break-word;font:11px/1.4 ui-monospace,monospace;max-height:30vh;overflow:auto}
+      #boot.failed .bar{display:none}
       #boot.done{opacity:0;pointer-events:none}
     </style>
   </head>
@@ -19,14 +33,51 @@
     <div id="app"></div>
     <div id="boot" aria-busy="true"><div class="t">ROADSTER FLIGHT TEST</div><div class="bar"><i></i></div><div class="mb"></div></div>
     <script>
-      // boot screen: language-neutral progress (downloaded MB) until the game is ready (src/main.ts removes it)
+      // boot screen: language-neutral progress until the game is ready (src/main.ts removes it). The bar follows
+      // the downloaded bytes (finished files plus the car model in flight) and the renderer's start-up steps
+      // (src/ui/bootProgress.ts), and keeps creeping towards the next step so it never looks frozen.
+      // window.__rftBoot is the watchdog state src/main.ts continues (phase line, "taking long" hint, errors).
       (function () {
-        var bar = document.querySelector('#boot .bar i'), mb = document.querySelector('#boot .mb'), sum = 0, EXPECT = 34e6;
-        function show() { bar.style.width = Math.min(96, 4 + 92 * sum / EXPECT) + '%'; mb.textContent = (sum / 1e6).toFixed(1) + ' MB'; }
+        var bar = document.querySelector('#boot .bar i'), mb = document.querySelector('#boot .mb'), sum = 0, EXPECT = 22e6;
+        var now = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
+        var st = window.__rftBoot = { t0: now(), lastNet: now(), errors: [] };
+        // bar position (%) once a step is finished; downloads alone fill up to DL (EXPECT ≈ boot download over gzip)
+        var FLOOR = { init: 8, 's.world': 22, 's.car': 38, 's.rest': 50, 's.compile': 78, setup: 78, prewarm: 88, bakeWait: 92 };
+        var STOPS = [8, 22, 38, 50, 78, 88, 92, 97], DL = 48, floor = 3, live = {}, shown = 3, mbShown = 0, last = now();
+        var abs = function (u) { try { return new URL(u, location.href).href; } catch (e) { return u; } };
+        st.step = function (k) { st.phase = k; if (FLOOR[k] > floor) floor = FLOOR[k]; st.lastNet = now(); };
+        st.bytes = function (u, n) { live[abs(u)] = n; st.lastNet = now(); };
+        function show() {
+          var t = now(), dt = Math.min(1, (t - last) / 1000), lv = 0; last = t;
+          for (var k in live) lv += live[k];
+          var x = (sum + lv) / EXPECT, f = x < 0.8 ? x : 1 - 0.2 * Math.exp(-(x - 0.8) / 0.2); // soft end, more bytes still move it
+          var target = Math.max(floor, 3 + (DL - 3) * f), next = 97;
+          for (var i = 0; i < STOPS.length; i++) if (STOPS[i] > target + 0.5) { next = STOPS[i]; break; }
+          shown = Math.max(shown, target);
+          if (shown < next - 2) shown += (next - 2 - shown) * (1 - Math.exp(-dt / 7));
+          bar.style.width = Math.min(97, shown).toFixed(1) + '%';
+          mbShown = Math.max(mbShown, sum + lv);
+          mb.textContent = (mbShown / 1e6).toFixed(1) + ' MB';
+        }
         try {
-          new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { sum += e.transferSize || e.encodedBodySize || 0; }); show(); })
+          new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { sum += e.transferSize || e.encodedBodySize || 0; delete live[e.name]; }); st.lastNet = now(); })
             .observe({ type: 'resource', buffered: true });
-        } catch (e) { /* no PerformanceObserver: the bar stays at its start */ }
+        } catch (e) { /* no PerformanceObserver: steps and creep only */ }
+        var tick = setInterval(function () { if (!document.getElementById('boot')) clearInterval(tick); else show(); }, 200);
+        function err(m) { if (document.getElementById('boot') && st.errors.length < 8) st.errors.push(String(m).slice(0, 600)); }
+        window.addEventListener('error', function (e) { err(e.message || e); });
+        window.addEventListener('unhandledrejection', function (e) { err(e.reason && e.reason.stack || e.reason); });
+        // the game module never started (very old browser, blocked script): plain English, the UI language is not loaded yet
+        var fb = setInterval(function () {
+          var b = document.getElementById('boot');
+          if (st.main || !b) { clearInterval(fb); return; }
+          if (now() - st.t0 < 90000 || now() - st.lastNet < 30000) return; // still downloading the bundle
+          clearInterval(fb);
+          var m = document.createElement('div'); m.className = 'msg'; m.setAttribute('role', 'alert');
+          m.innerHTML = '<p>The game could not start in this browser. It needs Safari 15.4 or newer (iOS/iPadOS), or a current Chrome, Edge or Firefox with WebGL 2.</p><div class="row"><button type="button" onclick="location.reload()">Reload</button></div>';
+          if (st.errors.length) { var pre = document.createElement('pre'); pre.textContent = st.errors.join('\n'); m.appendChild(pre); }
+          b.className = 'failed'; b.appendChild(m);
+        }, 2000);
         show();
       })();
     </script>

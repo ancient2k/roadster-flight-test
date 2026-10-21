@@ -58,7 +58,7 @@ export class AeroModule implements ForceModule {
     const qd = 0.5 * rho * sp * sp;
     const drag = qd * cd * AERO.frontalAreaM2;
     const vf = Math.max(0, vFwd);
-    const down = 0.5 * rho * vf * vf * clA;
+    const down = 0.5 * rho * vf * vf * clA * this.bus.damage.downforceScale; // damage.ts: wing torn off
     this.dragN = drag; this.downforceN = down;
     this.bus.aeroDragN = drag; this.bus.aeroDownforceN = down;
     if (sp < 1e-6) return;

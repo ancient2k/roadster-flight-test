@@ -4,13 +4,14 @@
 // nothing may stay static (a static triangle does not move when its part breaks off or a stone topples).
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
+import { readGlbFile } from '../../assets/glbFile';
 import * as THREE from 'three/webgpu';
 import { partRegions, type PropObjectDef } from '../../../src/shared/props';
 
 interface Glb { json: { nodes: { name?: string; mesh?: number; children?: number[]; translation?: number[]; rotation?: number[]; scale?: number[] }[]; meshes: { primitives: { attributes: Record<string, number>; indices?: number }[] }[]; accessors: { bufferView: number; byteOffset?: number; componentType: number; count: number; type: string }[]; bufferViews: { byteOffset?: number; byteStride?: number }[] }; bin: Buffer; size: number }
 
 function readGlb(path: string): Glb {
-  const b = fs.readFileSync(path);
+  const b = readGlbFile(path);
   const jl = b.readUInt32LE(12);
   const json = JSON.parse(b.subarray(20, 20 + jl).toString('utf8'));
   const bl = b.readUInt32LE(20 + jl);

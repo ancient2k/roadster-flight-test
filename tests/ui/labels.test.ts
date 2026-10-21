@@ -79,7 +79,7 @@ describe('German (the original UI texts)', () => {
     expect(reasonText('timeout in climb')).toBe('Zeitüberschreitung in Phase AUFFAHRT');
     expect(reasonText('lost the wall (car recovered)')).toBe('Wandkontakt verloren (Auto gerettet)');
     expect(reasonText('checks failed: touchdown g ≤ 2.5, full roll 360°')).toBe('Referenzwerte verfehlt: Aufsetzen ≤ 2,5 g · volle 360°-Drehung');
-    expect(reasonText('checks failed: leaves the top at ≈ 19.5 m (±15 %), landed upright')).toBe('Referenzwerte verfehlt: Absprung oben bei ≈ 19,5 m (±15 %) · aufrecht gelandet');
+    expect(reasonText('checks failed: leaves the top at ≈ 20.7 m (±15 %), landed upright')).toBe('Referenzwerte verfehlt: Absprung oben bei ≈ 20,7 m (±15 %) · aufrecht gelandet');
     expect(reasonText('aborted: valve test failed (LIFT_FL, YAW_R)')).toBe('Abgebrochen: Ventiltest fehlgeschlagen (LIFT_FL, YAW_R)');
     expect(reasonText('insufficient air: 120 kg < 160 kg')).toBe('zu wenig Druckluft: 120 kg < 160 kg');
     expect(reasonText('rotation bailed at 62 %: too low (car recovered)')).toBe('Drehung bei 62 % abgebrochen: zu niedrig (Auto gerettet)');

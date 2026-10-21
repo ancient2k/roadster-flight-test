@@ -31,6 +31,7 @@ export function copyStateInto(dst: VehicleState, s: Readonly<VehicleState>): voi
   dst.speedMs = s.speedMs; dst.motorPowerW = s.motorPowerW; dst.brakeInput = s.brakeInput;
   dst.groundContact = s.groundContact; dst.bodyContact = s.bodyContact;
   dst.heightAboveGroundM = s.heightAboveGroundM; dst.crashed = s.crashed;
+  dst.damage = s.damage; // shared, mutated in place by the sim (discrete, not interpolated)
 }
 
 /** out = interpolation between prev and cur (pose, wheels; discrete fields from cur). */

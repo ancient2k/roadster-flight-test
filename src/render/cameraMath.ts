@@ -186,6 +186,12 @@ export const BROADCAST_SHOTS: BroadcastShot[] = [
 for (const s of BROADCAST_SHOTS.filter((x) => x.site === 'ramp_hang')) {
   BROADCAST_SHOTS.push({ ...s, id: s.id.replace('wall', 'wlaunch'), site: 'ramp_launch' });
 }
+// The launch car drives off the lip end and lands ≈ 13 m in front of the ramp foot (stream 726–730 s,
+// R14), further out than the hang car rolling down the wall: the landing camera aims there.
+Object.assign(BROADCAST_SHOTS.find((s) => s.id === 'wlaunch_land')!, {
+  pos: { x: wall.origin.x - 68, y: 1.4, z: wall.origin.z - 12 }, lookAt: { x: wall.origin.x - 2.5, y: 3, z: wall.origin.z - 10 },
+  zone: { c: { x: wall.origin.x - 1, y: 0, z: wall.origin.z - 9 }, r: 9, dir: { x: 0, y: 0, z: -1 } },
+});
 
 /** Region of the pad that belongs to each stunt site (used to pick the shot set). */
 export function nearestSite(p: Vec3): StuntId | 'overview' {

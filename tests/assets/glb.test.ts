@@ -1,8 +1,9 @@
 // GLB contract tests for the assets (public/assets/car, public/assets/props).
 // Dependency-free GLB parsing (header + JSON chunk + BIN chunk); no three.js loader in Node.
 import { describe, expect, it } from 'vitest';
-import { readFileSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { readGlbFile } from './glbFile';
 import { ROADSTER } from '../../src/shared/roadster';
 import { TRACK } from '../../src/shared/track';
 
@@ -26,7 +27,7 @@ interface Gltf {
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
 function readGlb(rel: string): { json: Gltf; bytes: number } {
-  const buf = readFileSync(root + rel);
+  const buf = readGlbFile(root + rel);
   expect(buf.readUInt32LE(0)).toBe(0x46546c67); // 'glTF'
   expect(buf.readUInt32LE(4)).toBe(2);
   const jsonLen = buf.readUInt32LE(12);

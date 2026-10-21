@@ -199,8 +199,9 @@ export async function loadRockSet(url: string | null): Promise<{ geoms: THREE.Bu
   try {
     const head = await fetch(url, { method: 'HEAD' });
     if (!head.ok || (head.headers.get('content-type') ?? '').includes('text/html')) return null;
-    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
-    const gltf = await new GLTFLoader().loadAsync(url);
+    const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
+      import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
+    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url);
     const geoms: THREE.BufferGeometry[] = [];
     let material: THREE.Material | null = null;
     gltf.scene.updateMatrixWorld(true);

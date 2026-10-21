@@ -123,7 +123,7 @@ describe('ASSIST in free space: attitude hold + velocity hold over the jets', ()
     run({ ...zero, lift: -1 }, 1);                               // back to 0 would need −Y thrust
     expect(ma.status.unreachableDvMs).toBeGreaterThan(1.5);
     expect(ma.status.label).toBe('ROTATE');
-    run({ ...zero, roll: 1 }, Math.PI / 3.0);                    // pilot rolls the roof down (3 rad/s)
+    run({ ...zero, roll: 1 }, Math.PI / 1.0);                    // pilot rolls the roof down (1 rad/s in free space)
     let minSpeed = Infinity;
     run(zero, 3, () => { const v = sim.getState().linVel; minSpeed = Math.min(minSpeed, Math.hypot(v.y, v.z)); });
     expect(minSpeed).toBeLessThan(0.3);                          // the up-velocity was braked

@@ -53,12 +53,16 @@ const WALL: CurvedRamp = {
   // → L + 0.985 R2 = 12.15 m. The stream shows a tall straight and a short curl (sheet_04: the car hangs near
   // the top end) → R2 = 8 m, L = 4.3 m; check: 119° → 17.3 m (descent reading 56.7 ft). On the R 8 curl the
   // surface rises above the skirt line behind the rear axle (≈ 0.13 m) – the fan model counts that as a fully
-  // compressed, sealed skirt (fans.ts). The surface continues to 185° so the front wheels still stand on it
-  // at a body pitch of 170°. Width ≈ 5 m (2.3 × the car's width in the stream).
+  // compressed, sealed skirt (fans.ts). Width ≈ 5 m (2.3 × the car's width in the stream).
+  // The curl ends at 175° in a straight 3 m lip (R14, stream 725–726 s and the drone replay at 753 s: the
+  // launch car drives over the curl onto a straight overhanging end piece and hangs its nose over the
+  // edge before it drops off). The hang point (170°, 21.06 m) stays on the arc; the lip end is at
+  // z = −0.5 m (above the ramp foot), surface height 22.3 m.
   profile: [
     { kind: 'arc', radius: 9.8, fromDeg: 0, toDeg: 90 },
     { kind: 'line', length: 4.3 },
-    { kind: 'arc', radius: 8, fromDeg: 90, toDeg: 185 },
+    { kind: 'arc', radius: 8, fromDeg: 90, toDeg: 175 },
+    { kind: 'line', length: 3.0 },
   ],
 };
 
@@ -115,7 +119,8 @@ export const TRACK = {
     },
     {
       stunt: 'ramp_launch', spawn: { pos: { x: 60, y: 0, z: 30 }, headingDeg: 0, speedMs: 0 },
-      reference: { leaveAltitudeM: 19.5, touchdownG: 1.4, climbG: 1.4 },
+      // leaves the lip end at the HUD peak 67.8 ft (4 fps, 726.0 s; the 1 fps sample 64.4 ft at t = 5 s is still on the lip)
+      reference: { leaveAltitudeM: 20.7, touchdownG: 1.4, climbG: 1.4 },
     },
     {
       stunt: 'kickflip', spawn: { pos: { x: -45, y: 0, z: -150 }, headingDeg: 0, speedMs: 0 },

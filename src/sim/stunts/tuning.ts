@@ -23,14 +23,16 @@ export const TUNING = {
     bailHeightM: 2.0,
   },
   rampLaunch: {
-    // Speed profile on the wall (bend R 9.8, vertical straight, curl R 10; see climb phase): g-limited at the entry like the video
-    // (1.4 g), cruise on the vertical, then decelerate to the release speed at the top. [TOOL] sweep.
+    // Speed profile on the wall (bend R 9.8, vertical straight, curl R 8 to 175°, straight 3 m lip; see climb phase):
+    // g-limited at the entry like the video (1.4 g), cruise on the vertical and over the curl, then a short
+    // deceleration so the car drives off the END of the lip with speed (stream 725.4–725.8 s: nose over the
+    // edge, then it drops off and carries on away from the wall). [TOOL] sweep.
     entrySpeedMs: 6.2,         // 1 + v²/(R g) ≈ 1.4 g on the R 9.8 entry (video 1.4 g)
     climbGLimit: 1.40,         // specific-force budget of the speed profile (g)
-    cruiseSpeedMs: 9.0,        // cap of the g-limited speed on the vertical
-    exitSpeedMs: 2.0,          // speed at the release point (slow crawl over the top like the video, 17.4 -> 19.6 m in the last second)
+    cruiseSpeedMs: 6.2,        // cap of the g-limited speed on the vertical and the curl (leaves the lip at ≈ 5.7 s like the stream)
+    exitSpeedMs: 4.0,          // speed at the release point (drives off the lip end; stream ≈ 6 m away from the lip 1 s later)
     topDecelMs2: 1.3,          // speed-profile deceleration towards the release point (on top of gravity)
-    releaseBeforeEndM: 6.4,    // fans off this far (arc length) before the end: leaves at ≈ 19.6 m (video 64.4 ft) on the stream-shaped wall
+    releaseBeforeEndM: 1.0,    // fans off with the CoG this far (arc length) before the lip end: front wheels at the edge
     rollRate: 3.5,
     rollAccel: 10,
     landingDecel: 0.40 * G0,   // keep = FLIGHT_DESIGN.rampLaunchLandingDecel; net: ≈ 1.4 g specific force in the burn (video 1.4 g at t = 8–9 s)
@@ -38,7 +40,11 @@ export const TUNING = {
     flareHeightM: 0.4,
     landingKv: 2.5,            // softer velocity loop than the default 5/s: fewer g overshoots in the long burn
     landingKi: 1.5,            // 1/s², integral on the velocity error: removes the sink bias of a ±10 % mass error
-    awaySpeedMs: 4.5,          // horizontal speed away from the wall face during the descent
+    awaySpeedMs: 6.0,          // max. horizontal speed away from the wall during the descent
+    awayMinMs: 0.5,            // ... down to this rolling speed at touchdown
+    awayGain: 0.6,             // 1/s, away speed = gain × distance still to go to landLocalZ (tapers off before touchdown)
+    coastHeightM: 2.5,         // below this wheel height the descent holds its along-heading speed (level touchdown)
+    landLocalZ: -10,           // ramp-local z the descent heads for: stream touchdown ≈ 13 m in front of the ramp foot (lip end at z = −0.5)
     fanLevel: null as number | null, // grip-mode fan level on the wall (null = demand control; a fixed 1 makes the skirt seal flutter on R 11)
   },
   rampHang: {

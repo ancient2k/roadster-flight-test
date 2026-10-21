@@ -5,7 +5,7 @@ import type { TelemetryFrame, VehicleState } from '../shared/types';
 import { TRACK } from '../shared/track';
 import { DynamicResolution, QUALITY_PRESETS, settingsForBackend, type QualityLevel, type QualitySettings } from './quality';
 import { buildTrack, type TrackWorld } from './world/track';
-import { SCENE_TIME } from './world/materials';
+import { SCENE_TIME, PIXEL_ANGLE } from './world/materials';
 import { FloodRig, towerLightFromEmpties, type TowerLight } from './lighting';
 import { loadEnvModels, type EnvModelsHandle } from './world/envModels';
 import { makePlaceholderVehicle, makeContactShadow } from './world/vehicles';
@@ -23,6 +23,7 @@ import { loadWorld, type WorldHandle } from './worlds';
 import type { SiteDef } from '../shared/worlds';
 import { ENVIRONMENTS } from '../shared/environment';
 import { buildPost, transparentMRT, advanceGrain, type PostChain } from './post';
+import { bootStep } from '../ui/bootProgress';
 
 export type Backend = 'webgpu' | 'webgl2';
 const FX_LAYER = 2;
@@ -182,7 +183,7 @@ export class GameRenderer {
     } as ConstructorParameters<typeof THREE.WebGPURenderer>[0]);
     let tm = performance.now();
     const T: Record<string, number> = {};
-    const lap = (k: string) => { const n = performance.now(); T[k] = Math.round(n - tm); tm = n; };
+    const lap = (k: string) => { const n = performance.now(); T[k] = Math.round(n - tm); tm = n; bootStep(k); };
     await renderer.init();
     lap('init');
     const gr = new GameRenderer(renderer, opts);
@@ -208,7 +209,7 @@ export class GameRenderer {
   private async setup(): Promise<void> {
     const r = this.renderer;
     let tm = performance.now();
-    const lap = (k: string) => { const n = performance.now(); this.timings[k] = Math.round(n - tm); tm = n; };
+    const lap = (k: string) => { const n = performance.now(); this.timings[k] = Math.round(n - tm); tm = n; bootStep(k); };
     r.toneMapping = THREE.AgXToneMapping;
     r.toneMappingExposure = 1.0;
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -691,6 +692,8 @@ export class GameRenderer {
     // each broadcast camera has its own iris (BroadcastShot.ev) on top of the eye adaptation
     const ev = this.rig.mode === 'broadcast' && !this.world ? (this.rig.currentShot?.ev ?? 0) : 0;
     this.renderer.toneMappingExposure = this.exposureLock ?? this.exposure * 2 ** ev;
+    this.post.beforeRender();
+    PIXEL_ANGLE.value = 2 / (this.rig.camera.projectionMatrix.elements[5] * Math.max(1, this.height * this.pixelRatio));
     this.post.pipeline.render();
     // probe after the main pass: shadow maps are then up to date (and sized) for this frame
     if (this.probe && this.lastState && !this.disable.probe) {

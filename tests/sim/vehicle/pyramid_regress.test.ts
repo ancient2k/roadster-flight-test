@@ -7,18 +7,19 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { readGlbFile } from '../../assets/glbFile';
 import { createRoadsterSim, vehicleModules } from '../../../src/sim/vehicle';
 import { spawnPose, type RoadsterSim } from '../../../src/sim/core/roadsterSim';
-import { fitPyramid, halfWidthAt, pyramidHeightAt, pyramidHullMesh, pyramidTalus, type PyramidFit } from '../../../src/shared/pyramid';
+import { CREST_R, fitPyramid, halfWidthAt, pyramidHeightAt, pyramidHullMesh, pyramidTalus, type PyramidFit } from '../../../src/shared/pyramid';
 import { hudPitchDeg } from '../../../src/shared/math';
 import { neutralDrive, neutralSystems, zeroThrust } from '../../../src/shared/types';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const DEG = Math.PI / 180;
 
-/** World-space POSITION vertices of a single-mesh, uncompressed GLB placed like landmarkMatrix() does. */
+/** World-space POSITION vertices of a single-mesh GLB placed like landmarkMatrix() does. */
 function glbPoints(file: string, x: number, y: number, z: number, headingDeg: number): Float32Array {
-  const buf = readFileSync(root + 'public/assets/worlds/earth_giza/' + file);
+  const buf = readGlbFile(root + 'public/assets/worlds/earth_giza/' + file);
   const jsonLen = buf.readUInt32LE(12);
   const json = JSON.parse(buf.subarray(20, 20 + jsonLen).toString('utf8'));
   const binStart = 20 + jsonLen + 8;
@@ -92,8 +93,8 @@ function drive(sim: RoadsterSim, fit: PyramidFit, x0: number, y0: number, z0: nu
     sim.step(d, sys, thr);
     if (![s.pos.x, s.pos.y, s.pos.z, s.speedMs].every(Number.isFinite)) { finite = false; break; }
     // the CoG must never end up below the stone surface (tunnelling into the pyramid)
-    // (the rounded crest lies up to ≈ 0.7 m below the sharp frustum edge: allow that within 4 m of the summit)
-    if (s.pos.y < pyramidHeightAt(fit, s.pos.x, s.pos.z) - (s.pos.y > fit.yTop - 4 ? 1.0 : 0.2) && !penetrated) { penetrated = true; log.push(`PENETRATED t=${s.t.toFixed(2)}`); }
+    // (measured against the rounded crest of the collider, which lies up to ≈ 1.3 m below the sharp frustum edge)
+    if (s.pos.y < pyramidHeightAt(fit, s.pos.x, s.pos.z, CREST_R) - 0.2 && !penetrated) { penetrated = true; log.push(`PENETRATED t=${s.t.toFixed(2)}`); }
     if (s.crashed && !crashed) log.push(`CRASH t=${s.t.toFixed(2)} contacts=${JSON.stringify(sim.contacts)}`);
     if (i % 240 === 0 || (s.crashed && !crashed)) log.push(`t=${s.t.toFixed(1)} x=${s.pos.x.toFixed(1)} y=${s.pos.y.toFixed(1)} z=${s.pos.z.toFixed(1)} v=${s.speedMs.toFixed(1)} p=${pitch.toFixed(0)} w=${s.wheels.filter((w) => w.contact).length} fan=${(s.fans.forceN / 9.81).toFixed(0)} body=${s.bodyContact} surf=${(pyramidHeightAt(fit, s.pos.x, s.pos.z)).toFixed(1)}`);
     maxY = Math.max(maxY, s.pos.y); crashed ||= s.crashed;
@@ -201,7 +202,7 @@ describe('pyramid edge cases (synthetic Khufu-like, 100 m base)', () => {
       d.steer = s.pos.y > 5 ? 0.15 : 0; // steer right (toward -x, +X is left) into the arris
       sim.step(d, sys, thr);
       if (![s.pos.x, s.pos.y, s.pos.z].every(Number.isFinite)) { finite = false; break; }
-      if (s.pos.y < pyramidHeightAt(fit, s.pos.x, s.pos.z) - (s.pos.y > fit.yTop - 4 ? 1.0 : 0.2)) penetrated = true;
+      if (s.pos.y < pyramidHeightAt(fit, s.pos.x, s.pos.z, CREST_R) - 0.2) penetrated = true;
       if (s.crashed && minArris >= 2) crashedBeforeArris = true;
       if (s.pos.y > 3) { const da = arrisDist(s.pos.x, s.pos.z); minArris = Math.min(minArris, da); if (da < 2) maxYNear = Math.max(maxYNear, s.pos.y); }
     }

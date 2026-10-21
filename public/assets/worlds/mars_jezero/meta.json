@@ -46,7 +46,6 @@
       "heightMinM": -64.9,
       "heightMaxM": 104.5,
       "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
-      "normalMap": "normal.png",
       "albedo": "albedo.jpg",
       "albedoNote": "HiRISE RED (graustufig) mit Mars-Farbton eingefärbt; mittlere Albedo 0,17 (Kraterboden).",
       "splat": "splat.png"

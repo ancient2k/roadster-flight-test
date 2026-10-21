@@ -48,7 +48,7 @@ export function meanLinear(t: THREE.Texture): [number, number, number] {
 }
 
 /**
- * Detail layer by name. Looks for the world pipeline's files in the site directory (detail_<name>_diff.jpg / _nor.jpg /
+ * Detail layer by name. Looks for the world pipeline's files in the shared directory (<name>_diff.jpg / _nor.jpg /
  * _arm.jpg), then in an optional fallback directory with Poly Haven naming (<folder>/<folder>_diff_2k.jpg …).
  */
 export async function loadDetailLayer(
@@ -66,7 +66,6 @@ export async function loadDetailLayer(
     } catch { /* keep default scale */ }
     tries.push([`${sharedDir}/${name}_diff.jpg`, `${sharedDir}/${name}_nor.jpg`, `${sharedDir}/${name}_arm.jpg`]);
   }
-  tries.push([`${dir}/detail_${name}_diff.jpg`, `${dir}/detail_${name}_nor.jpg`, `${dir}/detail_${name}_arm.jpg`]);
   if (fallback) {
     const f = `${fallback.base}/${fallback.folder}/${fallback.folder}`;
     tries.push([`${f}_diff_2k.jpg`, `${f}_nor_gl_2k.jpg`, `${f}_arm_2k.jpg`]);
@@ -83,7 +82,7 @@ export async function loadDetailLayer(
   return null;
 }
 
-/** Which Poly Haven set stands in for a detail name until ships detail_*.jpg. */
+/** Which Poly Haven set stands in for a detail name missing from _shared/detail. */
 export const DETAIL_FALLBACK: Record<string, string> = {
   sand: 'aerial_sand', limestone: 'rock_face_03', regolith: 'ground_grey', moon_rock: 'gray_rocks',
   mars_soil: 'red_sand', mars_rock: 'dry_riverbed_rock', grass: 'rock_ground', chalk: 'rock_ground', rock: 'dark_rock',

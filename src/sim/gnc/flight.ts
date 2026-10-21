@@ -15,6 +15,12 @@ export interface FlightCommand {
   levels: Levels;
   /** Optional upper duty bound per nozzle (masking); null = all 1. */
   hi?: ArrayLike<number> | null;
+  /**
+   * Yaw only with the yaw jets: the yaw moment demand is clipped to what one yaw jet gives. Without a lift
+   * bias (free space, coasting) the allocator would otherwise take the missing yaw moment from the 12° cant
+   * of a diagonal corner pair, i.e. ≈ 30 kN along the roof for every yaw input (manual free-space control).
+   */
+  yawJetsOnly?: boolean;
 }
 
 export const newFlightCommand = (): FlightCommand => ({ att: newAttitudeRef(), force: v3(), levels: LEVELS.balanced, hi: null });
@@ -156,7 +162,7 @@ export class FlightControl {
       ref = this.freeYawRef;
     }
     this.att.compute(est.q, est.wWorld, ref, this.mp.inertia, this.moment);
-    if (faulted && !(this.valveFault[6] === -1 || this.valveFault[7] === -1)) {
+    if ((faulted && !(this.valveFault[6] === -1 || this.valveFault[7] === -1)) || cmd.yawJetsOnly) {
       const n = N_NOZ, yawMax = Math.abs(this.B[4 * n + 8]) + Math.abs(this.B[4 * n + 9]);
       this.moment.y = Math.max(-0.5 * yawMax, Math.min(0.5 * yawMax, this.moment.y));
     }

@@ -6,7 +6,10 @@
 - **Estimated vehicle data.** Much of the Roadster's data is not public; estimates are tagged `[EST]` in
   `src/shared/roadster.ts`.
 - **Drivable pyramids are a simplification.** The car drives on a smooth replacement surface through the outer
-  stone courses; the real stepped and weathered faces would not be drivable.
+  stone courses; the real stepped and weathered faces would not be drivable. The summit edges are rounded with
+  R 12 m, so the narrow summit platforms of Khufu and Khafre are almost all crown (level within ≈ ±1.7 m of the
+  centre) and the car rides up to ≈ 1.3 m inside the drawn edge. Menkaure's top is pointed (4 × 7 m): the car
+  grounds just below it and has to back down.
 - **Sun dive** leaves out the ≈ 30 km/s orbital velocity (it could not be removed with the onboard air).
 - **Stonehenge layout:** stone 22 is shown as a stump and lintel 122 is missing (both were re-erected in 1958).
 - **Apollo 15 "Falcon"** stands level; the real descent stage is tilted by ≈ 11°.

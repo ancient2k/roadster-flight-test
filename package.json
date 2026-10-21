@@ -13,16 +13,22 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "package": "bash tools/package-web.sh"
+    "package": "bash tools/package-web.sh",
+    "compress-assets": "node tools/compress-assets.mjs public/assets && node tools/share-textures.mjs public/assets/worlds/earth_giza"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",
     "three": "0.186.1"
   },
   "devDependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
     "@playwright/test": "1.63.0",
     "@types/node": "24.19.2",
     "@types/three": "0.186.0",
+    "meshoptimizer": "1.3.0",
+    "sharp": "0.35.5",
     "typescript": "6.0.3",
     "vite": "8.3.1",
     "vitest": "5.0.3"

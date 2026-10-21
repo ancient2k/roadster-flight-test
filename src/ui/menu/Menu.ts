@@ -20,8 +20,12 @@ import { ASSIST_ICONS, BODY_ICONS, STUNT_ICONS, WORLD_ICONS } from './icons';
 import { BODIES, bodyFacts, gravityText, sitesOf } from '../worlds';
 import type { SiteId } from '../../shared/worlds';
 import type { BodyId } from '../../shared/environment';
+import { DAMAGE_ZONES, damageLevel, type DamageState } from '../../shared/damage';
+import { drawDamageView } from '../hud/damageView';
 import '../ui.css';
 import './menu.css';
+
+const ROADSTER_WHEEL_IDS = ['FL', 'FR', 'RL', 'RR'] as const;
 
 export type MenuScreen = 'title' | 'stunts' | 'free' | 'worlds' | 'settings' | 'pause' | 'help' | 'results' | 'none';
 export type FreeSite = 'ground_flip' | 'ramp_hang' | 'kickflip' | 'zero60';
@@ -37,6 +41,8 @@ export interface ResultData {
   telemetry: readonly TelemetryFrame[];
   /** Sim time (s) of the manoeuvre start for aligning with the video curves. Auto-aligned if omitted. */
   startT?: number;
+  /** Vehicle damage at the end of the run (only with the damage setting "Realistic"). */
+  damage?: DamageState;
 }
 
 export interface MenuEvents {
@@ -412,7 +418,7 @@ export class Menu extends Emitter<MenuEvents> {
           this.toggleRow(t('settings.valveDelays'), s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), t('settings.valveDelaysNote')),
           this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
           this.toggleRow(t('settings.wind'), s.realism.wind, (v) => upd((d) => { d.realism.wind = v; }, 'realism.wind'), t('settings.windNote')),
-          this.toggleRow(t('settings.crashDamage'), s.realism.crashDamage, (v) => upd((d) => { d.realism.crashDamage = v; }, 'realism.crashDamage'), t('settings.crashDamageNote')),
+          this.segRow(t('damage.setting'), [['off', t('damage.off')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'), t('damage.settingNote')),
         );
         break;
     }
@@ -564,11 +570,52 @@ export class Menu extends Emitter<MenuEvents> {
     return h('section', { class: 'rft-page rft-help', 'data-title': t('help.aria') },
       this.header(t('help.title'), t('help.sub')),
       h('div', { class: 'rft-helpgrid' }, ...cols,
-        h('div', { class: 'rft-helpcol hud' }, h('h3', { text: 'HUD' }), h('dl', null, ...hudItems.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { class: 'txt', text: v })])))),
+        h('div', { class: 'rft-helpcol hud' }, h('h3', { text: 'HUD' }), h('dl', null, ...hudItems.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { class: 'txt', text: v })]))),
+        // control levels (assist cycle key) and free-space flying (R14)
+        h('div', { class: 'rft-helpcol hud', 'data-help': 'levels' }, h('h3', { text: t('controls.levels.title') }),
+          h('dl', null, ...(['ASSIST', 'STABILIZED', 'RAW'] as const).flatMap((l) => [h('dt', { text: ASSIST_LABEL[l] }), h('dd', { class: 'txt', text: t(`controls.levels.${l}`) })]),
+            h('dt', { text: t('controls.spaceTitle') }), h('dd', { class: 'txt', text: t('controls.space') })))),
       h('div', { class: 'rft-actions' }, h('button', { class: 'rft-primary', 'data-autofocus': true, onclick: () => this.back() }, t('help.ok'))));
   }
 
   // ------------------------------------------------------------------ results
+  /** Vehicle damage of the run (setting "Realistic"): top view + what is broken. */
+  private damageBlock(d: Readonly<DamageState>): HTMLElement {
+    const level = damageLevel(d);
+    const rows: Array<[string, string]> = [];
+    for (const z of DAMAGE_ZONES) if (d.crushM[z] >= 0.005) rows.push([t(`damage.zone.${z}`), t('damage.crush', { cm: fmtNum(d.crushM[z] * 100, 0) })]);
+    const wheelTxt: string[] = [];
+    d.wheels.forEach((v, i) => {
+      const id = ROADSTER_WHEEL_IDS[i];
+      if (d.wheelLost[i]) wheelTxt.push(`${id} ${t('damage.lost')}`);
+      else if (v > 0.005) wheelTxt.push(`${id} ${fmtPct(v)}` + (Math.abs(d.toeDeg[i]) >= 0.05 ? `, ${t('damage.toe', { deg: fmtNum(d.toeDeg[i], 1) })}` : ''));
+    });
+    if (wheelTxt.length) rows.push([t('damage.wheels'), wheelTxt.join(' · ')]);
+    const noz = d.nozzles.filter((v) => v > 0.005).length;
+    if (noz) rows.push([t('damage.nozzles'), t('damage.damaged', { n: String(noz) }) + (d.leakKgS > 0.005 ? ` · ${t('damage.leakRate', { rate: fmtNum(d.leakKgS, 2) })}` : '')]);
+    const sk = d.skirts.filter((v) => v > 0.005).length;
+    if (sk) rows.push([t('damage.skirts'), t('damage.damaged', { n: String(sk) })]);
+    if (d.wingLost) rows.push([t('damage.wing'), t('damage.lost')]);
+    const canvas = h('canvas', { class: 'rft-damage-view', 'aria-hidden': 'true', style: 'width:84px;height:170px;flex:none' }) as HTMLCanvasElement;
+    const paint = () => {
+      const dpr = Math.min(3, globalThis.devicePixelRatio || 1);
+      canvas.width = Math.round(84 * dpr); canvas.height = Math.round(170 * dpr);
+      const c = canvas.getContext('2d');
+      if (!c) return;
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawDamageView(c, 42, 85, 160, d);
+    };
+    requestAnimationFrame(paint);
+    return h('div', { class: 'rft-damage', 'data-level': level },
+      h('h3', { class: 'rft-subhead', text: t('damage.setting') }),
+      h('div', { style: 'display:flex;gap:1.2em;align-items:flex-start' },
+        canvas,
+        h('div', { style: 'flex:1;min-width:0' },
+          h('p', { class: 'rft-result-reason', text: t(level === 'total' ? 'damage.totalLoss' : level === 'heavy' ? 'damage.heavy' : level === 'light' ? 'damage.light' : 'damage.none') }),
+          rows.length ? h('table', { class: 'rft-metrics' }, h('tbody', null, ...rows.map(([a, b]) => h('tr', null, h('td', { text: a }), h('td', { text: b }))))) : null,
+          h('p', { class: 'rft-note dim', text: t('damage.energy', { kj: fmtNum(d.energyJ / 1000, 1) }) }))));
+  }
+
   private resultsView(): HTMLElement {
     const r = this.lastResult;
     if (!r) return h('div');
@@ -613,7 +660,8 @@ export class Menu extends Emitter<MenuEvents> {
           h('table', { class: 'rft-metrics' },
             h('thead', null, h('tr', null, h('th', { text: t('results.metric') }), h('th', { text: t('results.sim') }), h('th', { text: t('results.stream') }), h('th', { text: t('results.dev') }))),
             h('tbody', null, ...rows)),
-          h('p', { class: 'rft-note dim', text: t('results.legendNote', { date: fmtDate(STREAM_DATE) }) })),
+          h('p', { class: 'rft-note dim', text: t('results.legendNote', { date: fmtDate(STREAM_DATE) }) }),
+          r.damage ? this.damageBlock(r.damage) : null),
         h('div', { class: 'rft-result-chart' },
           h('div', { class: 'rft-legend' }, h('span', { class: 'sim', text: t('results.sim') }), panels.hasRef ? h('span', { class: 'ref', text: t('results.stream') }) : null,
             panels.note ? h('span', { class: 'note', text: panels.note }) : null),

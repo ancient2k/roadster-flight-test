@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Asset pipeline worlds: produce the lead's contract format (src/shared/worlds.ts) from the data.
 
-Per site (public/assets/worlds/<siteId>/):
+The game itself reads the tiles of meta.json (terrain_h16.png, _shared/detail), not this format, so height.bin, the
+detail copies and materials.json go to out/contract/<siteId>/ (not versioned, not deployed); meta.json (TerrainMeta
+fields) and landmarks.json are updated in place.
+
+Per site:
   height.bin       Uint16 little-endian, size x size, row-major; row 0 = north (-Z), rows along +Z,
                    columns along +X (east). Content = terrain_h16.png of the close-range tile (identical quantisation).
   meta.json        + top-level TerrainMeta {size, extentM, minM, maxM, source}; all fields are kept.
@@ -66,6 +70,8 @@ def glb_bbox(path):
 
 def export(site):
     d = os.path.join(W, site)
+    o = os.path.join(ROOT, "out", "contract", site)
+    os.makedirs(o, exist_ok=True)
     mp = os.path.join(d, "meta.json")
     m = json.load(open(mp))
     if m.get("body") == "space":
@@ -74,7 +80,7 @@ def export(site):
     t = m["tiles"]["near"]
     a = np.array(Image.open(os.path.join(d, t["heightmap"])))
     assert a.shape == (t["resolution"], t["resolution"])
-    a.astype("<u2").tofile(os.path.join(d, "height.bin"))
+    a.astype("<u2").tofile(os.path.join(o, "height.bin"))
     src = "; ".join(s["credit"] for s in m["sources"] if s.get("use") == "near height")
     m.update({"size": t["resolution"], "extentM": t["sizeM"], "minM": t["heightMinM"], "maxM": t["heightMaxM"], "source": src})
     # landmarks
@@ -99,14 +105,14 @@ def export(site):
     details = {}
     for ch, name in det.items():
         for k in ("diff", "nor", "arm"):
-            shutil.copyfile(os.path.join(SHARED, f"{name}_{k}.jpg"), os.path.join(d, f"detail_{name}_{k}.jpg"))
+            shutil.copyfile(os.path.join(SHARED, f"{name}_{k}.jpg"), os.path.join(o, f"detail_{name}_{k}.jpg"))
         details[ch] = {"name": name, "diff": f"detail_{name}_diff.jpg", "nor": f"detail_{name}_nor.jpg",
                        "arm": f"detail_{name}_arm.jpg", "tileM": tiles[name]["tileM"]}
     mat = {"albedo": t.get("albedo"), "albedoCoversM": t["sizeM"], "normal": t.get("normalMap"),
            "splat": {"file": t.get("splat"), "channels": {"r": "rock", "g": "fine", "b": "dark"}},
            "details": details,
            "blend": "albedo_final = albedo · Σ_k splat_k · (detail_k_diff · 2) (linear); Normalen: Kachel-Normal + Detail-Normal (RNM)"}
-    json.dump(mat, open(os.path.join(d, "materials.json"), "w"), indent=1, ensure_ascii=False)
+    json.dump(mat, open(os.path.join(o, "materials.json"), "w"), indent=1, ensure_ascii=False)
     json.dump(m, open(mp, "w"), indent=2, ensure_ascii=False)
     print(f"{site}: height.bin {a.shape[0]}², {len(lms)} Wahrzeichen, {len(details)} Detailkanäle")
 

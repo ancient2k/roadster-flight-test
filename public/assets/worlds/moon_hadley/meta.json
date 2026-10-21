@@ -46,7 +46,6 @@
       "heightMinM": -336.6,
       "heightMaxM": 16.5,
       "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
-      "normalMap": "normal.png",
       "albedo": "albedo.jpg",
       "albedoNote": "Hochsonnen-NAC-Mosaik; Albedo der Apenninen-Ausläufer heller als die Mare-Ebene.",
       "splat": "splat.png"

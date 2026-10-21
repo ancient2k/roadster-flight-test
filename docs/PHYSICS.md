@@ -78,8 +78,15 @@ steering and valve commands a player has. Their traces are compared time-aligned
 | Stunt | Simulation | Stream |
 |---|---|---|
 | Wall ramp hang | 169.5° pitch at 68.7 ft | 170° at 69.1 ft |
-| Ramp launch | leaves the ramp at 19.56 m | ≈ 19.6 m (64 ft) |
+| Ramp launch | drives off the end of the lip at 5.8 s, 21.2 m | off the lip at ≈ 5.7 s, HUD peak 67.8 ft (20.7 m, lagging) |
+| Ramp launch, landing | touchdown 10.2 s after the ramp entry, 12.5 m in front of the ramp foot, 1.85 g | ≈ 9.7 s, ≈ 13 m, 1.4–1.5 g |
 | 0–60 mph | four main jets plus rear-wheel drive; acceptance 0.81 s ± 0.1 s | 0.81 s |
+
+The wall ramp is a bend (R 9.8 m) into a 4.3 m vertical straight, a curl (R 8 m) to 175° and a straight 3 m lip
+that overhangs the ramp foot. In the launch the car keeps ≈ 6 m/s over the curl, drives off the end of the lip at
+≈ 4 m/s, rolls wheels-down and flies on away from the wall (≈ 6 m beyond the lip 1 s later, ≈ 10 m after 2 s) before
+the landing burn; the stream frames at 4 fps (725.4–730 s) show the same sequence. The 1 fps HUD sample 64.4 ft at
+5 s was taken while the car was still on the lip.
 
 The test suite also covers Monte Carlo robustness (mass ±10 %, inertia ±20 %, thrust and valve scatter), step-size
 convergence at 240/480/960 Hz, emergency landing with a stuck valve, the drivable pyramids (every Giza pyramid
@@ -91,7 +98,10 @@ model, diagonal approaches, ridges) and momentum conservation when parts break o
   pressure and density.
 - **Pyramids** (`src/shared/pyramid.ts`): each pyramid is fitted with a smooth frustum (with a debris apron at the
   foot and a rounded summit edge) as an outward-wound triangle mesh — a game simplification: the real stepped,
-  weathered surface would not be drivable.
+  weathered surface would not be drivable. Apron and edge follow each axis' own face angle (the queens' pyramids
+  differ by up to 8°). The summit edge has a 12 m radius (capped by the platform half-width): over a 2.65 m
+  wheelbase the floor sags L²/8R ≈ 7 cm, inside the 10 cm ride height, so the car does not ground on the edge
+  when it arrives slowly or stops there; the collider edge lies up to ≈ 1.3 m inside the sharp frustum edge.
 - **Movable objects** (`src/sim/core/props.ts`, `src/shared/props.ts`): Apollo descent stages (2,034 kg and
   2,809 kg), the Lunar Roving Vehicle, Curiosity, Perseverance and the Stonehenge stones are dynamic bodies with
   real masses; parts break off when the impact energy at the contact exceeds their break energy.

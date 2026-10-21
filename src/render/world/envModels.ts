@@ -3,8 +3,9 @@
 // per primitive for all placements). Missing files keep the procedural stand-ins of track.ts.
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { uniform, positionWorld, texture, vec2, float } from 'three/tsl';
-import { LIGHTMAP_WEIGHT } from './materials';
+import { LIGHTMAP_WEIGHT, pixelFloor } from './materials';
 import type { UFloat } from '../tslTypes';
 import { TRACK, rampLocalToWorld, type Decor } from '../../shared/track';
 import { DEG } from '../../shared/math';
@@ -110,7 +111,7 @@ async function tryLoad(loader: GLTFLoader, url: string): Promise<THREE.Object3D 
 }
 
 export async function loadEnvModels(track: TrackWorld, base: string, q: QualitySettings): Promise<EnvModelsHandle> {
-  const loader = new GLTFLoader();
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const lod1 = q.particleBudget <= 6000; // low/medium use the LOD1 meshes
   const names = ['light_tower', 'stage', 'grandstand', 'crowd_person', 'raptor_stand', 'led_fixture', 'ramp_truss', 'ramp_truss_cap', 'grass_clump', 'shrub', 'crowd_fence'];
   const lodName = (n: string) => (lod1 && ['light_tower', 'stage', 'grandstand', 'raptor_stand'].includes(n) ? `${n}_lod1` : n);
@@ -395,6 +396,10 @@ export async function loadEnvModels(track: TrackWorld, base: string, q: QualityS
     group.add(g);
     probeExcluded.push(g);
   }
+
+  // LED posts and bars, tower lamp lenses, site/aviation lights: at least 2 px wide (no TRAA blinking
+  // from the long-lens cameras, see materials.ts)
+  pixelFloor(group, (m) => /^(LED_|Lamp_Emissive|Site_Lights|Aviation)/.test(m.name));
 
   void uniform; void TOWER_HEAD_LOCAL;
   return {

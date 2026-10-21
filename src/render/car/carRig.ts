@@ -2,12 +2,14 @@
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { bootBytes } from '../../ui/bootProgress';
 import { uniform, vec3, color as tslColor } from 'three/tsl';
 import type { VehicleState, WheelId } from '../../shared/types';
 import { ROADSTER } from '../../shared/roadster';
 import { DEG } from '../../shared/math';
 import { buildPlaceholderCar } from './placeholderCar';
 import { brakeLightOn } from '../fxParams';
+import { CarDamageView } from './carDamage';
 
 export interface CarModelInfo { source: 'glb' | 'placeholder'; url: string; missing: string[] }
 
@@ -23,6 +25,8 @@ export class CarRig {
   readonly uBrake = uniform(0);
   private headlight: THREE.SpotLight;
   private brakeSmoothed = 0;
+  /** Dents and torn-off parts (vehicle damage setting "Realistic"). */
+  readonly damage = new CarDamageView();
 
   constructor() {
     this.root.name = 'Car';
@@ -33,6 +37,8 @@ export class CarRig {
   }
 
   async load(url: string): Promise<CarModelInfo> {
+    // GameRenderer.setup() already loaded it and compiled its pipelines; App.init asks again
+    if (this.info?.source === 'glb' && this.info.url === url) return this.info;
     let obj: THREE.Object3D | null = null;
     try {
       const head = await fetch(url, { method: 'HEAD' });
@@ -40,7 +46,7 @@ export class CarRig {
       if (head.ok && !type.includes('text/html')) {
         const loader = new GLTFLoader();
         loader.setMeshoptDecoder(MeshoptDecoder);
-        const gltf = await loader.loadAsync(url);
+        const gltf = await loader.loadAsync(url, bootBytes(url));
         obj = gltf.scene;
         this.info = { source: 'glb', url, missing: [] };
       }
@@ -89,6 +95,7 @@ export class CarRig {
     for (const k of ['LED_Front', 'LED_Tail', 'LED_Brake']) if (!seen.has(k)) missing.push(k);
     this.info.missing = missing;
     if (missing.length) console.warn('[render] Auto-Modell: fehlende Nodes/Materialien:', missing.join(', '));
+    this.damage.attach(obj);
   }
 
   private ledMaterial(key: string, src: THREE.Material): THREE.Material {
@@ -122,6 +129,7 @@ export class CarRig {
     const braking = typeof s.brakeInput === 'number' ? Math.min(1, s.brakeInput * 1.5) : (brakeLightOn(s.specificForce.z, s.groundContact, s.speedMs) ? 1 : 0);
     this.brakeSmoothed += (braking - this.brakeSmoothed) * Math.min(1, dt * 25);
     this.uBrake.value = 0.4 + this.brakeSmoothed * 22;
+    this.damage.update(s.damage, this.root, dt);
   }
 
   get headlightLight(): THREE.SpotLight { return this.headlight; }

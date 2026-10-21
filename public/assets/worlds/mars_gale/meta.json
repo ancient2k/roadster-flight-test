@@ -46,7 +46,6 @@
       "heightMinM": -28.8,
       "heightMaxM": 17.6,
       "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
-      "normalMap": "normal.png",
       "albedo": "albedo.jpg",
       "albedoNote": "HiRISE-Orthomosaik (graustufig) mit Mars-Farbton.",
       "splat": "splat.png"

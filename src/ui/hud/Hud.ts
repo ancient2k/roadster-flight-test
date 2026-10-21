@@ -10,6 +10,8 @@ import * as U from '../units';
 import { ARC_SWEEP_DEG, LAYOUT, REF_H, SCALES, fillAngleRad, follow, fraction, hudScale } from './gaugeMath';
 import { CAR_FACES, HeadingTracker, SPHERE_CAMERA, paintMesh, removeYaw } from './carModel';
 import { drawNozzles, drawTopViewArt } from './topView';
+import { drawDamageView } from './damageView';
+import type { DamageState } from '../../shared/damage';
 import { drawTimerText, timerWidth } from './timerDigits';
 import { ZeroSixtyWatch } from './stopwatch';
 import '../ui.css';
@@ -44,6 +46,9 @@ const COLORS = {
   warn: '#ff4b3e',
 };
 
+
+/** HUD colour of the manual control level: ASSIST green, STABILIZED amber, RAW red. */
+const ASSIST_COLOR: Record<AssistLevel, string> = { ASSIST: '#62d68c', STABILIZED: '#ffb53d', RAW: COLORS.warn };
 
 interface RingAnim { g: number; alt: number; df: number; pitch: number }
 
@@ -417,7 +422,11 @@ export class Hud {
       yy += 22 * s;
     }
     if (tel.phase) { this.text1(`${t('hud.phase')}  ${phaseLabel(tel.phase)}`, pad, yy + 20 * s, 12 * s, 600, 'rgb(200,200,200)', 1 * s, leftW); yy += 20 * s; }
-    if (ctx.mode === 'manual' && ctx.assist) { this.text1(`${t('hud.assist')}  ${upper(ASSIST_LABEL[ctx.assist])}`, pad, yy + 20 * s, 12 * s, 600, 'rgb(200,200,200)', 1 * s, leftW); }
+    if (ctx.mode === 'manual' && ctx.assist) {
+      // the active control level, large and coloured (R14: RAW has no damping at all, it must be obvious)
+      this.text1(t('hud.assist'), pad, yy + 20 * s, 11 * s, 600, COLORS.label, 1.2 * s, leftW);
+      this.text1(upper(ASSIST_LABEL[ctx.assist]), pad, yy + 42 * s, 19 * s, 800, ASSIST_COLOR[ctx.assist], 1.2 * s, leftW);
+    }
 
     // ---- top-right: systems
     c.textAlign = 'right';
@@ -454,7 +463,18 @@ export class Hud {
       }
       yy += (bar !== null ? 30 : 25) * s;
     }
-    if (state.crashed) { c.textAlign = 'right'; this.text1(t('hud.collision'), xr, yy + 6 * s, 14 * s, 800, COLORS.warn, 1.5 * s); }
+    if (state.damage) yy = this.drawDamage(state.damage, xr, yy, s);
+    if (state.crashed) { c.textAlign = 'right'; this.text1(state.damage?.totalLoss ? upper(t('damage.totalLoss')) : t('hud.collision'), xr, yy + 6 * s, 14 * s, 800, COLORS.warn, 1.5 * s); }
     c.restore();
+  }
+
+  /** Vehicle damage (setting "Realistic"): zone top view under the system rows, LEAK warning. Returns the next y. */
+  private drawDamage(d: Readonly<DamageState>, xr: number, yy: number, s: number): number {
+    const len = 78 * s, w = (len * 2.2) / 4.6;
+    this.ctx.textAlign = 'right';
+    this.text1(t('damage.hud'), xr - w - 12 * s, yy, 11 * s, 600, COLORS.label, 1 * s);
+    if (d.leakKgS > 0.01) this.text1(t('damage.leak'), xr - w - 12 * s, yy + 18 * s, 11 * s, 800, COLORS.warn, 1 * s);
+    drawDamageView(this.ctx, xr - w / 2, yy - 8 * s + len / 2, len, d);
+    return yy + len + 8 * s;
   }
 }

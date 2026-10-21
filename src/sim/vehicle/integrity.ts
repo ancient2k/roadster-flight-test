@@ -29,6 +29,8 @@ export class IntegrityModule implements ForceModule {
   readonly name = 'integrity';
   readonly landings: LandingEvent[] = [];
   current: LandingEvent | null = null;
+  /** false with the damage model on: a hard landing bends the suspension (damage.ts) instead of ending the run. */
+  crashOnHardLanding = true;
   private airborneSince = -1;
   private windowEnd = -1;
   private lastVel = { x: 0, y: 0, z: 0 };
@@ -80,7 +82,7 @@ export class IntegrityModule implements ForceModule {
       L.peakG = Math.max(L.peakG, v3len(state.specificForce) / G0);
       L.peakHudG = Math.max(L.peakHudG, sim.telemetry().gForce);
       L.peakBodyImpactMs = Math.max(L.peakBodyImpactMs, sim.impactSpeed);
-      if (L.hard) state.crashed = true;
+      if (L.hard && this.crashOnHardLanding) state.crashed = true;
     } else if (L && t > this.windowEnd) {
       this.current = null;
     }

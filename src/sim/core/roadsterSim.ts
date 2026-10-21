@@ -66,6 +66,21 @@ export interface ForceModule {
   writeState?(state: VehicleState, sim: RoadsterSim): void;
 }
 
+/** One chassis contact point of the last step, recorded for the damage model (RoadsterSim.recordBodyContacts). */
+export interface BodyContact {
+  /** Contact point on the chassis (body frame). */
+  p: Vec3;
+  /** Direction of the contact impulse on the car (body frame, unit: into the car). */
+  dir: Vec3;
+  /** Approach speed of the chassis point towards the obstacle before / after the step (m/s, < 0 = separating). */
+  vnPre: number;
+  vnPost: number;
+  /** Normal impulse of the solver at this point in the step (N s). */
+  impulse: number;
+  /** Contact with a movable prop (only the car's speed is known: absorbed energy ≈ ½·J·vnPre). */
+  prop: boolean;
+}
+
 export interface RoadsterSimOptions {
   modules?: ForceModule[];
   /** Optional per-run parameter scaling for robustness tests. */
@@ -143,6 +158,11 @@ export class RoadsterSim implements VehicleSim {
   readonly props: PropSystem | null;
   /** Car Δv (m/s) from impulses exchanged with props in the last BREAK_WINDOW_S – the crash measure for light objects. */
   propImpactDv = 0;
+  /** Damage-model hooks (src/sim/vehicle/damage.ts): record the chassis contacts of each step, and whether a
+   *  hard body impact / upper-body contact ends the run here (off: the damage model decides). */
+  recordBodyContacts = false;
+  readonly bodyContacts: BodyContact[] = [];
+  impactCrash = true;
   private propRing: Float64Array;
   private propRingK = 0;
 
@@ -354,6 +374,8 @@ export class RoadsterSim implements VehicleSim {
     const com = this.comWorld();
     // impulses exchanged with movable landmarks (a light object is pushed away, it is no wall)
     let pjx = 0, pjy = 0, pjz = 0;
+    const rec = this.recordBodyContacts && dt > 0;
+    this.bodyContacts.length = 0;
     if (!this.skipContacts) this.world.contactPairsWith(this.chassis, (other) => {
       let touching = false;
       const prop = this.props?.isProp(other.handle) ?? false;
@@ -366,6 +388,7 @@ export class RoadsterSim implements VehicleSim {
           for (let i = 0; i < nc; i++) {
             J += manifold.contactImpulse(i);
             if (manifold.contactDist(i) <= 0.002 || manifold.contactImpulse(i) > 1e-6) touching = true;
+            if (rec && manifold.contactImpulse(i) > 1e-6) this.recordContact(manifold, flipped, i, true);
           }
           // the normal points from the manifold's first shape to the second: impulse on the chassis
           const sg = flipped ? J : -J;
@@ -386,6 +409,7 @@ export class RoadsterSim implements VehicleSim {
           const r = v3sub(pw, com);
           const vp = v3add(this.prevVel, v3cross(this.prevAngVel, r));
           impact = Math.max(impact, Math.abs(vp.x * n.x + vp.y * n.y + vp.z * n.z));
+          if (rec && manifold.contactImpulse(i) > 1e-6) this.recordContact(manifold, flipped, i, false);
         }
       });
       if (touching) {
@@ -409,13 +433,33 @@ export class RoadsterSim implements VehicleSim {
     s.heightAboveGroundM = down ? down.dist : NO_GROUND_M;
     for (const m of this.modules) m.writeState?.(s, this);
     s.groundContact = s.wheels.some((wh) => wh.contact);
-    // Crash: hard body impact anywhere, or the upper body (roof/sides) touching anything.
-    if (contact && (impact > ROADSTER.integrity.crashBodyImpactMs || roofOnGround)) s.crashed = true;
-    // Light movable objects: the car's own velocity change decides (≈ v for a wall, ≈ μ/m·v for a 210 kg rover)
-    if (this.propImpactDv > ROADSTER.integrity.crashBodyImpactMs) s.crashed = true;
+    if (this.impactCrash) {
+      // Crash: hard body impact anywhere, or the upper body (roof/sides) touching anything.
+      if (contact && (impact > ROADSTER.integrity.crashBodyImpactMs || roofOnGround)) s.crashed = true;
+      // Light movable objects: the car's own velocity change decides (≈ v for a wall, ≈ μ/m·v for a 210 kg rover)
+      if (this.propImpactDv > ROADSTER.integrity.crashBodyImpactMs) s.crashed = true;
+    }
     this.prevVel.x = v.x; this.prevVel.y = v.y; this.prevVel.z = v.z;
     this.prevAngVel.x = w.x; this.prevAngVel.y = w.y; this.prevAngVel.z = w.z;
     this.comWorld(this.prevCom);
+  }
+
+  /** Damage hook: one chassis contact point (approach speeds from the pre-/post-step motion of the car). */
+  private recordContact(m: RAPIER.TempContactManifold, flipped: boolean, i: number, prop: boolean): void {
+    const lp = flipped ? m.localContactPoint2(i) : m.localContactPoint1(i);
+    if (!lp) return;
+    const n = m.normal();
+    // the normal points from the manifold's first shape to the second: impulse direction on the chassis
+    const sg = flipped ? 1 : -1;
+    const d = { x: n.x * sg, y: n.y * sg, z: n.z * sg };
+    const pw = this.toWorld(lp as Vec3);
+    const pre = v3add(this.prevVel, v3cross(this.prevAngVel, v3sub(pw, this.prevCom)));
+    const post = this.pointVelocity(pw);
+    const q = this.body.rotation() as Quat;
+    this.bodyContacts.push({
+      p: { x: lp.x, y: lp.y, z: lp.z }, dir: qrotInv(q, d), impulse: m.contactImpulse(i), prop,
+      vnPre: -(pre.x * d.x + pre.y * d.y + pre.z * d.z), vnPost: -(post.x * d.x + post.y * d.y + post.z * d.z),
+    });
   }
 
   getState(): Readonly<VehicleState> { return this.state; }

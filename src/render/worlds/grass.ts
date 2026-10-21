@@ -17,6 +17,14 @@ export class GrassField {
   private mesh: THREE.InstancedMesh | null = null;
   private center = new THREE.Vector2(Infinity, Infinity);
   private opts: GrassOptions;
+  /**
+   * Instance slot of each lattice cell. three derives the motion vectors of an instance from its
+   * matrix in the previous frame at the same index; re-writing the buffer in lattice order on every
+   * re-scatter (≈ every 0.6 m of camera travel) gave each slot another clump, so TRAA and motion
+   * blur saw every blade jump – the whole lawn flashed while driving. Cells keep their slot now.
+   */
+  private slots = new Map<number, number>();
+  private free: number[] = [];
 
   /** Direction to the sun and its colour × intensity (for the back-light translucency). */
   readonly sunDir = uniform(new THREE.Vector3(0, 1, 0));
@@ -31,8 +39,9 @@ export class GrassField {
     try {
       const head = await fetch(url, { method: 'HEAD' });
       if (!head.ok || (head.headers.get('content-type') ?? '').includes('text/html')) return false;
-      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
-      const gltf = await new GLTFLoader().loadAsync(url);
+      const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
+        import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
+      const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(url);
       let src: THREE.Mesh | null = null;
       gltf.scene.traverse((o) => { if (!src && (o as THREE.Mesh).isMesh) src = o as THREE.Mesh; });
       if (!src) return false;
@@ -95,9 +104,21 @@ export class GrassField {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), t = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     const i0 = Math.floor((cam.x - radius) / spacing), i1 = Math.ceil((cam.x + radius) / spacing);
     const j0 = Math.floor((cam.z - radius) / spacing), j1 = Math.ceil((cam.z + radius) / spacing);
-    let n = 0;
     const max = this.opts.maxInstances;
-    for (let j = j0; j <= j1 && n < max; j++) for (let i = i0; i <= i1 && n < max; i++) {
+    const keep = new Set<number>();
+    let n = this.mesh.count;
+    const place = (key: number, mat: THREE.Matrix4): boolean => {
+      let slot = this.slots.get(key);
+      if (slot === undefined) {
+        slot = this.free.pop() ?? (n < max ? n++ : -1);
+        if (slot < 0) return false;
+        this.slots.set(key, slot);
+      }
+      keep.add(key);
+      this.mesh!.setMatrixAt(slot, mat);
+      return true;
+    };
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const x = (i + hash(i, j, 1)) * spacing, z = (j + hash(i, j, 2)) * spacing;
       const dx = x - cam.x, dz = z - cam.z, d = Math.hypot(dx, dz);
       if (d > radius) continue;
@@ -113,7 +134,15 @@ export class GrassField {
       s.set(k, k * (0.8 + hash(i, j, 6) * 0.5), k);
       t.set(x, this.field.height(x, z) - 0.02, z);
       m.compose(t, q, s);
-      this.mesh.setMatrixAt(n++, m);
+      place((i + 32768) * 65536 + (j + 32768), m);
+    }
+    // cells that left the radius free their slot (collapsed to a point until reused)
+    const none = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (const [key, slot] of this.slots) {
+      if (keep.has(key)) continue;
+      this.slots.delete(key);
+      this.free.push(slot);
+      this.mesh.setMatrixAt(slot, none);
     }
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;

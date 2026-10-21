@@ -34,7 +34,6 @@
       "heightMinM": -198.0,
       "heightMaxM": 110.8,
       "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
-      "normalMap": "normal.png",
       "albedo": "albedo.jpg",
       "albedoNote": "Prozedural (Staub/Fels), da kein HiRISE-DTM am gewählten Punkt; Höhen 200 m + Feinstruktur.",
       "splat": "splat.png"

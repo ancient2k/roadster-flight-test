@@ -47,15 +47,21 @@ const RAMP_HANG: RefSample[] = [
   { t: 36, downforceKg: 1623, pitchDeg: 2.6, altitudeFt: 17.6, note: 'HUD altitude lags after the ramp' },
 ];
 
-/** Run 2: drive up the wall ramp, leave the top, half flip, cushion the landing with lift jets. */
+/**
+ * Run 2: drive up the wall ramp, over the curl onto the straight lip, drive off its end, half flip,
+ * cushion the landing with lift jets. 1 fps; the 4 fps frames (R14) show the car with its nose over the
+ * lip end at 5.4 s, off the lip at ≈ 5.7 s (HUD peak 67.8 ft at 6.0–6.25 s, the readout lags), ≈ 6 m
+ * beyond the lip end at 7 s, ≈ 10 m at 8 s and touchdown ≈ 13 m in front of the ramp foot at ≈ 9.7 s.
+ * Between the 1 fps samples the burn peaks at 2.8–3.2 g (7.75–8.0 s), which this table does not hold.
+ */
 const RAMP_LAUNCH: RefSample[] = [
   { t: 0, g: 1.4, altitudeFt: 0.4, note: 'enters the ramp' },
   { t: 1, g: 1.4, altitudeFt: 6.7 },
   { t: 2, g: 0.9, altitudeFt: 25.0 },
   { t: 3, g: 0.9, altitudeFt: 43.0 },
   { t: 4, g: 0.8, altitudeFt: 57.0 },
-  { t: 5, g: 1.1, altitudeFt: 64.4, note: 'leaves the top' },
-  { t: 6, g: 0.4, altitudeFt: 57.5, note: 'airborne, half flip' },
+  { t: 5, g: 1.1, altitudeFt: 64.4, note: 'over the curl onto the lip' },
+  { t: 6, g: 0.4, altitudeFt: 57.5, note: 'off the lip end, half flip' },
   { t: 7, g: 0.6, altitudeFt: 47.3, note: '4 lift jets firing down' },
   { t: 8, g: 1.4, altitudeFt: 11.9 },
   { t: 9, g: 1.4, altitudeFt: 5.2 },

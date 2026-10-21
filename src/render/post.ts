@@ -4,13 +4,12 @@ import * as THREE from 'three/webgpu';
 import {
   pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, velocity, metalness, roughness, vec2, vec4,
   uniform, float, mix, screenUV, sample, renderOutput, hash, screenCoordinate, max, luminance, clamp, int, smoothstep,
-  convertToTexture,
+  convertToTexture, Fn, Loop, vec3,
 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { ssr } from 'three/addons/tsl/display/SSRNode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
-import { motionBlur } from 'three/addons/tsl/display/MotionBlur.js';
 import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
 import type { QualitySettings } from './quality';
 import type { UFloat } from './tslTypes';
@@ -42,7 +41,10 @@ export interface PostChain {
   scenePass: ReturnType<typeof pass>;
   setResolutionScale(s: number): void;
   setPhotoMode(on: boolean): void;
+  /** Camera cut: the next frame shows the new shot without temporal history or motion blur. */
   resetHistory(): void;
+  /** Call once per frame before pipeline.render(). */
+  beforeRender(): void;
   focusDistance: UFloat;
   bloomStrength: UFloat;
   motionAmount: UFloat;
@@ -159,6 +161,12 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
 
   let aa: AnyNode = composite;
   let traaNode: ReturnType<typeof traa> | null = null;
+  // 1 on the first frame after a camera cut. The velocity buffer of that frame still holds the
+  // motion from the previous shot's camera (three keeps the previous view matrix per camera
+  // object), so TRAA reprojected the re-seeded history by a whole-screen offset (a shifted double
+  // image) and motion blur smeared the cut frame along those vectors (the "streaks" on every cut of
+  // the broadcast cameras). The cut frame shows the new beauty buffer as it is instead.
+  const fresh = uniform(0);
   if (postEnabled && q.traa) {
     traaNode = traa(composite as never, depth, scenePass.getTextureNode('velocity'), camera);
     aa = texOf(traaNode) as unknown as AnyNode;
@@ -167,20 +175,45 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
 
   // subtle lateral chromatic aberration of the stream camera lens (sampled from the AA texture)
   if (postEnabled && traaNode) {
-    const tex = texOf(traaNode) as { sample(uvn: unknown): { r: AnyNode; g: AnyNode; b: AnyNode; a: AnyNode } };
+    type Tex = { sample(uvn: unknown): { r: AnyNode; g: AnyNode; b: AnyNode; a: AnyNode } };
+    const tex = texOf(traaNode) as Tex;
+    const beauty = (traaNode as unknown as { beautyNode: Tex }).beautyNode;
+    const at = (uvn: unknown) => mix(tex.sample(uvn) as never, beauty.sample(uvn) as never, fresh) as unknown as { r: AnyNode; g: AnyNode; b: AnyNode };
     const d = screenUV.sub(0.5);
     const off = d.mul(d.length()).mul(0.0005);
-    aa = vec4(tex.sample(screenUV.add(off)).r, tex.sample(screenUV).g, tex.sample(screenUV.sub(off)).b, 1) as unknown as AnyNode;
+    aa = vec4(at(screenUV.add(off)).r, at(screenUV).g, at(screenUV.sub(off)).b, 1) as unknown as AnyNode;
     effects.push('CA');
   }
 
-  const motionAmount = uniform(0.5);
+  // exposure time as a share of the frame interval: the velocity buffer holds the NDC motion of one
+  // frame, ×0.5 is its UV length. 0.25 = a 180° shutter (was 0.5 = 360°: a launching car turned
+  // see-through over a quarter of its length, unlike the crisp car in the stream's 0-60 shots)
+  const motionAmount = uniform(0.25);
   let mb: AnyNode = aa;
   if (postEnabled && q.motionBlur) {
-    const vel = scenePass.getTextureNode('velocity').sample(screenUV).xy.mul(motionAmount);
-    const src = (traaNode ? texOf(traaNode) : color) as never;
-    // motion blur only where pixels actually move; CA is re-applied by mixing the AA result back
-    const blurred = motionBlur(src, vel, int(q.motionBlurSamples)) as unknown as AnyNode;
+    const velTex = scenePass.getTextureNode('velocity');
+    const vel = velTex.sample(screenUV).xy.mul(motionAmount).mul(float(1).sub(fresh));
+    type Tex = { sample(uvn: unknown): { rgb: AnyNode } };
+    const src = (traaNode ? texOf(traaNode) : color) as unknown as Tex;
+    // motion blur only where pixels actually move; CA is re-applied by mixing the AA result back.
+    // Gather along the pixel's own motion, but only from samples that move alike: three's
+    // MotionBlur averaged every tap, so the leading and trailing parts of a moving car took in the
+    // static background ahead of and behind it (the car showed the gate's LED pillar through its
+    // bonnet – a ghost car), and a static background next to a panned subject took in the subject.
+    const n = Math.max(2, q.motionBlurSamples);
+    const blurred = Fn(() => {
+      const tol = vel.length().mul(0.35).add(0.0004);
+      const acc = vec3(0).toVar(), wsum = float(0).toVar();
+      Loop({ start: int(0), end: int(n), type: 'int', condition: '<' } as never, (({ i }: { i: AnyNode }) => {
+        const uvi = screenUV.add(vel.mul(float(i).add(0.5).div(n).sub(0.5)));
+        const vi = velTex.sample(uvi).xy.mul(motionAmount);
+        const w = float(1).sub(vi.sub(vel).length().div(tol)).clamp(0, 1);
+        acc.addAssign(src.sample(uvi).rgb.mul(w) as never);
+        wsum.addAssign(w);
+      }) as never);
+      const c0 = src.sample(screenUV).rgb;
+      return vec4(acc.add(c0.mul(0.01) as never).div(wsum.add(0.01)), 1);
+    })() as unknown as AnyNode;
     // transparent effects keep the velocity of the surface behind them (alpha-0 MRT): without this
     // mask a chase camera smears the jet plumes with the background's motion into wide fans
     // (the cloud volume is not in the G-buffer either: its coverage is 1 - transmittance)
@@ -233,6 +266,7 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
   if (postEnabled) effects.push('AgX', 'Vignette', 'Grain');
 
   void max;
+  let cutFrames = 0;
   return {
     usesMRT: needsMRT && postEnabled,
     fxMask,
@@ -250,11 +284,18 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
       pipeline.outputNode = (on ? finish(buildPhoto()) : finalNormal) as never;
       pipeline.needsUpdate = true;
     },
-    resetHistory() {
+    resetHistory() { cutFrames = 2; },
+    beforeRender() {
       // TRAANode has no public reset: shrinking the history target makes the next frame see a
       // size change, which re-seeds the history from the current beauty buffer (private API).
-      const t = traaNode as unknown as { _historyRenderTarget?: THREE.RenderTarget } | null;
-      t?._historyRenderTarget?.setSize(1, 1);
+      // Twice: the history written on the cut frame is that frame's resolve, which reprojected with
+      // the stale velocities; re-seeding once more lets the shot start from a clean frame.
+      fresh.value = cutFrames === 2 ? 1 : 0;
+      if (cutFrames > 0) {
+        cutFrames--;
+        const t = traaNode as unknown as { _historyRenderTarget?: THREE.RenderTarget } | null;
+        t?._historyRenderTarget?.setSize(1, 1);
+      }
     },
     dispose() {
       pipeline.dispose();

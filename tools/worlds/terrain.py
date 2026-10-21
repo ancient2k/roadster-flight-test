@@ -7,7 +7,6 @@ Per site into public/assets/worlds/<site>/:
   terrain_h16.png   close-range elevation model (16-bit greyscale, n x n, row 0 = north, column 0 = west)
   terrain_far_h16.png  horizon tile (larger, coarser; optional)
   albedo.jpg        colour/albedo of the close-range tile (sRGB, little shadowing), same extent
-  normal.png        tangent-space normal map (OpenGL, +Y = north slope? see meta) of the close-range tile
   splat.png         weights for detail textures (RGB: R = rock/steep, G = fine material, B = dark/ejecta), 1024²
   meta.json         extent, height range, spawn, sun, sources, landmarks
 Sources are downloaded to tools/worlds/downloads/<site>/ (range requests for large files).
@@ -116,15 +115,6 @@ def save_h16(path, h, hmin, hmax):
     Image.fromarray(q).save(path, optimize=True)
 
 
-def normal_map(h, mpp):
-    """Normal map (OpenGL convention, texture u = +X/east, texture v up = north)."""
-    gy, gx = np.gradient(h, mpp)        # gy: derivative along the row (towards south), gx: towards east
-    nx, ny, nz = -gx, gy, np.ones_like(h)   # dh/dnorth = -gy
-    L = np.sqrt(nx * nx + ny * ny + nz * nz)
-    rgb = np.stack([nx / L, ny / L, nz / L], -1) * 0.5 + 0.5
-    return (rgb * 255 + 0.5).astype(np.uint8)
-
-
 def build(site: str):
     S = SITES[site]
     print(f"== {site}: {S['name']}")
@@ -190,8 +180,6 @@ def build(site: str):
         print(f"    {fn}: {n}², {size} m, Höhe {hmin} .. {hmax} m")
         if key == "near":
             hn, mpp_n = h, mpp
-            Image.fromarray(normal_map(h, mpp)).resize((2048, 2048), Image.LANCZOS).save(os.path.join(out, "normal.png"), optimize=True)
-            meta["tiles"]["near"]["normalMap"] = "normal.png"
             # albedo
             A = S.get("albedo")
             na = A["n"] if A else 2048

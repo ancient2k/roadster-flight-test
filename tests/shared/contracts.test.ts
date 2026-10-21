@@ -5,11 +5,16 @@ import { DEG, hudPitchDeg, qaxisAngle, qrot, rollDeg, v3cross, v3len } from '../
 import { NOZZLE_COUNT } from '../../src/shared/types';
 
 describe('shared contracts', () => {
-  it('wall ramp shaped like the stream: bend R 9.8 to vertical, 4.3 m straight, curl R 8 to 185°; ≈ 5 m wide', () => {
+  it('wall ramp shaped like the stream: bend R 9.8 to vertical, 4.3 m straight, curl R 8 to 175°, 3 m straight lip; ≈ 5 m wide', () => {
     const wall = TRACK.ramps.find((r) => r.kind === 'wallRamp')!;
     const L = profileLength(wall.profile);
     const end = sampleProfile(wall.profile, L);
-    expect(end.thetaRad / DEG).toBeCloseTo(185, 3);
+    expect(end.thetaRad / DEG).toBeCloseTo(175, 3);
+    expect(sampleProfile(wall.profile, L - 3).thetaRad / DEG).toBeCloseTo(175, 3);       // straight lip (R14)
+    // the lip end overhangs the ramp foot (stream 725–726 s: the car drives off it above the run-up)
+    expect(end.z).toBeGreaterThan(-1);
+    expect(end.z).toBeLessThan(0);
+    expect(end.y).toBeCloseTo(22.33, 1);
     const sTop90 = 9.8 * Math.PI / 2;
     expect(sampleProfile(wall.profile, sTop90).y).toBeCloseTo(9.8, 3);                 // end of the bend
     expect(sampleProfile(wall.profile, sTop90 + 4.3).y).toBeCloseTo(14.1, 3);          // top of the straight

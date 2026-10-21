@@ -156,7 +156,8 @@ export class FanModule implements ForceModule {
     const sq = rho > 0 ? Math.sqrt(2 / rho) : 0; // no atmosphere: K = 0 and dp0 = 0 -> no suction
     this.quadK.fill(0);
     let gapLen = 0, len = 0;
-    for (const s of this.samples) { this.quadK[s.quad] += FANS.dischargeCoeff * s.len * s.gap * sq; gapLen += s.len * s.gap; len += s.len; }
+    const torn = this.bus.damage.skirtLeakM; // damage.ts: torn skirt segments (0 when intact)
+    for (const s of this.samples) { this.quadK[s.quad] += FANS.dischargeCoeff * s.len * (s.gap + torn[s.quad]) * sq; gapLen += s.len * s.gap; len += s.len; }
     this.gapMean = gapLen / len;
     if (this.mode === 'highspeed') for (let i = 0; i < 4; i++) this.quadK[i] += FANS.dischargeCoeff * (XF.highspeedFlapAreaM2 / 4) * sq;
     // rotor target
@@ -210,4 +211,17 @@ export class FanModule implements ForceModule {
     f.gapM = this.gapMean;
     f.rpmNorm = this.rpm;
   }
+}
+
+/**
+ * HUD hint (pyramids): the car stands on stone steeper than 30° (a pyramid face, the upper talus) with the fans
+ * not on GRIP. Tires alone hold ≈ 40° at best; the 52° faces need the suction (tests/sim/vehicle/pyramid.test.ts,
+ * negative control).
+ */
+export function steepStoneWithoutGrip(sim: RoadsterSim, fanMode: FanMode): boolean {
+  if (fanMode === 'grip') return false;
+  const s = sim.getState();
+  if (!s.groundContact) return false;
+  const hit = sim.castRay(s.pos, { x: 0, y: -1, z: 0 }, 3);
+  return !!hit && hit.info?.kind === 'landmark' && hit.normal.y < Math.cos(30 * Math.PI / 180);
 }

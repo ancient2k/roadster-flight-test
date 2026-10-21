@@ -3,6 +3,7 @@
 import { browserStorage, type KeyValueStorage } from '../ui/settings';
 import { assignKey, assignPad, defaultBindings, keyLabel, loadBindings, padLabel, saveBindings } from './bindings';
 import { DEFAULT_MAPPER_OPTIONS, InputMapper, type MapperOptions } from './mapping';
+import { TouchState } from './touch';
 import type { Bindings, ControlId, PadBinding, PlayerInput, RawInput } from './types';
 
 export type InputContext = 'game' | 'menu';
@@ -24,6 +25,8 @@ function isTextTarget(t: EventTarget | null): boolean {
 
 export class InputManager {
   readonly mapper: InputMapper;
+  /** Written by the on-screen touch controls (src/ui/touchControls.ts). */
+  readonly touch = new TouchState();
   private keys = new Set<string>();
   private mouse = { dx: 0, dy: 0, rightHeld: false };
   private context: InputContext = 'menu';
@@ -44,13 +47,13 @@ export class InputManager {
 
   // ------------------------------------------------------------------ public API
   setContext(c: InputContext): void {
-    if (c !== this.context) { this.context = c; this.mapper.prime({ keys: this.keys, mouse: this.mouse, pad: this.readPad() }); }
+    if (c !== this.context) { this.context = c; this.touch.clear(); this.mapper.prime({ keys: this.keys, mouse: this.mouse, pad: this.readPad() }); }
   }
   getContext(): InputContext { return this.context; }
   setOptions(o: Partial<MapperOptions>): void { Object.assign(this.mapper.opts, o); }
 
   poll(dt: number): PlayerInput {
-    const raw: RawInput = { keys: this.keys, mouse: this.mouse, pad: this.readPad() };
+    const raw: RawInput = { keys: this.keys, mouse: this.mouse, pad: this.readPad(), touch: this.touch.values };
     const out = this.mapper.map(raw, dt);
     this.mouse.dx = 0; this.mouse.dy = 0;
     return out;
@@ -122,6 +125,12 @@ export class InputManager {
 
   dispose(): void { for (const d of this.disposers) d(); this.disposers = []; this.listeners.clear(); }
 
+  /**
+   * Release everything held (focus loss, tab hidden, page hide): a key whose keyup never arrives would
+   * otherwise keep its thruster demand forever (R14: "jets fire uncontrolled").
+   */
+  releaseAll(): void { this.keys.clear(); this.mouse.rightHeld = false; this.touch.clear(); this.mapper.resetState(); }
+
   // ------------------------------------------------------------------ internals
   private emit(): void { for (const l of this.listeners) l(); }
 
@@ -149,11 +158,24 @@ export class InputManager {
         return;
       }
       if (isTextTarget(e.target)) return;
+      // macOS sends no keyup for keys pressed while Cmd is held (Cmd+K …): never record them as held
+      if (e.metaKey && e.code !== 'MetaLeft' && e.code !== 'MetaRight') return;
       this.keys.add(e.code);
       if (this.context === 'game' && (GAME_SWALLOW.has(e.code) || this.isBound(e.code))) e.preventDefault();
     }, { capture: true });
-    on(window, 'keyup', (e) => { this.keys.delete(e.code); });
-    on(window, 'blur', () => { this.keys.clear(); this.mouse.rightHeld = false; this.mapper.resetState(); });
+    on(window, 'keyup', (e) => {
+      this.keys.delete(e.code);
+      // releasing Cmd: keys pressed with it held get no keyup of their own on macOS
+      if (e.code === 'MetaLeft' || e.code === 'MetaRight') this.keys.clear();
+    });
+    on(window, 'blur', () => this.releaseAll());
+    // tab switches and app switches on mobile do not always blur the window
+    on(window, 'pagehide', () => this.releaseAll());
+    if (typeof document !== 'undefined') {
+      const onVis = () => { if (document.visibilityState === 'hidden') this.releaseAll(); };
+      document.addEventListener('visibilitychange', onVis);
+      this.disposers.push(() => document.removeEventListener('visibilitychange', onVis));
+    }
     on(this.target, 'pointerdown', (e) => { if (e.button === 2) this.mouse.rightHeld = true; });
     on(window, 'pointerup', (e) => { if (e.button === 2) this.mouse.rightHeld = false; });
     on(window, 'pointermove', (e) => { if (this.mouse.rightHeld) { this.mouse.dx += e.movementX; this.mouse.dy += e.movementY; } });

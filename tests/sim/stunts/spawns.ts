@@ -23,7 +23,7 @@ export function kickflipLipSpawn(speedMs: number): { spawn: SpawnPose; setup: (s
   };
 }
 
-/** Car at the top of the wall ramp, fans just released: inverted, moving back along the overhang tangent. */
+/** Car at the top of the wall ramp, fans just released: inverted, moving back along the overhang (lip) tangent. */
 export function rampTopSpawn(sFromEnd: number, speedMs: number): { spawn: SpawnPose; setup: (sim: RoadsterSim) => void } {
   const w = TRACK.ramps.find((r) => r.kind === 'wallRamp')!;
   const L = profileLength(w.profile);
@@ -37,7 +37,9 @@ export function rampTopSpawn(sFromEnd: number, speedMs: number): { spawn: SpawnP
       // CoG 0.45 m inside (toward the arc centre) plus 3 cm clearance, i.e. hanging under the overhang
       const n = qrot(quat, v3(0, 0.48, 0));
       sim.body.setTranslation(v3(pos.x + n.x, pos.y + n.y, pos.z + n.z), true);
-      const R = (w.profile[w.profile.length - 1] as { radius: number }).radius;
+      // pitch rate v/R on a curl, none on the straight lip
+      const last = w.profile[w.profile.length - 1];
+      const R = last.kind === 'arc' && L - sFromEnd > L - profileLength([last]) ? last.radius : Infinity;
       sim.body.setAngvel(qrot(quat, v3(-speedMs / R, 0, 0)), true);
     },
   };

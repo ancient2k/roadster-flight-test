@@ -97,15 +97,20 @@ export class RampLaunchStunt extends Stunt {
         axis: v3(0, 0, 1), angleRad: Math.PI, rateRadS: P.rollRate, accelRadS2: P.rollAccel,
         // inverted, nose pointing away from the wall, level: rolling π about body Z ends wheels-down
         q0: () => quatFromUpForward(v3(0, -1, 0), this.away),
-        // released before the end of the overhang the car is pitched ≈ 25° off inverted-level:
-        // one shortest rotation (mostly roll) straight to wheels-down, nose away from the wall
+        // off the end of the 175° lip the car is pitched ≈ 5–20° off inverted-level (nose dropping over
+        // the edge): one shortest rotation (mostly roll) straight to wheels-down, nose away from the wall
         target: () => quatFromUpForward(v3(0, 1, 0), this.away),
         next: 'land', bail: 'land', bailHeightM: 4, landingFwd: () => this.away,
       }),
       land: landingPhase(st, 'rollout', () => this.away, () => {
+        // carry on away from the wall towards the stream's touchdown point (≈ 13 m in front of the
+        // ramp foot): full away speed off the lip, tapering off to a slow roll at touchdown (no braking
+        // tilt in the flare; the stream car touches down rolling and drives off)
+        // below coastHeightM the car keeps its along-heading speed (no braking tilt into the touchdown)
+        if (this.wheelsHeight() < P.coastHeightM) return null;
         const local = this.tracker.toLocal(this.est.pos);
-        // keep moving away from the wall until the car is over flat ground
-        return local.z > -1.5 ? { x: this.away.x * P.awaySpeedMs, z: this.away.z * P.awaySpeedMs } : null;
+        const v = Math.max(P.awayMinMs, Math.min(P.awaySpeedMs, P.awayGain * (local.z - P.landLocalZ)));
+        return { x: this.away.x * v, z: this.away.z * v };
       }),
       rollout: {
         update: () => {
@@ -146,7 +151,7 @@ export class RampLaunchStunt extends Stunt {
     const m = this.metrics, r = this.reference;
     const up = qrot(this.sim.getState().quat, v3(0, 1, 0)).y;
     return [
-      { name: 'leaves the top at ≈ 19.5 m (±15 %)', value: this.leaveAltitudeM, target: `${(r.leaveAltitudeM * 0.85).toFixed(1)}..${(r.leaveAltitudeM * 1.15).toFixed(1)}`, ok: Math.abs(this.leaveAltitudeM - r.leaveAltitudeM) <= 0.15 * r.leaveAltitudeM },
+      { name: 'leaves the top at ≈ 20.7 m (±15 %)', value: this.leaveAltitudeM, target: `${(r.leaveAltitudeM * 0.85).toFixed(1)}..${(r.leaveAltitudeM * 1.15).toFixed(1)}`, ok: Math.abs(this.leaveAltitudeM - r.leaveAltitudeM) <= 0.15 * r.leaveAltitudeM },
       { name: 'half flip ≈ 180°', value: Math.abs(m.rollDeg), target: '180 ±30', ok: Math.abs(Math.abs(m.rollDeg) - 180) <= 30 },
       { name: 'touchdown sink ≤ 2 m/s', value: m.touchdownSinkMs, target: '≤ 2.0', ok: m.touchdownSinkMs <= 2.0 },
       { name: 'touchdown g ≤ 2.5', value: m.touchdownG, target: '≤ 2.5', ok: m.touchdownG <= 2.5 },

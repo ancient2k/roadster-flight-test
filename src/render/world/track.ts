@@ -10,7 +10,7 @@ import { DEG } from '../../shared/math';
 import { TOWER_CD, PHOTOMETRIC } from '../lighting';
 import { BeamBatch } from './beams';
 import { buildRampGeometry, backsideAt } from './rampMesh';
-import { SCENE_TIME, bakeFloodLightmap, bakePadMask, loadTextureSet, type LightMap, makeAsphaltMaterial, makeConcreteMaterial, makePrairieMaterial, makeSteelMaterial, makeLedMaterial, makeDirtMaterial } from './materials';
+import { SCENE_TIME, bakeFloodLightmap, bakePadMask, loadTextureSet, type LightMap, makeAsphaltMaterial, makeConcreteMaterial, makePrairieMaterial, makeSteelMaterial, makeLedMaterial, makeDirtMaterial, pixelFloor } from './materials';
 import { makePlaceholderVehicle } from './vehicles';
 import { buildGateCurtain } from './gateFx';
 import { cloudVolume } from '../fx/volume/cloudVolume';
@@ -795,6 +795,8 @@ export function buildTrack(q: QualitySettings, ENV = 'assets/env/'): TrackWorld 
   // flickering haze uniform for beams
   const haze = uniform(1);
   void haze;
+  // LED bars, posts and lamp lenses: at least 2 px wide (no TRAA blinking from far cameras)
+  pixelFloor(group, (m) => !!m.userData.led);
 
   return {
     group,

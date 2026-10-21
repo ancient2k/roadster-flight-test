@@ -24,6 +24,12 @@ export class Propulsion {
   totalMassFlow = 0;
   ambientPressure = P_ATM;
   refillRateKgS: number = ROADSTER.tank.refillKgPerSGame;
+  /** Damage hooks (src/sim/vehicle/damage.ts): thrust factor per nozzle (crushed bell) and the area of a feed
+   *  line leak between regulator and valves (m²); 1 / 0 for an intact car. */
+  readonly thrustScale: Float64Array;
+  leakAreaM2 = 0;
+  /** Air lost through the leak last step (kg/s). */
+  leakKgS = 0;
 
   constructor(specs: readonly NozzleSpec[] = ROADSTER.nozzles, valveCfg?: ValveCfg) {
     this.specs = specs;
@@ -33,6 +39,7 @@ export class Propulsion {
     this.states = specs.map(() => ({ open: false, thrustN: 0, massFlowKgS: 0, exitPressureRatio: 1 }));
     this.forces = specs.map((s) => ({ pointBody: { ...s.pos }, forceBody: v3() }));
     this.dutyActual = new Float32Array(specs.length);
+    this.thrustScale = new Float64Array(specs.length).fill(1);
   }
 
   reset(airMassKg: number = ROADSTER.tank.fullMassKg): void {
@@ -74,13 +81,16 @@ export class Propulsion {
       }
       const o = this.nozzles[i].compute(pf, T0, this.ambientPressure);
       st.open = f >= 0.5;
-      st.thrustN = o.thrustN * f;
+      st.thrustN = o.thrustN * f * this.thrustScale[i];
       st.massFlowKgS = o.mdot * f;
       st.exitPressureRatio = o.exitPressureRatio;
       mdotTotal += st.massFlowKgS;
       v3scale(this.specs[i].dir, st.thrustN, this.forces[i].forceBody);
     }
     this.totalMassFlow = mdotTotal;
-    this.tank.step(dt, mdotTotal, refill ? this.refillRateKgS : 0);
+    // choked leak at feed pressure: ṁ = A·p·√(γ/R)·(2/(γ+1))^((γ+1)/(2(γ−1))) / √T = 0.0404·A·p/√T (air)
+    this.leakKgS = this.leakAreaM2 > 0 && this.tank.m > 0.01
+      ? 0.0404 * this.leakAreaM2 * Math.min(this.tank.pressure, ROADSTER.tank.regulatorSetpointPa) / Math.sqrt(T0) : 0;
+    this.tank.step(dt, mdotTotal + this.leakKgS, refill ? this.refillRateKgS : 0);
   }
 }

@@ -4,6 +4,7 @@
 import type { AssistLevel } from '../shared/types';
 import type { Units } from './units';
 import { LOCALE_CODES, type LanguageSetting } from '../i18n';
+import { DAMAGE_MODES, type DamageMode } from '../shared/damage';
 
 export type GraphicsQuality = 'low' | 'medium' | 'high' | 'ultra';
 export type RefillRate = 'realistic' | 'game';
@@ -21,7 +22,8 @@ export interface Settings {
     sensorNoise: boolean;     // GNC sees noisy state estimate
     valveDelays: boolean;     // model valve opening/closing delay + min on-time
     wind: boolean;            // gusts over the pad
-    crashDamage: boolean;     // body impacts end the run
+    /** Vehicle damage: 'off' = a hard body impact is a collision (previous behaviour), 'realistic' = damage model. */
+    damage: DamageMode;
   };
   assistDefault: AssistLevel;
   controls: { invertPitch: boolean; mouseAttitude: boolean; mouseSensitivity: number; stickDeadzone: number; triggerDeadzone: number };
@@ -38,7 +40,7 @@ export function defaultSettings(): Settings {
     language: 'auto',
     audio: { master: 0.8, effects: 1, crowd: 0.7, muted: false },
     refillRate: 'game',
-    realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, crashDamage: true },
+    realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, damage: 'off' },
     assistDefault: 'ASSIST',
     controls: { invertPitch: false, mouseAttitude: false, mouseSensitivity: 1, stickDeadzone: 0.15, triggerDeadzone: 0.05 },
     hud: { visible: true, scale: 1, showExtras: true },
@@ -87,6 +89,7 @@ const ENUMS: Record<string, readonly string[]> = {
   language: ['auto', ...LOCALE_CODES],
   refillRate: ['realistic', 'game'],
   assistDefault: ['ASSIST', 'STABILIZED', 'RAW'],
+  'realism.damage': DAMAGE_MODES,
 };
 
 const RANGES: Array<[string[], number, number]> = [

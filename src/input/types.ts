@@ -63,4 +63,6 @@ export interface RawInput {
   keys: ReadonlySet<string>;        // KeyboardEvent.code values currently held
   mouse: { dx: number; dy: number; rightHeld: boolean };
   pad: { buttons: readonly number[]; axes: readonly number[] } | null;
+  /** On-screen touch controls: analog 0..1 per control (merged into the pad channel). */
+  touch?: Readonly<Partial<Record<ControlId, number>>>;
 }

@@ -134,6 +134,8 @@ export class InputMapper {
     let key = 0, pad = 0;
     for (const k of b.keys) if (raw.keys.has(k)) { key = 1; break; }
     for (const p of b.pad) pad = Math.max(pad, this.padValue(p, raw));
+    const tv = raw.touch?.[id];
+    if (tv) pad = Math.max(pad, clamp01(tv));
     if (this.latched.has(id)) {
       if (Math.max(key, pad) > 0.2) return { key: 0, pad: 0 };
       this.latched.delete(id);
