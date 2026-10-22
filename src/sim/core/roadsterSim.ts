@@ -15,6 +15,7 @@ import {
 import { Propulsion } from './propulsion';
 import { EARTH, type Environment, type SurfaceKind } from '@shared/environment';
 import { PropSystem, BREAK_WINDOW_S, rotTerm } from './props';
+import { sampleHeight } from '@shared/heightmap';
 import type { PropPlacement } from '@shared/props';
 import { GROUP_CAR, GROUP_PROP, GROUP_WORLD, buildLandmarkColliders, buildTerrainColliders, buildTrackColliders, groups, type LandmarkShape, type WorldColliderInfo } from './world';
 
@@ -142,6 +143,10 @@ export class RoadsterSim implements VehicleSim {
   private skipContacts = false;
   /** Ground type of this world (altitude reference: track = pad plane y = 0, terrain = ground below the car). */
   groundKind: 'track' | 'terrain' | 'space' = 'track';
+  /** Terrain heights for the below-ground rescue (rescueBelowGround). */
+  private terrainH: { h: Float32Array; size: number; extentM: number } | null = null;
+  /** Times the car was put back on top of the terrain after tunnelling through it. */
+  undergroundRescues = 0;
   private gFilt = G0;
   private massKey = -1;
   private phaseLabel = '';
@@ -180,6 +185,7 @@ export class RoadsterSim implements VehicleSim {
     if (ground === 'terrain') {
       if (!opts.terrain) throw new Error('ground "terrain" needs opts.terrain');
       this.colliderInfo = buildTerrainColliders(RAPIER, this.world, opts.terrain.heights, opts.terrain.size, opts.terrain.extentM, { fineCenter: opts.terrain.fineCenter, fineAreas: opts.terrain.fineAreas });
+      this.terrainH = { h: opts.terrain.heights, size: opts.terrain.size, extentM: opts.terrain.extentM };
       if (opts.landmarks?.length) {
         for (const [h, i] of buildLandmarkColliders(RAPIER, this.world, opts.landmarks)) this.colliderInfo.set(h, i);
       }
@@ -353,10 +359,28 @@ export class RoadsterSim implements VehicleSim {
     this.body.addTorque(this.acc.torque, true);
     // 6. integrate
     this.world.step();
+    this.rescueBelowGround();
     this.props?.afterStep();
     // 7. derive state
     this.deriveState(dt);
     this.state.brakeInput = drive.handbrake ? 1 : Math.max(0, Math.min(1, drive.brake));
+  }
+
+  /**
+   * The terrain is a zero-thickness triangle mesh: after a very hard impact (a long flight ending in a crash) the
+   * hull can end up below it in one step despite CCD, and nothing pushes it back. If the centre of gravity lies
+   * clearly under the ground, put the car back on top (horizontal speed halved, no vertical speed).
+   */
+  private rescueBelowGround(): void {
+    const t = this.terrainH;
+    if (!t) return;
+    const p = this.body.translation();
+    const g = sampleHeight(t.h, { size: t.size, extentM: t.extentM, minM: 0, maxM: 0, source: '' }, p.x, p.z);
+    if (!Number.isFinite(g) || p.y > g - 0.25) return;
+    const v = this.body.linvel();
+    this.body.setTranslation({ x: p.x, y: g + ROADSTER.restCogHeightM + 0.6, z: p.z }, true);
+    this.body.setLinvel({ x: v.x * 0.5, y: 0, z: v.z * 0.5 }, true);
+    this.undergroundRescues++;
   }
 
   private deriveState(dt: number): void {

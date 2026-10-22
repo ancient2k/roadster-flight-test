@@ -58,6 +58,7 @@ Default bindings; they can be changed in the game under Settings → Controls.
 | Action | Keyboard | Gamepad |
 |---|---|---|
 | Throttle / brake / steer | W / S / A, D | RT / LT / left stick |
+| Handbrake (rear wheels locked: handbrake turns and drifts) | X | B |
 | Reverse | S at standstill (release and press again after braking to a stop); W returns to forward | LT at standstill |
 | Lift thrusters | Space | A |
 | Rear thrusters (boost) | Shift | X |
