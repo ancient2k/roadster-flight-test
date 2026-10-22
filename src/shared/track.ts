@@ -46,23 +46,25 @@ export interface StuntSite {
 
 // ------------------------------------------------------------------ geometry
 const WALL: CurvedRamp = {
-  kind: 'wallRamp', id: 'wall', origin: { x: 60, y: 0, z: 60 }, headingDeg: 0, width: 5, thickness: 0.6,
-  // Shape of the stream ramp (stream reference frames): a bend into the vertical, a tall straight
-  // vertical section, then a tight curl over the top. Fitted to the two settled HUD points (the HUD altitude
-  // lags while moving): pause at pitch 90° = 30.7 ft (9.36 m) → R1 = 9.8 m; hang at 170° = 69.1 ft (21.06 m)
-  // → L + 0.985 R2 = 12.15 m. The stream shows a tall straight and a short curl (sheet_04: the car hangs near
-  // the top end) → R2 = 8 m, L = 4.3 m; check: 119° → 17.3 m (descent reading 56.7 ft). On the R 8 curl the
-  // surface rises above the skirt line behind the rear axle (≈ 0.13 m) – the fan model counts that as a fully
-  // compressed, sealed skirt (fans.ts). Width ≈ 5 m (2.3 × the car's width in the stream).
-  // The curl ends at 175° in a straight 3 m lip (R14, stream 725–726 s and the drone replay at 753 s: the
-  // launch car drives over the curl onto a straight overhanging end piece and hangs its nose over the
-  // edge before it drops off). The hang point (170°, 21.06 m) stays on the arc; the lip end is at
-  // z = −0.5 m (above the ramp foot), surface height 22.3 m.
+  kind: 'wallRamp', id: 'wall', origin: { x: 60, y: 0, z: 60 }, headingDeg: 0, width: 4.1, thickness: 0.6,
+  // Shape of the stream ramp (R15, tools/ramp/): ONE evenly curved arc from the ground to 170°, then a
+  // long straight overhang at 170°. Evidence:
+  // - HUD pitch rate (2 fps, 676–710 s): reversing down, the pitch falls 161° → 16° at a constant ≈ 19°/s,
+  //   climbing it rises 13° → 82° and 95° → 166° at ≈ 24°/s each – at a steady crawl that is one constant
+  //   curvature over the whole wall, no tighter foot bend and no vertical straight.
+  // - At a constant 170° the car crawls ≈ 1.6 m up onto a straight and back (frames 32–35 and 43–51), and
+  //   the straight runs on well beyond the car (700 s, drone replay 753–755 s: ≈ 8–11 m ≈ 3.5 wheelbases).
+  // - Silhouette fit (IoU ≈ 0.93 / 0.91 / 0.91 in the stream frames 700 s, 674 s and 720 s) with both
+  //   stream cameras calibrated on the car at the ramp foot (4.35 m long, rear 3/4 view at ≈ 17°) and the
+  //   car's roof position at 14 HUD pitch readings; a free 3-arc profile fits no better.
+  // - Scale: the settled hang altitude 69.1 ft (21.06 m, the HUD altitude lags 2–3 s while moving) with
+  //   the car 1.6 m onto the straight → R = 10.9 m. The lagged reading at the 90° pause (30.7 ft) is a
+  //   lower bound; the surface is 10.9 m high there.
+  // The lip end overhangs the run-up by ≈ 8 m (z = −7.95 m) at a surface height of 23.4 m. Width 4.1 m
+  // (fit; the old 5 m was 2.3 car widths by eye). R 10.9 also keeps the skirt clear of the floor (fans.ts).
   profile: [
-    { kind: 'arc', radius: 9.8, fromDeg: 0, toDeg: 90 },
-    { kind: 'line', length: 4.3 },
-    { kind: 'arc', radius: 8, fromDeg: 90, toDeg: 175 },
-    { kind: 'line', length: 3.0 },
+    { kind: 'arc', radius: 10.9, fromDeg: 0, toDeg: 170 },
+    { kind: 'line', length: 10.0 },
   ],
 };
 

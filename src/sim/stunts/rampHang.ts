@@ -84,7 +84,9 @@ export class RampHangStunt extends Stunt {
           this.drive.steer = this.line.steer(this.est.pos, this.est.q, this.est.speed);
           this.drive.reverse = false;
           if (this.tracker.s > 1 && this.lostWall()) return 'rescue';
-          if ((pitch >= P.holdPitchDeg - 0.5 && this.refT >= RAMP_HANG_DESCEND_T - P.holdS) || this.tracker.s >= this.tracker.length - 1.4) return 'hold';
+          // hang where the stream car stops: on the straight overhang, hangOnLipM past the end of the arc
+          const atHang = pitch >= P.holdPitchDeg - 0.5 && this.tracker.s >= this.sAtPitch(P.holdPitchDeg) - 0.15;
+          if ((atHang && this.refT >= RAMP_HANG_DESCEND_T - P.holdS) || this.tracker.s >= this.tracker.length - 1.4) return 'hold';
           return null;
         },
       },
@@ -149,8 +151,17 @@ export class RampHangStunt extends Stunt {
     return Math.max(P.minCrawlMs, Math.min(P.maxCrawlMs, v));
   }
 
-  /** Arc length on the wall where the surface tangent reaches `deg` (first time), plateau-aware. */
+  /**
+   * Arc length on the wall where the surface tangent reaches `deg` (first time), plateau-aware. The hang
+   * pitch maps onto the straight overhang: the stream car crawls ≈ 1.6 m onto it at a constant 170° and
+   * back (stream 692–702 s), so the reference holds there instead of at the end of the arc.
+   */
   private sAtPitch(deg: number): number {
+    if (deg >= P.holdPitchDeg - 0.25) return Math.min(this.tracker.length - 1.4, this.sOnWall(P.holdPitchDeg) + P.hangOnLipM);
+    return this.sOnWall(deg);
+  }
+
+  private sOnWall(deg: number): number {
     let acc = 0, theta = 0;
     for (const seg of this.wall.profile) {
       if (seg.kind === 'line') {

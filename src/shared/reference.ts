@@ -48,10 +48,14 @@ const RAMP_HANG: RefSample[] = [
 ];
 
 /**
- * Run 2: drive up the wall ramp, over the curl onto the straight lip, drive off its end, half flip,
+ * Run 2: drive up the wall ramp, over the arc onto the straight overhang, drive off its end, half flip,
  * cushion the landing with lift jets. 1 fps; the 4 fps frames (R14) show the car with its nose over the
- * lip end at 5.4 s, off the lip at ≈ 5.7 s (HUD peak 67.8 ft at 6.0–6.25 s, the readout lags), ≈ 6 m
- * beyond the lip end at 7 s, ≈ 10 m at 8 s and touchdown ≈ 13 m in front of the ramp foot at ≈ 9.7 s.
+ * overhang end at 5.4 s, off it at ≈ 5.7 s (HUD peak 67.8 ft at 6.0–6.25 s, the readout lags: the end of
+ * the overhang is ≈ 1.4 m higher than the hang point that settles at 69.1 ft in run 1) and touchdown at
+ * ≈ 9.7 s. Where it lands: R14 read ≈ 13 m in front of the ramp foot through a wrong camera; with the
+ * stream camera calibrated on the ramp (R15, tools/ramp/) the car is ≈ 33 m out at 7.5 s and ≈ 37–42 m
+ * out at 8.0 s, 3–5 m up (direction from the image position and distance from the car's apparent length
+ * agree). Not adopted yet: the sim lands ≈ 17 m out (docs/PHYSICS.md).
  * Between the 1 fps samples the burn peaks at 2.8–3.2 g (7.75–8.0 s), which this table does not hold.
  */
 const RAMP_LAUNCH: RefSample[] = [

@@ -5,25 +5,25 @@ import { DEG, hudPitchDeg, qaxisAngle, qrot, rollDeg, v3cross, v3len } from '../
 import { NOZZLE_COUNT } from '../../src/shared/types';
 
 describe('shared contracts', () => {
-  it('wall ramp shaped like the stream: bend R 9.8 to vertical, 4.3 m straight, curl R 8 to 175°, 3 m straight lip; ≈ 5 m wide', () => {
+  it('wall ramp shaped like the stream: one arc R 10.9 to 170°, then a 10 m straight overhang; ≈ 4.1 m wide', () => {
     const wall = TRACK.ramps.find((r) => r.kind === 'wallRamp')!;
     const L = profileLength(wall.profile);
+    const sArc = 10.9 * 170 * DEG;
+    expect(L).toBeCloseTo(sArc + 10, 3);
+    // constant curvature from the floor to 170° (HUD pitch rate constant while crawling, R15)
+    for (const deg of [20, 60, 90, 120, 160]) expect(sampleProfile(wall.profile, 10.9 * deg * DEG).thetaRad / DEG).toBeCloseTo(deg, 3);
+    expect(sampleProfile(wall.profile, 10.9 * Math.PI / 2).y).toBeCloseTo(10.9, 3);          // vertical at 10.9 m
     const end = sampleProfile(wall.profile, L);
-    expect(end.thetaRad / DEG).toBeCloseTo(175, 3);
-    expect(sampleProfile(wall.profile, L - 3).thetaRad / DEG).toBeCloseTo(175, 3);       // straight lip (R14)
-    // the lip end overhangs the ramp foot (stream 725–726 s: the car drives off it above the run-up)
-    expect(end.z).toBeGreaterThan(-1);
-    expect(end.z).toBeLessThan(0);
-    expect(end.y).toBeCloseTo(22.33, 1);
-    const sTop90 = 9.8 * Math.PI / 2;
-    expect(sampleProfile(wall.profile, sTop90).y).toBeCloseTo(9.8, 3);                 // end of the bend
-    expect(sampleProfile(wall.profile, sTop90 + 4.3).y).toBeCloseTo(14.1, 3);          // top of the straight
-    expect(sampleProfile(wall.profile, sTop90 + 4.3).thetaRad / DEG).toBeCloseTo(90, 3);
-    const s170 = sTop90 + 4.3 + 8 * (80 * DEG);
-    expect(sampleProfile(wall.profile, s170).y).toBeCloseTo(14.1 + 8 * Math.sin(80 * DEG), 3);
-    // HUD hang altitude at 170° body pitch: surface − 0.45 m CoG offset·|cos| − 0.45 m (HUD zero) ≈ 21.06 m (69.1 ft)
-    expect(14.1 + 8 * Math.sin(80 * DEG) - 0.45 * Math.cos(10 * DEG) - 0.45).toBeCloseTo(21.06, 1);
-    expect(wall.width).toBeCloseTo(5, 3);
+    expect(end.thetaRad / DEG).toBeCloseTo(170, 3);
+    expect(sampleProfile(wall.profile, sArc).thetaRad / DEG).toBeCloseTo(170, 3);           // straight overhang
+    // the overhang end lies ≈ 8 m out over the run-up (the launch car drives off it), 23.4 m up
+    expect(end.z).toBeCloseTo(-7.95, 1);
+    expect(end.y).toBeCloseTo(23.37, 1);
+    // HUD hang altitude: the car crawls 1.6 m onto the straight (TUNING.rampHang.hangOnLipM);
+    // surface − 0.45 m CoG offset·|cos| − 0.45 m (HUD zero) ≈ 21.06 m (69.1 ft)
+    const hang = sampleProfile(wall.profile, sArc + 1.6);
+    expect(hang.y - 0.45 * Math.cos(10 * DEG) - 0.45).toBeCloseTo(21.06, 1);
+    expect(wall.width).toBeCloseTo(4.1, 3);
   });
   it('kicker lip ~2.35 m', () => {
     const k = TRACK.ramps.find((r) => r.kind === 'kicker')!;

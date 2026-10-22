@@ -137,8 +137,8 @@ describe('broadcast director', () => {
   it('ramp landing camera only while the car comes back down off the wall', () => {
     const land = BROADCAST_SHOTS.find((s) => s.id === 'wlaunch_land')!;
     expect(land.site).toBe('ramp_launch');
-    expect(shotScore(land, { x: 57.5, y: 1.1, z: 56 }, { x: 0, y: -1, z: -4.4 })).toBeGreaterThan(0.5);
-    expect(shotScore(land, { x: 60, y: 1.0, z: 47 }, { x: 0, y: -1, z: -1.5 })).toBeGreaterThan(0.5);    // touchdown 13 m out (R14)
+    expect(shotScore(land, { x: 60, y: 8, z: 51 }, { x: 0, y: -4, z: -2 })).toBeGreaterThan(0.5);         // dropping off the overhang
+    expect(shotScore(land, { x: 60, y: 1.0, z: 43 }, { x: 0, y: -1, z: -1.5 })).toBeGreaterThan(0.5);    // touchdown ≈ 17 m out (R15)
     expect(shotScore(land, { x: 60, y: 0.4, z: 55 }, { x: 0, y: 0, z: 7 })).toBeLessThan(0);      // approach
     expect(shotScore(land, { x: 60, y: 19, z: 66 }, { x: 0, y: 0, z: -2 })).toBeLessThan(0);      // high on the wall
   });

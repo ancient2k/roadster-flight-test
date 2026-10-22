@@ -112,9 +112,9 @@ export const FLIGHT_DESIGN = {
   groundFlipApexM: 8.0,          // TRACK reference apexAltitudeM
   groundFlipClimbTW: 2.9,        // lift T/W used for the take-off burn (full lift minus trim reserve)
   kickflipApexM: 7.7,
-  rampLaunchLeaveM: 19.6,        // altitude when leaving the wall ramp top (video 64.4 ft)
-  rampLaunchLandingDecel: 0.40 * G0, // ramp_launch burns softer: ≈ 1.4 g specific like the video (TUNING.rampLaunch)
-  rampLaunchTranslateM: 13.0,    // horizontal move away from the ramp face
+  rampLaunchLeaveM: 22.2,        // altitude when leaving the overhang end (R15 geometry; the lagging HUD peaks at 67.8 ft)
+  rampLaunchLandingDecel: 0.50 * G0, // ramp_launch burns softer: ≈ 1.5 g specific (video 1.4 g at 1 fps, 2.8–3.2 g peaks at 4 fps; TUNING.rampLaunch)
+  rampLaunchTranslateM: 9.0,     // horizontal move away from the overhang end (lip z −7.95 → touchdown ≈ −17)
   regulatedBudgetKg: 165,
 };
 
@@ -165,7 +165,7 @@ export function stuntAirBudget(stunt: StuntId): StuntBudget {
     }
     case 'ramp_launch': {
       add('half roll', rollImpulse(Math.PI), lift, 'inverted -> upright');
-      phases.push({ phase: 'move away from the ramp', impulseNs: 0, airKg: 0, note: `${D.rampLaunchTranslateM} m: the exit velocity along the overhang (≈ 4 m/s backwards) carries the car clear` });
+      phases.push({ phase: 'move away from the ramp', impulseNs: 0, airKg: 0, note: `${D.rampLaunchTranslateM} m: the exit velocity along the overhang (≈ 3.5 m/s backwards) carries the car clear` });
       add('landing burn', landingImpulse(D.rampLaunchLeaveM, 0, D.rampLaunchLandingDecel), lift, `from ${D.rampLaunchLeaveM} m, ${(D.rampLaunchLandingDecel / g).toFixed(2)} g net decel`);
       break;
     }

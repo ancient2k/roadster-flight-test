@@ -120,16 +120,17 @@ export interface BroadcastShot {
 
 const wall = TRACK.ramps.find((r) => r.kind === 'wallRamp')!;
 const kicker = TRACK.ramps.find((r) => r.kind === 'kicker')!;
-const wallTop = rampLocalToWorld(wall, (() => { const s = sampleProfile(wall.profile, profileLength(wall.profile)); return { x: 0, y: s.y, z: s.z }; })());
 const kickerLip = rampLocalToWorld(kicker, (() => { const s = sampleProfile(kicker.profile, profileLength(kicker.profile)); return { x: 0, y: s.y, z: s.z }; })());
 const site = (id: StuntId) => TRACK.sites.find((s) => s.stunt === id)!.spawn.pos;
 const semi = TRACK.obstacles.find((o) => o.model === 'semi')!;
 
 /** Fixed cameras modelled on the Tesla stream (stream reference frames, semi_jump, finale). */
 export const BROADCAST_SHOTS: BroadcastShot[] = [
-  // Wall ramp: wide side-on shot that frames the full height (stream ~11:10), a low rear shot at the
-  // ramp foot, and a high wide angle.
-  { id: 'wall_side', site: 'ramp_hang', label: 'Rampe seitlich', pos: { x: wall.origin.x - 46, y: 6, z: wall.origin.z - 38 }, lookAt: { x: wallTop.x, y: 10.5, z: wall.origin.z + 6 }, fovDeg: 34, trackCar: false },
+  // Wall ramp: the stream's locked-off wide shot of the whole wall (674–710 s), a low rear shot at the
+  // ramp foot, and a high wide angle. wall_side is the stream camera calibrated in R15 (tools/ramp/): on
+  // the ground 45 m in front of the ramp foot and 14 m to the side (≈ 18° off the run-up axis), tilted
+  // 12° up, 54° vertical field of view; the car at the foot is seen from behind at ≈ 17°.
+  { id: 'wall_side', site: 'ramp_hang', label: 'Rampe seitlich', pos: { x: wall.origin.x - 14, y: 1.7, z: wall.origin.z - 44.9 }, lookAt: { x: wall.origin.x + 1.4, y: 12.3, z: wall.origin.z + 1.5 }, fovDeg: 54, trackCar: false },
   // Stream rear view (stream reference frames): long lens low behind the car, the ramp
   // framed by the red drapes; behind the spawn so the car never passes the camera. 5.5° so the
   // car fills ≈ 40 % of the frame width at the ramp foot as at 668 s (10° gave ≈ 22 %), and 2 m high
@@ -186,11 +187,13 @@ export const BROADCAST_SHOTS: BroadcastShot[] = [
 for (const s of BROADCAST_SHOTS.filter((x) => x.site === 'ramp_hang')) {
   BROADCAST_SHOTS.push({ ...s, id: s.id.replace('wall', 'wlaunch'), site: 'ramp_launch' });
 }
-// The launch car drives off the lip end and lands ≈ 13 m in front of the ramp foot (stream 726–730 s,
-// R14), further out than the hang car rolling down the wall: the landing camera aims there.
+// The launch car drives off the end of the overhang (z −8) and lands ≈ 17 m in front of the ramp foot,
+// further out than the hang car rolling down the wall. The stream follows the drop with a panning
+// camera on the ground ≈ 54 m in front of the ramp foot and 16 m to the side (calibrated on the ramp
+// silhouette at 720 s and 727–728 s, R15): the landing camera stands there and aims at the touchdown.
 Object.assign(BROADCAST_SHOTS.find((s) => s.id === 'wlaunch_land')!, {
-  pos: { x: wall.origin.x - 68, y: 1.4, z: wall.origin.z - 12 }, lookAt: { x: wall.origin.x - 2.5, y: 3, z: wall.origin.z - 10 },
-  zone: { c: { x: wall.origin.x - 1, y: 0, z: wall.origin.z - 9 }, r: 9, dir: { x: 0, y: 0, z: -1 } },
+  pos: { x: wall.origin.x - 16, y: 1.8, z: wall.origin.z - 54 }, lookAt: { x: wall.origin.x, y: 3, z: wall.origin.z - 17 }, fovDeg: 40,
+  zone: { c: { x: wall.origin.x, y: 0, z: wall.origin.z - 15 }, r: 10, dir: { x: 0, y: 0, z: -1 } },
 });
 
 /** Region of the pad that belongs to each stunt site (used to pick the shot set). */

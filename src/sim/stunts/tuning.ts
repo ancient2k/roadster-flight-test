@@ -23,28 +23,30 @@ export const TUNING = {
     bailHeightM: 2.0,
   },
   rampLaunch: {
-    // Speed profile on the wall (bend R 9.8, vertical straight, curl R 8 to 175°, straight 3 m lip; see climb phase):
-    // g-limited at the entry like the video (1.4 g), cruise on the vertical and over the curl, then a short
-    // deceleration so the car drives off the END of the lip with speed (stream 725.4–725.8 s: nose over the
-    // edge, then it drops off and carries on away from the wall). [TOOL] sweep.
-    entrySpeedMs: 6.2,         // 1 + v²/(R g) ≈ 1.4 g on the R 9.8 entry (video 1.4 g)
+    // Speed profile on the wall (one arc R 10.9 to 170°, then the 10 m straight overhang; see climb phase):
+    // g-limited at the entry like the video (1.4 g), speeding up as the wall steepens, then a deceleration
+    // so the car drives off the END of the overhang (stream 725.4–725.8 s: nose over the edge, then it drops
+    // off and carries on away from the wall). [TOOL] sweep (R15): off the lip end at 5.8 s, 22.2 m.
+    entrySpeedMs: 6.4,         // 1 + v²/(R g) ≈ 1.4 g on the R 10.9 entry (video 1.4 g)
     climbGLimit: 1.40,         // specific-force budget of the speed profile (g)
-    cruiseSpeedMs: 6.2,        // cap of the g-limited speed on the vertical and the curl (leaves the lip at ≈ 5.7 s like the stream)
-    exitSpeedMs: 4.0,          // speed at the release point (drives off the lip end; stream ≈ 6 m away from the lip 1 s later)
-    topDecelMs2: 1.3,          // speed-profile deceleration towards the release point (on top of gravity)
+    cruiseSpeedMs: 9.0,        // cap of the g-limited speed over the arc (42 m of wall: leaves the lip at ≈ 5.7 s like the stream)
+    exitSpeedMs: 3.5,          // speed at the release point (drives off the lip end)
+    topDecelMs2: 2.5,          // speed-profile deceleration towards the release point (on top of gravity)
     releaseBeforeEndM: 1.0,    // fans off with the CoG this far (arc length) before the lip end: front wheels at the edge
     rollRate: 3.5,
     rollAccel: 10,
-    landingDecel: 0.40 * G0,   // keep = FLIGHT_DESIGN.rampLaunchLandingDecel; net: ≈ 1.4 g specific force in the burn (video 1.4 g at t = 8–9 s)
+    landingDecel: 0.50 * G0,   // keep = FLIGHT_DESIGN.rampLaunchLandingDecel; net: ≈ 1.5 g specific force in the burn (video 1.4 g at t = 8–9 s,
+                               // 2.8–3.2 g peaks between the 1 fps samples); 0.40 g from the 22 m overhang exceeds the 165 kg air budget
     touchSinkMs: 0.5,          // landing profile: sink at touchdown and flare height (wheel bottom above the pad)
     flareHeightM: 0.4,
     landingKv: 2.5,            // softer velocity loop than the default 5/s: fewer g overshoots in the long burn
     landingKi: 1.5,            // 1/s², integral on the velocity error: removes the sink bias of a ±10 % mass error
-    awaySpeedMs: 6.0,          // max. horizontal speed away from the wall during the descent
+    awaySpeedMs: 2.0,          // max. horizontal speed away from the wall during the descent
     awayMinMs: 0.5,            // ... down to this rolling speed at touchdown
-    awayGain: 0.6,             // 1/s, away speed = gain × distance still to go to landLocalZ (tapers off before touchdown)
+    awayGain: 0.4,             // 1/s, away speed = gain × distance still to go to landLocalZ (tapers off before touchdown)
     coastHeightM: 2.5,         // below this wheel height the descent holds its along-heading speed (level touchdown)
-    landLocalZ: -10,           // ramp-local z the descent heads for: stream touchdown ≈ 13 m in front of the ramp foot (lip end at z = −0.5)
+    landLocalZ: -13,           // ramp-local z the descent heads for (R14 estimate ≈ 13 m in front of the ramp foot; lip end at z = −7.95).
+                               // The drift off the overhang (exit speed, half flip) carries the car to ≈ −17 m anyway.
     fanLevel: null as number | null, // grip-mode fan level on the wall (null = demand control; a fixed 1 makes the skirt seal flutter on R 11)
   },
   rampHang: {
@@ -60,6 +62,7 @@ export const TUNING = {
     descendSpeedMs: 3.0,       // reversing off the wall after the profile has ended
     descendLeadS: 0.8,         // time lead of the video pitch reference while reversing down (drive-loop lag)
     holdPitchDeg: 170,
+    hangOnLipM: 1.6,           // the stream car crawls this far onto the straight 170° overhang before it hangs (21.06 m HUD)
     trackGain: 2.5,            // 1/s, arc-length feedback on the video pitch profile
     minCrawlMs: 0.15,          // speed command limits while following the profile (the video stops briefly at 90°)
     maxCrawlMs: 8.0,

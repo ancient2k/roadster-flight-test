@@ -13,7 +13,7 @@ function toWorld(r: CurvedRamp, x: number, y: number, z: number): THREE.Vector3 
 }
 
 export interface RampMeshes {
-  surface: THREE.BufferGeometry;   // concrete driving surface + back + sides (uv in metres)
+  surface: THREE.BufferGeometry;   // driving surface + back + lip cap (group 0) and side walls (group 1); uv in metres
   samples: ProfileSample[];
   edgeCurves: THREE.CatmullRomCurve3[]; // left/right LED edge lines (world)
   stripe: THREE.BufferGeometry;    // painted white centre line
@@ -63,7 +63,8 @@ export function buildRampGeometry(r: CurvedRamp, step = 0.2, acrossSegs = 6): Ra
     const a = back0 + i * row + j, b = a + 1, c = a + row, d = c + 1;
     idx.push(a, b, c, b, d, c);
   }
-  // --- side walls
+  // --- side walls (own material group: the stream's wall ramp has a lit red band on its slab sides)
+  const sides0 = idx.length;
   const solid = r.kind === 'kicker';
   for (const side of [-1, 1]) {
     const x = side * hw;
@@ -81,6 +82,7 @@ export function buildRampGeometry(r: CurvedRamp, step = 0.2, acrossSegs = 6): Ra
       if (side > 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
     }
   }
+  const sides1 = idx.length;
   // --- lip cap (end face) / kicker back wall
   {
     const s = S[S.length - 1], n = rampNormal(s.thetaRad);
@@ -98,6 +100,9 @@ export function buildRampGeometry(r: CurvedRamp, step = 0.2, acrossSegs = 6): Ra
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(idx);
+  g.addGroup(0, sides0, 0);
+  g.addGroup(sides0, sides1 - sides0, 1);
+  g.addGroup(sides1, idx.length - sides1, 0);
   g.computeBoundingSphere();
 
   // LED edges sit on the surface edge, slightly raised.

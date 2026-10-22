@@ -5,7 +5,7 @@ import {
   uniform, uv, float, vec3, mix, smoothstep, positionWorld, mx_noise_float, normalView, positionView,
   abs, dot, normalize, pow, sin, hash, exp, instanceIndex, floor, fract, clamp, color, positionLocal, normalWorld, sign, attribute,
 } from 'three/tsl';
-import { TRACK, rampLocalToWorld, type CurvedRamp, type Decor } from '../../shared/track';
+import { TRACK, rampLocalToWorld, sampleRamp, type CurvedRamp, type Decor, type ProfileSample } from '../../shared/track';
 import { DEG } from '../../shared/math';
 import { TOWER_CD, PHOTOMETRIC } from '../lighting';
 import { BeamBatch } from './beams';
@@ -207,9 +207,21 @@ export function buildTrack(q: QualitySettings, ENV = 'assets/env/'): TrackWorld 
   const stripeMat = new THREE.MeshStandardNodeMaterial({ color: 0xe8e8e6, roughness: 0.6 });
   stripeMat.polygonOffset = true; stripeMat.polygonOffsetFactor = -2;
 
+  // wall-ramp slab sides (stream close-up 696 s, drone replay 753–755 s): white painted edge, a lit red
+  // band with small white lamps every 0.6 m, white below. uv: x = arc length, y = 0 at the top edge … thickness
+  const rampSide = new THREE.MeshStandardNodeMaterial({ roughness: 0.55, metalness: 0 });
+  {
+    const u = uv().x, v = uv().y;
+    const band = smoothstep(0.09, 0.11, v).mul(float(1).sub(smoothstep(0.41, 0.43, v)));
+    const spot = float(1).sub(smoothstep(0.035, 0.045, abs(fract(u.div(0.6)).sub(0.5)).mul(0.6)))
+      .mul(float(1).sub(smoothstep(0.035, 0.045, abs(v.sub(0.26)))));
+    rampSide.colorNode = mix(vec3(0.72, 0.72, 0.7), vec3(0.25, 0.012, 0.01), band);
+    rampSide.emissiveNode = vec3(1.0, 0.035, 0.025).mul(0.9).mul(band).mul(float(1).sub(spot)).add(vec3(1.0, 0.95, 0.9).mul(1.4).mul(spot));
+  }
+
   for (const ramp of TRACK.ramps) {
     const rm = buildRampGeometry(ramp, ramp.kind === 'wallRamp' ? 0.2 : 0.15, ramp.kind === 'wallRamp' ? 10 : 6);
-    const mesh = new THREE.Mesh(rm.surface, ramp.kind === 'wallRamp' ? concrete : darkRamp);
+    const mesh = new THREE.Mesh(rm.surface, ramp.kind === 'wallRamp' ? [concrete, rampSide] : [darkRamp, darkRamp]);
     mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = `Ramp_${ramp.id}`;
     group.add(mesh);
     colliders.push(mesh);
@@ -493,6 +505,11 @@ export function buildTrack(q: QualitySettings, ENV = 'assets/env/'): TrackWorld 
       { p: new THREE.Vector3(o.x - 3.6, 0.45, o.z - 3.2), tgt: new THREE.Vector3(o.x + 0.6, 3.0, o.z + 4.5), half: 50, cd: 7_500, visible: true },
       { p: new THREE.Vector3(o.x + 3.6, 0.45, o.z - 3.2), tgt: new THREE.Vector3(o.x - 0.6, 3.0, o.z + 4.5), half: 50, cd: 3_800, visible: true },
       { p: new THREE.Vector3(o.x, 9, o.z + 2.5), tgt: new THREE.Vector3(o.x, 0, o.z - 2.5), half: 24, cd: 14_000, visible: false },
+      // stage flood far out in front (R15): the stream wide shot (674–710 s) shows the whole wall evenly
+      // bright up to the overhang, whose driving surface faces down and gets no light from the foot washes;
+      // aimed high and narrow so it spares the drapes beside the lower wall (dark in that shot). Last key: on
+      // medium (3 key slots) the rear-view light above comes first
+      { p: new THREE.Vector3(o.x - 12, 2.0, o.z - 34), tgt: new THREE.Vector3(o.x, 17, o.z + 1), half: 15, cd: 160_000, visible: false },
     ];
     for (const l of lamps) {
       siteLights.push({ pos: l.p.clone(), dir: l.tgt.clone().sub(l.p).normalize(), halfAngleDeg: l.half, cd: l.cd, keyFor: ['ramp_hang', 'ramp_launch'] });
@@ -863,9 +880,11 @@ function makeStageScreenMaterial(): THREE.MeshBasicNodeMaterial {
 function buildRampCurtains(ramp: CurvedRamp): THREE.Group {
   const g = new THREE.Group();
   g.name = 'RampCurtains';
-  // zc: at the foot of the vertical section, between the last under-sweep truss module (≤ 8.1 m) and
-  // the tower behind the ramp (≥ 10.4 m), so the whole lower curve stays in front of the drapes
-  const hw = ramp.width / 2, W = 4.8, H = 14, zc = 9.0, gap = 0.18;
+  // zc: at the foot of the vertical section, between the last under-sweep truss module (2.5 m modules
+  // from z = 0.6, envModels.ts) and the tower behind the ramp, so the whole lower curve stays in front of the drapes
+  const zMaxArc = Math.max(...sampleRamp(ramp, 0.1).filter((s) => s.thetaRad <= Math.PI / 2 + 1e-3).map((s) => s.z));
+  const lastModuleEnd = 0.6 + 2.5 * Math.floor((zMaxArc - 0.6) / 2.5);
+  const hw = ramp.width / 2, W = 4.8, H = 14, zc = (lastModuleEnd + zMaxArc + ramp.thickness + 0.05) / 2, gap = 0.18;
   const mat = new THREE.MeshStandardNodeMaterial({ side: THREE.DoubleSide, roughness: 0.92, metalness: 0 });
   {
     // velvet: deep red, brighter at grazing angles; a faint self-glow keeps it red in the dark
@@ -1078,14 +1097,29 @@ function buildRampScaffold(ramp: CurvedRamp, S: ReturnType<typeof buildRampGeome
       for (const x of [-hw - 0.6, 0, hw + 0.6]) beams.beam({ x, y, z: zBack }, { x, y, z: zBack + depth }, 0.09);
       for (const x of [-hw - 0.6, hw + 0.6]) beams.beam({ x, y, z: zBack }, { x, y: Math.min(H, y + 2.2), z: zBack + depth / 2 }, 0.06);
     }
-    // overhang support arms reaching over the lip
+    // lattice truss on the back of the curl and the straight overhang (stream drone replay 753–755 s and
+    // the close-up at 696 s): two chords per side parallel to the slab, ≈ 1.8 m deep, posts along the
+    // normal every ≈ 1.6 m with alternating diagonals, cross members over the width; its top chord runs
+    // into the tower head
+    const D = 1.8, back = S.filter((s) => s.thetaRad > Math.PI / 2 - 0.05);
+    const nodes: ProfileSample[] = [];
+    for (const s of back) if (!nodes.length || s.s - nodes[nodes.length - 1].s >= 1.6) nodes.push(s);
+    if (nodes[nodes.length - 1] !== back[back.length - 1]) nodes.push(back[back.length - 1]);
+    const off = (s: ProfileSample, d: number, x: number) => ({ x, y: s.y - Math.cos(s.thetaRad) * d, z: s.z + Math.sin(s.thetaRad) * d });
     for (const x of [-hw, hw]) {
-      for (const s of S.filter((x2) => x2.thetaRad > Math.PI / 2 + 0.1)) {
-        if (Math.round(s.s * 2) % 3 !== 0) continue;
-        const n = { y: Math.cos(s.thetaRad), z: -Math.sin(s.thetaRad) };
-        arms.beam({ x, y: s.y - n.y * t, z: s.z - n.z * t }, { x, y: H, z: zBack }, 0.08);
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i];
+        arms.beam(off(a, t, x), off(a, t + D, x), 0.08);
+        if (i + 1 < nodes.length) {
+          const b = nodes[i + 1];
+          arms.beam(off(a, t, x), off(b, t, x), 0.1);
+          arms.beam(off(a, t + D, x), off(b, t + D, x), 0.1);
+          arms.beam(i % 2 ? off(a, t, x) : off(a, t + D, x), i % 2 ? off(b, t + D, x) : off(b, t, x), 0.06);
+        }
       }
+      arms.beam(off(nodes[0], t + D, x), { x, y: H, z: zBack }, 0.1);
     }
+    for (const a of nodes) arms.beam(off(a, t + D, -hw), off(a, t + D, hw), 0.07);
   } else {
     // kicker: light frame on the lip end
     const lip = S[S.length - 1];

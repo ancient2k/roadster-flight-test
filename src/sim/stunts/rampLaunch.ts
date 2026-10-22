@@ -97,7 +97,7 @@ export class RampLaunchStunt extends Stunt {
         axis: v3(0, 0, 1), angleRad: Math.PI, rateRadS: P.rollRate, accelRadS2: P.rollAccel,
         // inverted, nose pointing away from the wall, level: rolling π about body Z ends wheels-down
         q0: () => quatFromUpForward(v3(0, -1, 0), this.away),
-        // off the end of the 175° lip the car is pitched ≈ 5–20° off inverted-level (nose dropping over
+        // off the end of the 170° overhang the car is pitched ≈ 10–20° off inverted-level (nose dropping over
         // the edge): one shortest rotation (mostly roll) straight to wheels-down, nose away from the wall
         target: () => quatFromUpForward(v3(0, 1, 0), this.away),
         next: 'land', bail: 'land', bailHeightM: 4, landingFwd: () => this.away,

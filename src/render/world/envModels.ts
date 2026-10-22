@@ -320,13 +320,14 @@ export async function loadEnvModels(track: TrackWorld, base: string, q: QualityS
       for (let l = 0; l < layers; l++) modules.push(place(x, l * mod, zc));
       caps.push(place(x, layers * mod, zc));
     }
-    // dark, dull steel instead of bright galvanised members (stream: the scaffold stays in the dark)
+    // dull grey steel instead of bright galvanised members: in the stream wide shot (674–710 s) the tower
+    // behind the ramp reads as a mid-grey lattice next to the lit concrete (R15; it was 0.12, near black)
     const darken = (root: THREE.Object3D) => root.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const dk = (m: THREE.Material) => {
         const c = m.clone() as THREE.MeshStandardMaterial;
-        if (c.color) c.color.multiplyScalar(0.12);
+        if (c.color) c.color.multiplyScalar(0.35);
         if (c.metalness !== undefined) c.metalness = Math.min(c.metalness, 0.45);
         if (c.roughness !== undefined) c.roughness = Math.max(c.roughness, 0.6);
         return c;

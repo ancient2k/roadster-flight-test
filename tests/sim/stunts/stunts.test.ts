@@ -44,11 +44,11 @@ describe.skipIf(!factory)('stunts end to end (auto mode)', () => {
         expectVideoFit(result);
       }
       if (id === 'ramp_launch') {
-        // leave the lip end at ≈ 20.7 m (HUD peak 67.8 ft, 4 fps; the HUD lags, settled on the same spot
-        // in run 1 it reads 69.1 ft), entry ≈ 1.4 g, landing burn ≈ 1.4 g, touchdown ≈ 10 s after the ramp
-        // entry and ≈ 13 m in front of the ramp foot like the stream (R14)
+        // leave the end of the straight 170° overhang at ≈ 22.2 m: it rises 1.4 m beyond the hang point
+        // (69.1 ft settled HUD reading in run 1); the lagging HUD peaks at 67.8 ft (20.7 m) after the car has
+        // left (R15). Entry ≈ 1.4 g, touchdown ≈ 10 s after the ramp entry like the stream
         const m = result.metrics;
-        expect(Math.abs(m.leaveAltitudeM - 20.7), `leave ${m.leaveAltitudeM}`).toBeLessThanOrEqual(0.6);
+        expect(Math.abs(m.leaveAltitudeM - 22.2), `leave ${m.leaveAltitudeM}`).toBeLessThanOrEqual(0.6);
         expect(m.climbG, 'ramp entry g').toBeLessThanOrEqual(1.55);
         expect(m.touchdownT - result.startT, 'ramp entry -> touchdown (s)').toBeGreaterThan(9.0);
         expect(m.touchdownT - result.startT, 'ramp entry -> touchdown (s)').toBeLessThan(11.0);

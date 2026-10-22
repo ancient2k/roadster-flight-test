@@ -77,16 +77,52 @@ steering and valve commands a player has. Their traces are compared time-aligned
 
 | Stunt | Simulation | Stream |
 |---|---|---|
-| Wall ramp hang | 169.5° pitch at 68.7 ft | 170° at 69.1 ft |
-| Ramp launch | drives off the end of the lip at 5.8 s, 21.2 m | off the lip at ≈ 5.7 s, HUD peak 67.8 ft (20.7 m, lagging) |
-| Ramp launch, landing | touchdown 10.2 s after the ramp entry, 12.5 m in front of the ramp foot, 1.85 g | ≈ 9.7 s, ≈ 13 m, 1.4–1.5 g |
+| Wall ramp hang | 170° pitch at 69.0 ft (21.02 m), 9.7 s hold | 170° at 69.1 ft, ≈ 10 s |
+| Ramp launch | drives off the end of the overhang at 5.8 s, 22.2 m | off the end at ≈ 5.7 s, HUD peak 67.8 ft (20.7 m, lagging) |
+| Ramp launch, landing | touchdown 9.75 s after the ramp entry, ≈ 17 m in front of the ramp foot, 1.65 g | ≈ 9.7 s, beyond 40 m (at 8 s still 3–5 m up; calibrated camera, see below), 1.4–1.5 g |
 | 0–60 mph | four main jets plus rear-wheel drive; acceptance 0.81 s ± 0.1 s | 0.81 s |
 
-The wall ramp is a bend (R 9.8 m) into a 4.3 m vertical straight, a curl (R 8 m) to 175° and a straight 3 m lip
-that overhangs the ramp foot. In the launch the car keeps ≈ 6 m/s over the curl, drives off the end of the lip at
-≈ 4 m/s, rolls wheels-down and flies on away from the wall (≈ 6 m beyond the lip 1 s later, ≈ 10 m after 2 s) before
-the landing burn; the stream frames at 4 fps (725.4–730 s) show the same sequence. The 1 fps HUD sample 64.4 ft at
-5 s was taken while the car was still on the lip.
+The wall ramp (`WALL` in `src/shared/track.ts`) is **one evenly curved arc** (R 10.9 m) from the floor to 170°,
+followed by a **straight 10 m overhang** at 170° whose end hangs ≈ 8 m out over the run-up, 23.4 m up; the slab is
+4.1 m wide. The shape was fitted to the stream in R15 (`tools/ramp/`):
+
+- **HUD pitch rate.** At a steady crawl the pitch rate is the speed over the radius. Reversing down, the HUD pitch
+  falls from 161° to 16° at a constant ≈ 19°/s (2 fps, 703–710 s); climbing, it rises 13° → 82° and 95° → 166° at
+  ≈ 24°/s each. That is one constant curvature over the whole wall – no tighter bend at the foot and no vertical
+  straight (the earlier profile had R 9.8 m to 90°, a 4.3 m vertical straight and an R 8 m curl).
+- **Straight overhang.** At a constant 170° the car crawls ≈ 1.6 m onto a straight and back (692–702 s); the
+  straight runs on well beyond it (700 s; drone replay 753–755 s: 8–11 m measured in wheelbases).
+- **Silhouettes.** The ramp masks of three stream frames (700 s and 674 s from the locked-off wide camera, 720 s from
+  the launch camera) are fitted together with both cameras: the car at the ramp foot fixes their scale and angle
+  (rear three-quarter view at ≈ 17°, 44–46 px rear width), the car's position at 14 HUD pitch readings ties the
+  pitch to the image. Silhouette IoU ≈ 0.93 / 0.91 / 0.91; a free three-arc profile fits no better, and a separate
+  landing view (727–728 s) fits the same arc. The stream camera stands ≈ 45 m in front of the ramp foot and 14 m to
+  the side, 1.7 m up, with a 54° vertical field of view: `wall_side` uses it.
+- **Scale.** The settled hang altitude 69.1 ft (21.06 m) with the car 1.6 m onto the straight gives R = 10.9 m
+  (`TUNING.rampHang.hangOnLipM`). The HUD altitude lags 2–3 s while moving (63.5 → 69.1 ft over 9 s at a standstill),
+  so the 30.7 ft at the 90° pause is a lower bound: the surface is 10.9 m high there.
+
+Trade-offs against the HUD, documented rather than tuned away:
+
+- *Launch altitude.* The straight overhang rises outward (sin 10° per metre), so its end is higher than the hang
+  point and the launch car leaves it at 22.2 m (73 ft). The HUD peaks at 67.8 ft *after* the car has left; it lags
+  like in run 1. `reference.leaveAltitudeM` stays the HUD value 20.7 m (acceptance ±15 %).
+- *Altitude trace.* Because the sim has no HUD lag, its ramp_hang altitude RMS against the HUD rises to 2.1 m (9.8 %
+  of the peak, limit 10 %), mostly on the lagged descent.
+- *Landing.* R14 read the touchdown ≈ 13 m in front of the ramp foot by projecting through the old `wall_side`
+  camera. The calibrated launch camera (≈ 54 m in front of the foot, 16 m to the side; the drop at 727.5 and 728 s)
+  puts the car ≈ 33 m and ≈ 37–42 m out, 3–5 m up – both from its image position and from its apparent length. The
+  sim keeps the shorter flight for now: it drives off the overhang end at ≈ 3.5 m/s and lands ≈ 17 m out.
+- *Air budget.* From 22 m the 0.40 g landing burn would exceed the 165 kg regulated budget (173 kg); the burn now
+  brakes at 0.50 g net (≈ 1.5 g specific; the 4 fps frames show 2.8–3.2 g peaks between the 1 fps samples).
+
+In the launch the car speeds up as the wall steepens (1.4 g at the entry, cap 9 m/s), slows to ≈ 3.5 m/s on the
+overhang and drives off its end at 5.8 s, rolls wheels-down and lands with the corner jets.
+
+The ramp's slab sides carry a lit red band with small white lamps every 0.6 m and a white edge, as in the close-up at
+696 s and the drone replay; the steel tower behind the ramp and a lattice truss along the back of the arc and the
+overhang are mid-grey as in the stream's wide shot, and a narrow stage flood far out in front lights the upper wall
+and the down-facing overhang evenly like the stream.
 
 The test suite also covers Monte Carlo robustness (mass ±10 %, inertia ±20 %, thrust and valve scatter), step-size
 convergence at 240/480/960 Hz, emergency landing with a stuck valve, the drivable pyramids (every Giza pyramid
