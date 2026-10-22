@@ -55,6 +55,10 @@ export class CarDamageView {
     this.model = model;
     this.panels = [];
     this.bodyMeshes = null;
+    // classify the Body triangles for the cut-out parts while idle (≈ 45 ms once), not in the frame of a crash
+    const idle = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const warm = () => { if (this.model === model) this.bodyParts(); };
+    if (idle) idle(warm, { timeout: 5000 }); else setTimeout(warm, 2000);
     model.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(model.matrixWorld).invert();
     model.traverse((o) => {
@@ -84,10 +88,8 @@ export class CarDamageView {
     // torn-off parts: hide the node (or cut the part out of the Body), show a copy at the debris body's pose
     for (const p of d.debris) this.placeDebris(p);
     // debris cleared by the sim (lifetime / count limit): the copy goes, the part stays missing
-    if (this.clones.size > d.debris.length) {
-      for (const [part, c] of this.clones) {
-        if (c.parent && !d.debris.some((p) => p.part === part)) this.debrisGroup.remove(c);
-      }
+    for (const [part, c] of this.clones) {
+      if (c.parent && !d.debris.some((p) => p.part === part)) this.debrisGroup.remove(c);
     }
     if (rev !== this.appliedRev && (this.sinceBuild >= MIN_INTERVAL_S || this.appliedRev === 0)) {
       this.buildDents(d.dents);

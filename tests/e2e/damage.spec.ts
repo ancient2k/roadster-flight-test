@@ -44,7 +44,7 @@ test('crash with damage on: dented nose, parts fly, total loss → reset', async
     const a = (window as any).__rft.app;
     a.loop.timeScale = 0.1;
     a.renderer.setCameraMode('orbit');
-    Object.assign(a.renderer.rig.orbit, { yaw: 1.2, pitch: 0.25, dist: 7 });
+    Object.assign(a.renderer.rig.orbit, { yaw: -1.2, pitch: 0.25, dist: 7 });
   });
   await page.waitForTimeout(700);
   const flying = await page.evaluate(() => {
@@ -168,6 +168,21 @@ test('parts tear off at speed and fly as real model parts (debris copies, Body c
   expect(render.cutTriangles).toBeGreaterThan(1000);
   expect(await page.evaluate(() => (window as any).__rft.app.sim.getState().damage.totalLoss)).toBe(false);
   await page.screenshot({ path: info.outputPath('damage-parts-flying-speed.png') });
+  // performance: cost of classifying the Body triangles (first cut) and frame time with debris vs intact
+  const perf = await page.evaluate(async () => {
+    const a = (window as any).__rft.app, v = a.renderer.car.damage;
+    const keep = v.bodyMeshes; v.bodyMeshes = null;
+    const t0 = performance.now(); v.bodyParts(); const classifyMs = performance.now() - t0;
+    v.bodyMeshes = keep;
+    a.loop.timeScale = 1;
+    const sample = async () => { const xs: number[] = []; for (let i = 0; i < 90; i++) { await new Promise(requestAnimationFrame); xs.push(a.frameMs); } return xs.reduce((s, x) => s + x, 0) / xs.length; };
+    const withDebris = await sample();
+    a.restart();
+    await new Promise((r) => setTimeout(r, 500));
+    const intact = await sample();
+    return { classifyMs, withDebris, intact };
+  });
+  console.log('perf', JSON.stringify(perf));
 
   // the same in daylight (Giza): car rolling at 15 m/s, a rear-quarter hit and a side-swipe
   await page.evaluate(() => { (window as any).__rft.app.loop.timeScale = 1; });
