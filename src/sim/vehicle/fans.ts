@@ -164,7 +164,7 @@ export class FanModule implements ForceModule {
     const aQ = FANS.floorAreaM2 / 4;
     let fullF = 0;
     for (let i = 0; i < 4; i++) fullF += plenumEquilibrium(1, this.quadK[i], rho) * aQ;
-    this.rpmTarget = this.mode === 'off' ? 0 : this.mode === 'highspeed' ? XF.highspeedRpm : this.demandRpm(ctx, fullF);
+    this.rpmTarget = this.mode === 'off' || this.bus.damage.powerOff ? 0 : this.mode === 'highspeed' ? XF.highspeedRpm : this.demandRpm(ctx, fullF);
     const tau = Math.max(FANS.spoolTimeS / 3, 1e-3);
     this.rpm += (this.rpmTarget - this.rpm) * -Math.expm1(-dt / tau);
     // plenum pressures

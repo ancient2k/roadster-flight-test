@@ -275,20 +275,21 @@ export class ChassisModule implements ForceModule {
       let td = 0;
       if (w.spec.driven) {
         const om = Math.abs(w.omega);
-        let tAvail = Math.min(PT.maxWheelTorqueNm, pMech / driven.length / Math.max(om, 1e-3));
+        const dead = this.bus.damage.powerOff; // damage.ts: total loss (no drive, no regen)
+        let tAvail = dead ? 0 : Math.min(PT.maxWheelTorqueNm, pMech / driven.length / Math.max(om, 1e-3));
         // rpm limiter (top speed) / reverse speed limit
         const lim = dir > 0 ? omegaMax : XP.reverseMaxMs / rD;
         if (w.omega * dir > 0) tAvail *= clamp((lim - om) / (0.01 * omegaMax), 0, 1);
         let req = dir * thr * tAvail * esc;
         if (dir > 0 && Number.isFinite(tGov)) req = Math.min(req, tGov);
         // regen: part of the rear braking via the motors (forward motion only)
-        if (brk > 0 && Math.abs(w.vx) > 2 && w.contact) {
+        if (brk > 0 && Math.abs(w.vx) > 2 && w.contact && !dead) {
           const tReg = Math.min(XP.regenShareOfRearBrake * tb, PT.maxWheelTorqueNm,
             PT.regenPowerW / driven.length / Math.max(om, 1e-3));
           req -= Math.sign(w.omega) * tReg;
           tb -= tReg;
         }
-        if (tGovMin > -Infinity && thr > 0) {
+        if (tGovMin > -Infinity && thr > 0 && !dead) {
           const tRegMax = Math.min(PT.maxWheelTorqueNm, PT.regenPowerW / driven.length / Math.max(om, 1e-3));
           req = Math.max(tGovMin, -tRegMax);
         }

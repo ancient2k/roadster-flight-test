@@ -165,6 +165,8 @@ export class RoadsterSim implements VehicleSim {
   recordBodyContacts = false;
   readonly bodyContacts: BodyContact[] = [];
   impactCrash = true;
+  /** Mass of the parts torn off the car (kg, damage model); see setDetachedMass. */
+  detachedMassKg = 0;
   private propRing: Float64Array;
   private propRingK = 0;
 
@@ -263,18 +265,28 @@ export class RoadsterSim implements VehicleSim {
     this.skipContacts = false;
   }
 
+  /** Damage hook: mass of the torn-off parts (kg); updates the rigid body's mass properties right away. */
+  setDetachedMass(kg: number): void {
+    if (kg === this.detachedMassKg) return;
+    this.detachedMassKg = kg;
+    this.updateMassProperties(true);
+    this.state.massKg = this.dryMassKg() + this.propulsion.tank.m;
+  }
+
+  private dryMassKg(): number { return ROADSTER.dryMassKg * this.massScale - this.detachedMassKg; }
+
   private updateMassProperties(force = false): void {
     const air = this.propulsion.tank.m;
     const key = Math.round(air * 2); // update every 0.5 kg
     if (!force && key === this.massKey) return;
     this.massKey = key;
-    const dry = ROADSTER.dryMassKg * this.massScale;
+    const dry = this.dryMassKg();
     const m = dry + air;
     const tp = ROADSTER.tank.pos;
     const com = { x: (air * tp.x) / m, y: (air * tp.y) / m, z: (air * tp.z) / m };
     this.comBody.x = com.x; this.comBody.y = com.y; this.comBody.z = com.z;
     // principal inertia about the combined CoM (diagonal approximation; products neglected)
-    const I = ROADSTER.dryInertia, s = this.inertiaScale * this.massScale;
+    const I = ROADSTER.dryInertia, s = this.inertiaScale * (dry / ROADSTER.dryMassKg);
     const d = { x: -com.x, y: -com.y, z: -com.z };           // dry CoG relative to combined CoM
     const a = { x: tp.x - com.x, y: tp.y - com.y, z: tp.z - com.z };
     const ix = I.x * s + dry * (d.y * d.y + d.z * d.z) + air * (a.y * a.y + a.z * a.z);
@@ -358,7 +370,7 @@ export class RoadsterSim implements VehicleSim {
     s.angVel.x = w.x; s.angVel.y = w.y; s.angVel.z = w.z;
     s.speedMs = Math.hypot(v.x, v.y, v.z);
     this.hudPitch = this.pitch.update(s.quat, s.angVel);
-    s.massKg = ROADSTER.dryMassKg * this.massScale + this.propulsion.tank.m;
+    s.massKg = this.dryMassKg() + this.propulsion.tank.m;
     if (dt > 0) {
       const a = { x: (v.x - this.prevVel.x) / dt, y: (v.y - this.prevVel.y) / dt, z: (v.z - this.prevVel.z) / dt };
       const fWorld = v3sub(a, this.gravity);

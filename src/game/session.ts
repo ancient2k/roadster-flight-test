@@ -134,8 +134,7 @@ export class SimSession {
       const r = this.controller.result?.() as { success?: boolean; reason?: string } | null | undefined;
       if (r && typeof r.success === 'boolean') this.outcome = { status: r.success ? 'success' : 'failed', reason: r.reason, result: r };
       else if (this.sim.getState().crashed && this.mode.kind === 'auto') this.outcome = { status: 'failed', reason: this.sim.getState().damage?.totalLoss ? 'totalLoss' : 'crash' };
-      // vehicle damage "Realistic": a total loss also ends a free run
-      else if (this.sim.getState().damage?.totalLoss) this.outcome = { status: 'failed', reason: 'totalLoss' };
+      // vehicle damage "Full": a total loss does not end a free run — the wreck stays until the player resets
     }
   }
 

@@ -175,17 +175,22 @@ describe('functional consequences', () => {
     console.log('leak', { lost, leakKgS: st.damage!.leakKgS });
     expect(st.damage!.leakKgS).toBeGreaterThan(0.2);
     expect(lost).toBeGreaterThan(2);
-    expect(lost).toBeCloseTo(st.damage!.leakKgS * 10, 0);
-    // thrust of MAIN_2 vs the intact MAIN_4... both fired alone for 0.5 s
+    expect(lost / (st.damage!.leakKgS * 10)).toBeGreaterThan(0.95);   // ≈ constant leak at the regulated feed pressure
+    expect(lost / (st.damage!.leakKgS * 10)).toBeLessThan(1.05);
+    // thrust of MAIN_2 vs MAIN_2 of an intact car, fired alone for 0.3 s
     r.thr.duty.fill(0); r.thr.duty[1] = 1;
     r.run(0.3);
     const tDam = r.sim.getState().nozzles[1].thrustN;
-    r.thr.duty.fill(0); r.thr.duty[3] = 1;
-    r.run(0.3);
-    const tOk = r.sim.getState().nozzles[3].thrustN;
-    console.log('thrust damaged / intact', tDam, tOk, d.nozzles[3]);
-    expect(tDam / tOk).toBeLessThan(0.8 * (1 - 0.6 * d.nozzles[3]) + 0.01);
-    r.sim.dispose();
+    const ok = await damagedRig();
+    ok.sim.reset(spawnPose({ x: 0, y: 0, z: -1300 }, 0, 0));
+    ok.thr.duty.fill(0); ok.thr.duty[1] = 1;
+    ok.run(0.3);
+    const tOk = ok.sim.getState().nozzles[1].thrustN;
+    console.log('thrust damaged / intact', tDam, tOk, d.nozzles[1]);
+    expect(tDam / tOk).toBeLessThan(1 - 0.6 * d.nozzles[1] + 0.05);
+    // the brass bells (nozzle covers) of the hit side were torn off with the hit
+    expect(d.lost).toContain('NozzleCover_L');
+    r.sim.dispose(); ok.sim.dispose();
   });
 
   it('torn fan skirt: less suction at full fan speed', async () => {
@@ -295,7 +300,7 @@ describe('setting and session', () => {
     expect(new SettingsStore(storage).get().realism.damage).toBe('realistic');
   });
 
-  it('a total loss ends a free run (failed, reason totalLoss); with damage off a crash does not', async () => {
+  it('a total loss does not end a free run (the wreck waits for the reset); with damage off a crash does not either', async () => {
     const { SimSession, ManualController } = await import('../../../src/game/session');
     for (const mode of ['realistic', 'off'] as const) {
       const r = await rig();
@@ -304,8 +309,13 @@ describe('setting and session', () => {
       for (let i = 0; i < 240 * 3 && s.outcome.status === 'running'; i++) s.step();
       console.log(mode, s.outcome, r.sim.getState().crashed);
       expect(r.sim.getState().crashed).toBe(true);
-      if (mode === 'realistic') expect(s.outcome).toMatchObject({ status: 'failed', reason: 'totalLoss' });
-      else expect(s.outcome.status).toBe('running');
+      expect(s.outcome.status).toBe('running');
+      if (mode === 'realistic') {
+        expect(r.sim.getState().damage!.totalLoss).toBe(true);
+        s.restart();   // = the reset key
+        expect(r.sim.getState().damage!.totalLoss).toBe(false);
+        expect(r.sim.getState().crashed).toBe(false);
+      }
       r.sim.dispose();
     }
   });

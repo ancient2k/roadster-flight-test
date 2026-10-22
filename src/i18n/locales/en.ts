@@ -476,8 +476,9 @@ export const en = {
   'sun.stage.vapor': 'Vaporised',
   'damage.setting': 'Vehicle damage',
   'damage.off': 'Off',
-  'damage.realistic': 'Realistic',
-  'damage.settingNote': 'Off: a hard body impact counts as a collision, as before. Realistic: impacts dent the body, can tear off the wing or a wheel, bend the steering, crush nozzles (less thrust, air leak) and tear the fan skirts; a total loss ends the run. Repaired on restart, applies from the next start.',
+  'damage.realistic': 'Full',
+  'damage.visual': 'Visual',
+  'damage.settingNote': 'Off: a hard body impact counts as a collision, as before. Visual: impacts dent the body and tear off parts (wing, doors, bumpers, diffuser, nozzle covers), but the car drives as if intact. Full: the damage also acts on the car (torn-off wheel or wing, bent steering, crushed nozzles with less thrust and an air leak, torn fan skirts), and a heavy crash destroys it: reset to repair. Applies from the next start.',
   'damage.hud': 'DAMAGE',
   'damage.leak': 'LEAK',
   'damage.totalLoss': 'Total loss',
@@ -500,6 +501,16 @@ export const en = {
   'damage.leakRate': 'air leak {rate} kg/s',
   'damage.energy': 'Absorbed impact energy: {kj} kJ',
   'damage.damaged': '{n} damaged',
+  'damage.destroyed': 'Destroyed – reset',
+  'damage.resetHint': 'Reset: {keys}',
+  'damage.parts': 'Torn off',
+  'damage.part.doorL': 'left door',
+  'damage.part.doorR': 'right door',
+  'damage.part.bumperF': 'front bumper',
+  'damage.part.bumperR': 'rear bumper',
+  'damage.part.diffuser': 'diffuser',
+  'damage.part.nozzleCoverL': 'left nozzle cover',
+  'damage.part.nozzleCoverR': 'right nozzle cover',
 } satisfies Record<string, Msg>;
 
 export type MsgKey = keyof typeof en;

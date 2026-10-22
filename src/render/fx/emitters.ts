@@ -17,6 +17,8 @@ const dustTintOf = (k: SurfaceKind | null): [number, number, number] => dustTint
 export class Emitters {
   private acc = new Float32Array(64);
   private steamAcc = 0;
+  /** Sim time of the total loss (wreck smoke), −1 = intact. */
+  private wreckT0 = -1;
   /** Exhaust direction of the Raptor flame trench (world, unit). */
   raptorDir = new THREE.Vector3(1, 0, 0);
   /** Cloud-scale density of the ground blast (self-shadowing of the billows, see cloudDepth). */
@@ -231,6 +233,22 @@ export class Emitters {
           life: 3.5 + Math.random() * 3.5, size0: 0.8, size1: 5 + Math.random() * 4, drag: 1.2, buoyancy: 0.22, opacity: 0.22 });
       }
     }
+
+    // ---------------- total loss (vehicle damage "Full"): smoke from the wrecked end, thinning out over ≈ 30 s
+    const dmg = s.damage;
+    if (dmg?.totalLoss) {
+      if (this.wreckT0 < 0 || s.t < this.wreckT0) this.wreckT0 = s.t;
+      const fade = Math.max(0.25, 1 - (s.t - this.wreckT0) / 30);
+      const zb = dmg.zones.rear > dmg.zones.front ? -1.7 : dmg.zones.front > 0.05 ? 1.7 : 0;
+      _q.set(s.quat.x, s.quat.y, s.quat.z, s.quat.w);
+      _p.set(0, 0.35, zb).applyQuaternion(_q).add(_d.set(s.pos.x, s.pos.y, s.pos.z));
+      const n = this.count(30, 26 * fade * scale * this.air, dt);
+      for (let k = 0; k < n; k++) {
+        const vel = { x: carVel.x * 0.3 + (Math.random() - 0.5) * 0.8, y: 1.2 + Math.random() * 1.2, z: carVel.z * 0.3 + (Math.random() - 0.5) * 0.8 };
+        this.ps.emit({ kind: PKind.TireSmoke, pos: { x: _p.x + (Math.random() - 0.5) * 0.6, y: _p.y, z: _p.z + (Math.random() - 0.5) * 0.6 }, vel,
+          life: 5 + Math.random() * 4, size0: 0.6, size1: 4 + Math.random() * 3, drag: 0.8, buoyancy: 0.5, opacity: 0.3 });
+      }
+    } else this.wreckT0 = -1;
 
     // ---------------- fan intake dust (suction pulls dust from around the skirts)
     const fan = s.fans.rpmNorm;
