@@ -119,10 +119,12 @@ speed and Safari's per-tab memory limit are **not** reproduced.
   PORT=4640 npx playwright test tests/e2e/mobile --project=phone-small --project=galaxy --project=pixel7 --project=iphone-max
   ```
 
+  `iphone-max` is only defined when WebKit is installed (`npx playwright install webkit`).
+
   Under the `desktop` project the spec forces the touch UI with `?touch` and skips the mobile-only
   quality check.
-- `tests/e2e/mobile-hud.spec.ts` (“mobile HUD layout”): free play in landscape (English, German,
-  Russian, French, Japanese) and portrait, the ⋯ tray, pause and settings menus. It checks
+- `tests/e2e/mobile-hud.spec.ts` (“mobile HUD layout”): free play in landscape (screenshots in English,
+  German, Russian, French, Japanese; geometry checked in all 14 languages) and portrait, the ⋯ tray, pause and settings menus. It checks
   geometrically that no HUD group (`Hud.layoutBoxes()`) overlaps another one or a touch control, that
   stick rests and hints do not run into the buttons, that nothing leaves the screen and that no button
   label is clipped. Screenshots go to `$RFT_SHOTS` (`hud-<project>-<view>.png`).
@@ -171,7 +173,9 @@ plugin `tools/pwa/plugin.ts`; registered by `src/pwa/register.ts`):
   opened online at least once. Worlds never opened need a connection. The browser may evict the
   cache when storage runs low; Safari also clears the data of a site not used for 7 days unless it
   was added to the home screen.
-- **Boot screen:** files from the worker report `transferSize` 0 in Resource Timing; `index.html`
-  counts their body size instead (`encodedBodySize`, else `decodedBodySize`), so the MB figure and the
-  bar move on cached starts as well (it shows the amount loaded, not network traffic).
+- **Boot screen:** Resource Timing has no sizes for files served by a worker (`transferSize` 0; WebKit
+  also reports 0 body size). Under the worker, `index.html` therefore counts the sizes the worker
+  reports for each file it serves (taken from the build), so the MB figure and the bar move on cached
+  starts too (measured: Chromium 23.5 MB network / 29.4 MB cached, WebKit 24.6 / 26.6 MB; the figure is
+  the amount loaded, not network traffic).
 - `?nosw` unregisters the worker and deletes its caches (debugging).

@@ -16,6 +16,8 @@ export interface SwManifest {
   precache: string[];
   /** Large assets cached on first use: path -> content hash (12 hex). */
   assets: Record<string, string>;
+  /** File sizes in bytes of every cached path (the boot screen counts them on cached starts). */
+  sizes: Record<string, number>;
 }
 
 const hashFile = (f: string) => createHash('sha1').update(readFileSync(f)).digest('hex').slice(0, 12);
@@ -35,6 +37,7 @@ export function buildSwManifest(outDir: string): SwManifest {
     .sort();
   const precache: string[] = [];
   const assets: Record<string, string> = {};
+  const sizes: Record<string, number> = {};
   for (const f of files) {
     const top = !f.includes('/');
     const shell = (top && /\.(html|json|ico|svg|png|txt)$/.test(f) && f !== 'LIESMICH.txt')
@@ -43,17 +46,20 @@ export function buildSwManifest(outDir: string): SwManifest {
       || /^assets\/[^/]+\.(js|css|wasm)$/.test(f);
     if (shell) precache.push(f);
     else if (f.startsWith('assets/')) assets[f] = hashFile(join(outDir, f));
+    else continue;
+    sizes[f] = statSync(join(outDir, f)).size;
   }
   const h = createHash('sha1');
   for (const f of precache) h.update(f).update(readFileSync(join(outDir, f)));
-  return { version: h.digest('hex').slice(0, 12), precache, assets };
+  return { version: h.digest('hex').slice(0, 12), precache, assets, sizes };
 }
 
 export function renderServiceWorker(m: SwManifest, template: string): string {
   return template
     .replace('__RFT_VERSION__', JSON.stringify(m.version))
     .replace('__RFT_PRECACHE__', JSON.stringify(['./', ...m.precache]))
-    .replace('__RFT_ASSETS__', JSON.stringify(m.assets));
+    .replace('__RFT_ASSETS__', JSON.stringify(m.assets))
+    .replace('__RFT_SIZES__', JSON.stringify(m.sizes));
 }
 
 export function serviceWorkerPlugin(): Plugin {

@@ -10,6 +10,7 @@
 const VERSION = __RFT_VERSION__;
 const PRECACHE = __RFT_PRECACHE__;
 const ASSETS = __RFT_ASSETS__;
+const SIZES = __RFT_SIZES__;
 
 const SHELL = `rft-shell-${VERSION}`;
 const ASSET_CACHE = 'rft-assets';
@@ -64,9 +65,18 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET' || req.headers.has('range')) return;
   const rel = relPath(req.url);
   if (rel === null) return; // other origins / outside the scope
-  if (ASSETS[rel]) { event.respondWith(fromAssets(req, rel)); return; }
+  let res;
+  if (ASSETS[rel]) res = fromAssets(req, rel);
   // the game page itself (any query) and the precached shell files; other pages (licence texts) go to the network
-  if (rel === '' || PRECACHE.includes(rel)) event.respondWith(fromShell(req));
+  else if (rel === '' || PRECACHE.includes(rel)) res = fromShell(req);
+  else return;
+  event.respondWith(res);
+  // Resource Timing reports 0 bytes for worker responses in WebKit (transferSize 0 everywhere): tell the
+  // boot screen of index.html the file size instead
+  if (event.clientId && SIZES[rel]) {
+    event.waitUntil(res.then(() => self.clients.get(event.clientId))
+      .then((c) => c && c.postMessage({ type: 'rft-bytes', url: abs(rel), n: SIZES[rel] })).catch(() => {}));
+  }
 });
 
 self.addEventListener('message', (event) => {

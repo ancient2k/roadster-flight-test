@@ -1,7 +1,8 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, webkit } from '@playwright/test';
+import { existsSync } from 'node:fs';
 
 // The "desktop" project runs every spec. The phone projects (Chromium mobile emulation; WebKit for
-// the iPhone needs `npx playwright install webkit`) only run the mobile specs, e.g.
+// the iPhone needs `npx playwright install webkit` and is left out without it) only run the mobile specs, e.g.
 // `npx playwright test mobile --project=phone-small`. PORT overrides the preview port (parallel runs).
 const PORT = Number(process.env.PORT ?? 4173);
 const MOBILE_SPECS = /mobile.*\.spec\.ts/;
@@ -24,7 +25,7 @@ export default defineConfig({
     // large Android phone: 839 x 412 in the browser (915 x 412 installed)
     { name: 'pixel7', testMatch: MOBILE_SPECS, use: { ...devices['Pixel 7'], browserName: 'chromium', channel: 'chromium', launchOptions: { args: GPU_ARGS } } },
     // large iPhone with Dynamic Island (WebKit): 739 x 430 viewport in the browser
-    { name: 'iphone-max', testMatch: MOBILE_SPECS, use: { ...devices['iPhone 15 Pro Max'], browserName: 'webkit' } },
+    ...(existsSync(webkit.executablePath()) ? [{ name: 'iphone-max', testMatch: MOBILE_SPECS, use: { ...devices['iPhone 15 Pro Max'], browserName: 'webkit' as const } }] : []),
   ],
   webServer: {
     command: `npx vite build && npx vite preview --port ${PORT} --strictPort --host 127.0.0.1`,

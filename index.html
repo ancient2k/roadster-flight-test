@@ -46,8 +46,7 @@
       // the downloaded bytes (finished files plus the car model in flight) and the renderer's start-up steps
       // (src/ui/bootProgress.ts), and keeps creeping towards the next step so it never looks frozen.
       // window.__rftBoot is the watchdog state src/main.ts continues (phase line, "taking long" hint, errors).
-      // Files from the service worker cache report transferSize 0; their body size counts instead, so the MB
-      // figure is the amount loaded (from network or cache), not only the network traffic.
+      // With the service worker the MB figure is the amount loaded (from network or cache), not network traffic.
       (function () {
         var bar = document.querySelector('#boot .bar i'), mb = document.querySelector('#boot .mb'), sum = 0, EXPECT = 22e6;
         var now = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
@@ -70,8 +69,12 @@
           mbShown = Math.max(mbShown, sum + lv);
           mb.textContent = (mbShown / 1e6).toFixed(1) + ' MB';
         }
+        // under the service worker (src/pwa/register.ts) the worker reports each file it serves; Resource Timing
+        // has no sizes for those (transferSize 0; WebKit also no body sizes), so it is not counted twice
+        var sw = navigator.serviceWorker, viaSw = !!(sw && sw.controller);
+        if (viaSw) sw.onmessage = function (e) { var d = e.data; if (d && d.type === 'rft-bytes') { sum += d.n; delete live[abs(d.url)]; st.lastNet = now(); } };
         try {
-          new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { sum += e.transferSize || e.encodedBodySize || e.decodedBodySize || 0; delete live[e.name]; }); st.lastNet = now(); })
+          new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (!viaSw) sum += e.transferSize || e.encodedBodySize || e.decodedBodySize || 0; delete live[e.name]; }); st.lastNet = now(); })
             .observe({ type: 'resource', buffered: true });
         } catch (e) { /* no PerformanceObserver: steps and creep only */ }
         var tick = setInterval(function () { if (!document.getElementById('boot')) clearInterval(tick); else show(); }, 200);

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { LOCALE_CODES } from '../../src/i18n';
 
 // Mobile HUD layout: screenshots of the driving HUD with the touch overlay, the ⋯ tray and the
 // menus in landscape and portrait, in English and the longest translations, plus a geometric
@@ -99,6 +100,13 @@ test('mobile HUD layout: landscape, portrait, tray, menus, languages', async ({ 
     await setLang(page, lang);
     await drive(page);
     await shot(`landscape-${lang}`);
+    bad.push(...(await collisions(page)).map((c) => `landscape ${lang}: ${c}`));
+  }
+
+  // every other language: geometry and clipped labels only (no screenshots)
+  for (const lang of LOCALE_CODES.filter((l) => l !== 'en' && !LANGS.includes(l))) {
+    await setLang(page, lang);
+    await drive(page);
     bad.push(...(await collisions(page)).map((c) => `landscape ${lang}: ${c}`));
   }
 
