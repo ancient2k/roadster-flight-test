@@ -1,0 +1,303 @@
+{
+ "v": 1,
+ "name": "Starbase Sprint",
+ "site": "earth_bocachica",
+ "parts": [
+  {
+   "type": "start",
+   "i": 6,
+   "j": 28,
+   "rot": 2
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 27,
+   "rot": 0
+  },
+  {
+   "type": "boost",
+   "i": 6,
+   "j": 26,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 25,
+   "rot": 0
+  },
+  {
+   "type": "loop",
+   "i": 6,
+   "j": 23,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 22,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 21,
+   "rot": 0
+  },
+  {
+   "type": "curve_wide",
+   "i": 6,
+   "j": 19,
+   "rot": 3
+  },
+  {
+   "type": "road",
+   "i": 8,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 9,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 10,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "kicker",
+   "i": 11,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "landing",
+   "i": 13,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 15,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 16,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "air_station",
+   "i": 17,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 18,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 19,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 20,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "banked",
+   "i": 21,
+   "j": 19,
+   "rot": 2
+  },
+  {
+   "type": "road",
+   "i": 22,
+   "j": 21,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 22,
+   "j": 22,
+   "rot": 0
+  },
+  {
+   "type": "halfpipe",
+   "i": 22,
+   "j": 23,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 22,
+   "j": 25,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 22,
+   "j": 26,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 22,
+   "j": 27,
+   "rot": 0
+  },
+  {
+   "type": "curve_wide",
+   "i": 21,
+   "j": 28,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 20,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 19,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 18,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 17,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 16,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 15,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 14,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 13,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 12,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 11,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 10,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 9,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 8,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "launch",
+   "i": 7,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "curve",
+   "i": 6,
+   "j": 29,
+   "rot": 0
+  }
+ ],
+ "deco": [
+  {
+   "type": "light_mast",
+   "x": 5.2,
+   "z": 28.5,
+   "rotDeg": 0
+  },
+  {
+   "type": "light_mast",
+   "x": 7.8,
+   "z": 28.5,
+   "rotDeg": 0
+  },
+  {
+   "type": "cone",
+   "x": 6.2,
+   "z": 26.2,
+   "rotDeg": 0
+  },
+  {
+   "type": "cone",
+   "x": 6.8,
+   "z": 26.2,
+   "rotDeg": 0
+  },
+  {
+   "type": "container",
+   "x": 3.5,
+   "z": 20,
+   "rotDeg": 0
+  },
+  {
+   "type": "barrier",
+   "x": 5.4,
+   "z": 22,
+   "rotDeg": 0
+  },
+  {
+   "type": "barrier",
+   "x": 7.6,
+   "z": 22,
+   "rotDeg": 0
+  }
+ ]
+}

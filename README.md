@@ -14,7 +14,7 @@ at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, sho
   kickflip over the Semi, 0–60 mph in 0.81 s, ground-start flip. Purely physical and only through drive and
   valve commands; the result screen compares the telemetry with the HUD values from the stream.
 - **Manual mode:** drive and fly freely with three assist levels (ASSIST, STABILIZED, RAW).
-- **Ten sites:** McGregor test site, Stonehenge and the Giza Plateau on Earth; Tranquility Base, Hadley Rille and
+- **Eleven sites:** McGregor test site, Stonehenge, the Giza Plateau and Boca Chica with the Starbase launch site on Earth; Tranquility Base, Hadley Rille and
   Shackleton crater on the Moon; Jezero, Gale and Valles Marineris on Mars – with real gravity, atmosphere and
   terrain data from NASA, USGS and Copernicus. Plus the Sun: Roadster 1 with Starman and the "Sun dive".
 - **Hands-on physics:** the Giza pyramids can be driven up with the fans on suction. Lunar modules, rovers and
@@ -24,6 +24,11 @@ at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, sho
 - **Vehicle damage** (Settings → Simulation, Off / Visual / Full): crashes dent the body and tear off the wing,
   doors, bumpers, diffuser, nozzle covers and wheels, which fly as real parts of the model. With "Full" the
   missing parts change how the car drives, and a heavy crash destroys it – reset (Backspace) to repair.
+- **Track editor** in the spirit of the classic DOS racers: build your own course on a 960 × 720 m field next to
+  Starbase (Boca Chica, Texas) from 17 pieces – loops, jumps, banked curves, elevated roads, half-pipe, the
+  stream's wall ramp, fly-through rings, boost pads, air stations and a launch clearance – then test-drive it at
+  once against the clock. Tracks are saved in the browser, as files and as share links (see
+  [docs/EDITOR.md](docs/EDITOR.md)).
 - **14 UI languages** (see [Languages](#languages)).
 
 ## Getting started

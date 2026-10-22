@@ -85,6 +85,9 @@ async function boot(): Promise<void> {
   const touch = new TouchControls(root, app.input, { force: params.has('touch') || hasTouch() });
   window.__rft.touch = touch;
   window.__rft.ready = true;
+  window.__rft.openEditor = () => app.openEditor();
+  // a shared track link (#track=v1.…) opens the editor with that track
+  if (/[#&]track=/.test(location.hash)) void app.openEditor();
   try { sessionStorage.removeItem(RETRY_KEY); } catch { /* blocked */ }
   hideBootScreen();
 }

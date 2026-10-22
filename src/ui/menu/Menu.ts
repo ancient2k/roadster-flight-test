@@ -1,6 +1,7 @@
 // Menus: title, stunt select, free test, settings (incl. rebinding), pause, help, results.
 // Vanilla DOM, built once per screen change (never per frame). Keyboard: native focus + arrow-key
 // spatial navigation; gamepad: feed InputManager's MenuNav into menu.nav().
+import { et } from '../../editor/i18n';
 import type { AssistLevel, StuntId, TelemetryFrame } from '../../shared/types';
 import { TRACK } from '../../shared/track';
 import { FT } from '../../shared/math';
@@ -59,6 +60,8 @@ export interface MenuEvents {
   resume: void;
   restart: void;
   quitToTitle: void;
+  /** Title menu: open the track editor (src/editor). */
+  openEditor: void;
   settingsChanged: Readonly<Settings>;
   screenChange: MenuScreen;
   uiSound: 'move' | 'select' | 'back';
@@ -251,6 +254,7 @@ export class Menu extends Emitter<MenuEvents> {
         btn(t('menu.stunts'), t('menu.stuntsSub'), () => this.show('stunts'), true),
         btn(t('menu.free'), t('menu.freeSub'), () => this.show('free')),
         this.opts.worlds ? btn(t('menu.worlds'), t('menu.worldsSub'), () => this.show('worlds')) : null,
+        btn(et('editor.menu'), et('editor.menuSub'), () => { this.hide(); this.emit('openEditor', undefined); }),
         btn(t('menu.settings'), t('menu.settingsSub'), () => this.show('settings')),
         btn(t('menu.help'), t('menu.helpSub'), () => this.show('help')),
       ),

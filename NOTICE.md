@@ -17,6 +17,8 @@ The following third-party material is included or bundled under its own terms.
 | Data | Source | Terms |
 |---|---|---|
 | Earth heights (Stonehenge, Giza) | Copernicus DEM GLO-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA; all rights reserved | Copernicus DEM licence: free use and redistribution with this attribution |
+| Boca Chica heights and imagery | U.S. Geological Survey, 3D Elevation Program (3DEP); USDA Farm Service Agency, National Agriculture Imagery Program (NAIP), via The National Map | Public domain |
+| Boca Chica launch site layout (positions of towers, tanks, buildings, fences, roads) | © OpenStreetMap contributors, [openstreetmap.org/copyright](https://www.openstreetmap.org/copyright) | [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) (`tools/worlds/data/starbase_osm.json`) |
 | Moon heights and albedo | NASA/GSFC/Arizona State University (LRO LROC NAC DTMs and mosaics); NASA GSFC PGDA (LOLA DEMs, Barker et al.); USGS Astrogeology (SLDEM2015: LRO LOLA + JAXA SELENE Kaguya TC; LOLA LDEM) | Public domain (NASA/USGS) |
 | Mars heights and albedo | NASA/JPL/University of Arizona/USGS (MRO HiRISE DTMs and orthomosaics, MSL Gale mosaics); NASA/JPL/GSFC MGS MOLA and ESA/DLR/FU Berlin Mars Express HRSC (USGS blended DEM) | Public domain (USGS) |
 | Curiosity and Perseverance rover models | NASA/JPL-Caltech, [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) | NASA media guidelines (no copyright) |

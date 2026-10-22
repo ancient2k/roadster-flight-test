@@ -31,6 +31,12 @@ import { partDef, placeTransform } from '@shared/parts';
 import type { Level } from '@shared/level';
 import type { LandmarkShape } from '@sim/core/world';
 import type { SiteDef } from '@shared/worlds';
+import { et } from '../editor/i18n';
+import { LevelRun } from './levelRun';
+import { RaceHud, fmtTime } from '../editor/raceHud';
+
+/** Air station refill rate (kg/s): the 250 kg tank in about 15 s. */
+const AIR_STATION_KG_S = 17;
 
 export interface AppOptions { forceWebGL?: boolean; quality?: Settings['graphics']['quality']; skipMenu?: boolean }
 
@@ -218,8 +224,73 @@ export class App {
     return sim;
   }
 
+  /** Back to the title menu over the McGregor demo. */
+  private quitToTitle(): void {
+    this.levelMode = false;
+    const go = () => { this.startSession({ kind: 'auto', stunt: 'kickflip' }, true); this.menu.show('title'); };
+    if (this.siteId !== 'earth_mcgregor') void this.startWorld('earth_mcgregor').then(go); else go();
+  }
+
+  // ---------------------------------------------------------------- track editor
+  private editor: import('../editor/EditorScreen').EditorScreen | null = null;
+  /** A level of the editor is being driven: Esc returns to the editor instead of the pause menu. */
+  private levelMode = false;
+
+  /** Opens the track editor (loaded on demand); the 3D scene pauses behind it. */
+  async openEditor(): Promise<void> {
+    const { EditorScreen } = await import('../editor/EditorScreen');
+    this.menu.hide();
+    if (!this.editor) {
+      this.editor = new EditorScreen({
+        testDrive: async (level) => {
+          this.editor?.hide();
+          this.levelMode = true;
+          this.input.setContext('game');
+          await this.playLevel(level);
+          this.hud.flash(et('race.toEditor'), 'info', 4000);
+        },
+        exit: () => { this.editor?.hide(); this.input.setContext('game'); this.quitToTitle(); },
+      }, this.root);
+    } else this.editor.show();
+    this.input.setContext('menu');
+    this.loop.paused = true;
+  }
+
+  private levelRun: LevelRun | null = null;
+  private raceHud: RaceHud | null = null;
+
+  /** Time trial and special pieces of the driven level (src/game/levelRun.ts). */
+  private updateLevelRun(dt: number): void {
+    const run = this.levelRun!;
+    const s = this.sim.getState();
+    const evs = run.update(dt, {
+      x: s.pos.x, y: s.pos.y, z: s.pos.z, vx: s.linVel.x, vz: s.linVel.z, speedMs: s.speedMs, grounded: s.groundContact,
+    }, {
+      boost: (dx, dz, dv) => this.sim.body.applyImpulse({ x: dx * dv * s.massKg, y: 0, z: dz * dv * s.massKg }, true),
+      refill: (d) => { const tk = this.sim.propulsion.tank; tk.fill(Math.min(ROADSTER.tank.fullMassKg, tk.m + AIR_STATION_KG_S * d)); },
+    });
+    for (const e of evs) {
+      if (e.kind === 'boost') this.hud.flash(upper(et('special.boost')), 'info', 1200);
+      else if (e.kind === 'offTrack') this.hud.flash(upper(et('race.offTrack')), 'warn', 1500);
+      else if (e.kind === 'skipped') this.hud.flash(et('race.missed', { n: e.n }), 'warn', 2500);
+      else if (e.kind === 'finish') this.hud.flash(et('race.finish', { time: fmtTime(e.timeS + e.penaltyS) }) + (e.best ? ' ★' : ''), 'info', 6000);
+      else if (e.kind === 'launch') this.hud.flash('STARSHIP: LIFTOFF', 'info', 5000);
+    }
+    if (evs.some((e) => e.kind === 'refill')) this.hud.flash(et('special.refill'), 'info', 600);
+    this.raceHud?.update(run);
+  }
+
+  private backToEditor(): void {
+    this.loop.paused = true;
+    this.input.setContext('menu');
+    this.editor?.show();
+  }
+
   /** Removes the track-editor level from the world (next physics build without its colliders). */
   private clearLevel(): void {
+    this.levelRun = null;
+    this.raceHud?.dispose();
+    this.raceHud = null;
     this.levelScene?.group.removeFromParent();
     this.levelScene?.dispose();
     this.levelScene = null;
@@ -250,6 +321,11 @@ export class App {
       const s = levelStart(level, area) ?? { x: w.spawn.x, z: w.spawn.z, headingDeg: w.spawn.headingDeg };
       const spawn = spawnPose({ x: s.x, y: area.y, z: s.z }, s.headingDeg, 0);
       this.startSession({ kind: 'manual', spawn, siteId: id }, false);
+      // best time per track layout (the parts, not the name)
+      let hash = 0;
+      for (const ch of JSON.stringify(level.parts)) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+      this.levelRun = new LevelRun(level, area, `rft.best.${(hash >>> 0).toString(36)}`);
+      this.raceHud ??= new RaceHud(this.root);
     } finally {
       this.loop.paused = false;
     }
@@ -373,7 +449,10 @@ export class App {
     for (const k of [this.trackCanvas, this.worldCanvas]) if (k) k.style.display = k === c ? 'block' : 'none';
     this.canvas = c;
   }
-  restart(): void { this.startSession(this.session.mode, this.attract, this.manual?.assist); }
+  restart(): void {
+    this.startSession(this.session.mode, this.attract, this.manual?.assist);
+    this.levelRun = this.levelRun?.fresh() ?? null;     // a restart of a level starts a new lap
+  }
 
   // ---------------------------------------------------------------- menu / settings
   private wireMenu(): void {
@@ -382,10 +461,8 @@ export class App {
     m.on('startFree', ({ assist, site }) => { m.hide(); this.startFreePlay(site, assist); });
     m.on('resume', () => { m.hide(); });
     m.on('restart', () => { m.hide(); this.restart(); });
-    m.on('quitToTitle', () => {
-      const go = () => { this.startSession({ kind: 'auto', stunt: 'kickflip' }, true); m.show('title'); };
-      if (this.siteId !== 'earth_mcgregor') void this.startWorld('earth_mcgregor').then(go); else go();
-    });
+    m.on('quitToTitle', () => this.quitToTitle());
+    m.on('openEditor', () => void this.openEditor());
     m.on('startWorld', ({ site }) => { m.hide(); void this.startWorld(site as SiteId); });
     m.on('settingsChanged', (s) => this.applySettings(s));
     m.on('uiSound', (k) => this.audio.playUi(k));
@@ -429,10 +506,13 @@ export class App {
     const t0 = performance.now();
     const input = this.input.poll(dt);
     this.lastInput = input;
-    if (this.menu.isOpen()) {
+    if (this.editor?.visible) {
+      // the track editor covers the screen and takes the keyboard itself
+    } else if (this.menu.isOpen()) {
       this.menu.nav(input.menuNav);
     } else {
-      if (input.pressed.menu || input.pressed.pause) this.menu.show('pause');
+      if (this.levelMode && input.pressed.menu) this.backToEditor();
+      else if (input.pressed.menu || input.pressed.pause) this.menu.show('pause');
       if (input.pressed.help) this.menu.show('help');
       if (this.manual) {
         this.manual.drive = input.drive;
@@ -469,6 +549,7 @@ export class App {
     const tel = this.session.telemetry();
     const simDt = this.loop.paused ? 0 : dt * this.loop.timeScale;
     this.renderer.update(this.view, tel, simDt);
+    if (this.levelRun && simDt > 0) this.updateLevelRun(simDt);
     const s = this.settings.get();
     const mode = this.session.mode;
     this.hud.setVisible(s.hud.visible && !this.menu.isOpen());
