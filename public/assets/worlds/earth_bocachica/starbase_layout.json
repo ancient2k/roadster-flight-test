@@ -1,0 +1,89 @@
+{
+  "reference": {
+    "lat": 25.997,
+    "lon": -97.157
+  },
+  "towers": [
+    {
+      "file": "tower_a.glb",
+      "x": 226.5325,
+      "z": 96.5525,
+      "headingDeg": 3.9843882032838596,
+      "heightM": 143.0,
+      "osmId": 968227813,
+      "footprintEastNorthM": [
+        [
+          225.27,
+          -87.99
+        ],
+        [
+          235.14,
+          -94.74
+        ],
+        [
+          227.84,
+          -105.3
+        ],
+        [
+          217.88,
+          -98.18
+        ]
+      ]
+    },
+    {
+      "file": "tower_b.glb",
+      "x": -106.715,
+      "z": -5.1000000000000005,
+      "headingDeg": -84.88555327508293,
+      "heightM": 144.5,
+      "osmId": 1207227015,
+      "footprintEastNorthM": [
+        [
+          -108.5,
+          13.05
+        ],
+        [
+          -98.71,
+          6.87
+        ],
+        [
+          -104.93,
+          -2.85
+        ],
+        [
+          -114.72,
+          3.33
+        ]
+      ]
+    }
+  ],
+  "mounts": [
+    {
+      "id": "a",
+      "x": 256.0,
+      "z": 94.5,
+      "y": 20.0,
+      "headingDeg": 3.9843882032838596,
+      "kind": "open_mount",
+      "positionSource": "inferred from OSM catch gantries; mount centre not tagged"
+    },
+    {
+      "id": "b",
+      "x": -104.2,
+      "z": 23.0,
+      "y": 20.0,
+      "headingDeg": -84.88555327508293,
+      "kind": "water_cooled_trench",
+      "positionSource": "inferred from OSM catch gantries; mount centre not tagged"
+    }
+  ],
+  "stackOnMount": {
+    "file": "starship_stack.glb",
+    "mount": "a",
+    "x": 256.0,
+    "y": 20.0,
+    "z": 94.5,
+    "headingDeg": 3.9843882032838596
+  },
+  "osmSourceSha256": "44df19d3fc699886adfefd3754c6270f2274f8b50b910bc0c13931d343ed4c6e"
+}
