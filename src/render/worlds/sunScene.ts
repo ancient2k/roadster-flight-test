@@ -305,7 +305,7 @@ export async function loadSunScene(scene: THREE.Scene, renderer: THREE.WebGPURen
   const tmp = new THREE.Vector3();
 
   const handle: WorldHandle = {
-    site, look, group, sunDirection, sunLight: light,
+    site, look, group, sunDirection, sunLight: light, buildArea: null, waterLevelY: null,
     environmentMap: envRT?.texture,
     exposure: look.exposure, exposureFixed: look.exposureFixed,
     cameraFar: 120000,

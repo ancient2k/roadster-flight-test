@@ -131,6 +131,8 @@ export const en = {
   'site.earth_stonehenge.subtitle': 'Salisbury Plain, sarsen circle in morning light',
   'site.earth_giza.name': 'Giza Plateau',
   'site.earth_giza.subtitle': 'Khufu, Khafre, Menkaure and the Sphinx',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Launch site on the Gulf coast, build field for your own tracks',
   'site.moon_tranquility.name': 'Tranquility Base',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Hadley Rille',

@@ -23,6 +23,9 @@ import { buildTalusMesh } from './talus';
 import { fitPyramid, pyramidHeightAt, pyramidHullMesh, pyramidTalus } from '../../shared/pyramid';
 import { loadFootprintFile, loadTrampled, Footprints } from './footprints';
 import { GroundMarks } from './groundMarks';
+import { buildWater } from './water';
+import { boxTris } from '../../shared/parts';
+import type { BuildArea } from './terrainData';
 
 export type { LookParams } from './skyParams';
 export { lookParams } from './skyParams';
@@ -49,6 +52,24 @@ export interface WorldOptions {
 
 /** Loading phases of loadWorld()/loadSunScene() (stable ids, never translated). */
 export type LoadPhase = 'heightmap' | 'textures' | 'landmarks' | 'shadows' | 'terrain' | 'starmap' | 'roadster1' | 'done';
+
+/** Where vegetation must not grow: the build field (+ 6 m for its fence), water and the noScatter polygons. */
+function scatterExcluded(a: WorldAssets, field: TerrainField): ((x: number, z: number) => boolean) | undefined {
+  const b = a.buildArea, w = a.water, polys = a.noScatter ?? [];
+  if (!b && !w && !polys.length) return undefined;
+  const inPoly = (p: [number, number][], x: number, z: number) => {
+    let inside = false;
+    for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+      if ((p[i][1] > z) !== (p[j][1] > z) && x < (p[j][0] - p[i][0]) * (z - p[i][1]) / (p[j][1] - p[i][1]) + p[i][0]) inside = !inside;
+    }
+    return inside;
+  };
+  return (x, z) => {
+    if (b && x > b.minX - 6 && x < b.minX + b.nx * b.tileM + 6 && z > b.minZ - 6 && z < b.minZ + b.nz * b.tileM + 6) return true;
+    if (w && field.height(x, z) < w.levelY + 0.15) return true;
+    return polys.some((p) => inPoly(p, x, z));
+  };
+}
 
 export interface WorldHandle {
   readonly site: SiteDef;
@@ -81,6 +102,10 @@ export interface WorldHandle {
   readonly marks?: GroundMarks;
   /** Spawn from the asset meta if present, else SiteDef.spawn. */
   readonly spawn: { x: number; y: number; z: number; headingDeg: number };
+  /** Graded build field of the level editor (Boca Chica), null elsewhere. */
+  readonly buildArea: BuildArea | null;
+  /** Height of the sea/lagoon plane, null without water. */
+  readonly waterLevelY: number | null;
   /** Terrain heights exactly as rendered (feed to buildTerrainColliders); null in space. */
   readonly terrain: { heights: Float32Array; size: number; extentM: number; format: WorldAssets['format'] } | null;
   readonly credits: string[];
@@ -106,6 +131,8 @@ function detailNames(site: SiteDef, a: WorldAssets): { fine: string; rock: strin
   if (site.body === 'moon') return { fine: n.fine ?? 'regolith', rock: n.rock ?? 'regolith_rocky', fineScale: 4, rockScale: 3 };
   if (site.body === 'mars') return { fine: n.fine ?? 'mars_soil', rock: n.rock ?? 'mars_rock', fineScale: 4, rockScale: 6 };
   if (site.id === 'earth_giza') return { fine: n.fine ?? 'sand', rock: n.rock ?? 'limestone', fineScale: 6, rockScale: 5 };
+  // Boca Chica: the splat's rock channel marks the graded build field and the launch site -> McGregor concrete
+  if (site.id === 'earth_bocachica') return { fine: n.fine ?? 'sand', rock: 'concrete', fineScale: 6, rockScale: 4 };
   return { fine: n.fine ?? 'grass_chalk', rock: n.rock ?? 'limestone', fineScale: 3, rockScale: 5 };
 }
 
@@ -229,7 +256,8 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
     loadTex(assets.albedoUrl, { srgb: true, flipY: false, anisotropy: aniso }),
     loadTex(assets.splatUrl, { srgb: false, flipY: false, anisotropy: 2 }),
     loadDetailLayer(dir, dn.fine, dn.fineScale, fb(dn.fine), aniso, shared),
-    loadDetailLayer(dir, dn.rock, dn.rockScale, fb(dn.rock), aniso, shared),
+    // 'concrete' is the McGregor pad texture (assets/env, already cached from the start)
+    loadDetailLayer(dir, dn.rock, dn.rockScale, fb(dn.rock), aniso, dn.rock === 'concrete' ? `${base}assets/env` : shared),
     fpFile ? loadTrampled(dir, fpFile) : Promise.resolve(null),
   ]);
 
@@ -245,6 +273,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   // only large landmarks throw shadows beyond the real-time shadow map: stamp those (rovers, LM, single
   // stones: skip – they cost seconds in the bake, R5 load budget)
   const bigRoots = new Set(lm.items.filter((it) => {
+    if (it.def.bake === false) return false;
     const sz = new THREE.Box3().setFromObject(it.object).getSize(new THREE.Vector3());
     return Math.max(sz.x, sz.y, sz.z) > 15;
   }).map((it) => it.object));
@@ -298,6 +327,8 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   terrain.uniforms.sunDir.value.copy(sunDirection);
   terrain.uniforms.rtShadowRadius.value = q.shadowExt;
   group.add(terrain.group);
+  const water = assets.water ? buildWater(assets.water.levelY, field.halfExtent * 2, (x, z) => field.height(x, z)) : null;
+  if (water) group.add(water.mesh);
   const footprints = fpFile ? await Footprints.create(dir, fpFile, field, terrain.surfaceColor) : null;
   if (footprints) group.add(footprints.mesh);
   // tyre tracks and jet scour (only where the ground is loose: Moon, Mars, Giza sand)
@@ -348,7 +379,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   // grass on Earth grassland (Stonehenge)
   let grass: GrassField | null = null;
   if (site.body === 'earth' && site.id !== 'earth_giza') {
-    grass = new GrassField(field, { radius: q.grassRadius, spacing: 0.3, maxInstances: q.grassMax });
+    grass = new GrassField(field, { radius: q.grassRadius, spacing: 0.3, maxInstances: q.grassMax, exclude: scatterExcluded(assets, field) });
     if (await grass.load(`${base}assets/env-models/grass_clump.glb`)) {
       group.add(grass.group);
       grass.sunDir.value.copy(sunDirection);
@@ -363,6 +394,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
 
   const handle: WorldHandle = {
     site, look, group, sunDirection, sunLight: sun, ready,
+    buildArea: assets.buildArea ?? null, waterLevelY: assets.water?.levelY ?? null,
     environmentMap: envRT?.texture,
     exposure: look.exposure, exposureFixed: look.exposureFixed,
     cameraFar: Math.max(30000, field.halfExtent * 2.2),
@@ -377,6 +409,10 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
       const id = `${it.def.file.replace(/\.glb$/, '')}#${i}`;
       const pyr = pyramids[i];
       if (pyr) return [{ id, kind: 'mesh' as const, data: pyramidHullMesh(pyr.fit), outward: true }, { id: `${id}_talus`, kind: 'mesh' as const, data: pyr.talus }];
+      if (it.def.collider === 'box') {
+        const b = new THREE.Box3().setFromObject(it.object);
+        return [{ id, kind: 'mesh' as const, data: boxTris([b.min.x, b.min.y, b.min.z], [b.max.x, b.max.y, b.max.z]), outward: true }];
+      }
       return [{ id, kind: 'mesh' as const, data: worldTriangles(it.object, 250_000) }];
     }),
     marks: marks ?? undefined,
@@ -436,6 +472,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
     dispose() {
       group.removeFromParent();
       terrain.dispose();
+      water?.dispose();
       footprints?.dispose();
       marks?.dispose();
       trampled?.tex.dispose();

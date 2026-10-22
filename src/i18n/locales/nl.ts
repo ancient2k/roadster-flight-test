@@ -121,6 +121,8 @@ export const nl: Messages = {
   'site.earth_stonehenge.subtitle': 'Salisbury Plain, sarsencirkel in het ochtendlicht',
   'site.earth_giza.name': 'Plateau van Gizeh',
   'site.earth_giza.subtitle': 'Cheops, Chefren, Mykerinos en de Sfinx',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Lanceerterrein aan de Golfkust, bouwveld voor eigen banen',
   'site.moon_tranquility.name': 'Tranquility Base',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Hadley-geul',

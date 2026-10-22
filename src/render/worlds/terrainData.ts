@@ -26,8 +26,11 @@ export interface HeightGrid {
 
 export interface LandmarkDef {
   file: string; x: number; y: number; z: number; headingDeg: number; scale?: number; note?: string;
-  /** Physics: 'pyramid' = smooth frustum hull + drivable talus (src/shared/pyramid.ts); default exact mesh. */
-  collider?: 'pyramid' | 'mesh';
+  /** Physics: 'pyramid' = smooth frustum hull + drivable talus (src/shared/pyramid.ts); 'box' = its bounding box
+   *  (dense lattices such as the Starbase towers); default exact mesh. */
+  collider?: 'pyramid' | 'mesh' | 'box';
+  /** false: no stamped shadow in the terrain bake (structures whose own real-time shadow is enough). */
+  bake?: boolean;
   /** movable, breakable objects inside this GLB (src/shared/props.ts); their triangles leave the static collider. */
   dynamic?: import('../../shared/props').PropObjectDef[];
 }
@@ -50,7 +53,16 @@ export interface WorldAssets {
   sunColorTempK: number | null;
   spawn: { x: number; y: number; z: number; headingDeg: number } | null;
   credits: string[];
+  /** Sea and lagoons (Boca Chica): one water plane at levelY. */
+  water?: { levelY: number } | null;
+  /** Graded build field of the level editor (docs/EDITOR.md). */
+  buildArea?: BuildArea | null;
+  /** Polygons [x, z][] without vegetation scatter (e.g. the fenced launch site). */
+  noScatter?: [number, number][][];
 }
+
+/** Tile (i, j) covers x = minX + i·tileM … + tileM, z = minZ + j·tileM …; the field is flat at y. */
+export interface BuildArea { minX: number; minZ: number; tileM: number; nx: number; nz: number; y: number }
 
 // ------------------------------------------------------------------ sampling
 
@@ -236,6 +248,9 @@ interface WsfMeta {
   rocks?: { file?: string };
   detailTextures?: string[] | { fine?: string; rock?: string; dark?: string };
   sources?: { credit?: string }[];
+  water?: { levelY: number };
+  buildArea?: BuildArea;
+  noScatter?: [number, number][][];
 }
 
 async function loadPngGrid(fetchFn: Fetch, url: string, t: WsfTile): Promise<HeightGrid> {
@@ -275,6 +290,9 @@ export async function loadTerrainData(dir: string, fetchFn: Fetch = (u) => fetch
       sunLux: m.sun?.illuminanceLux ?? null, sunColorTempK: m.sun?.colorTempK ?? null,
       spawn: m.spawn ? { x: m.spawn.x, y: m.spawn.y, z: m.spawn.z, headingDeg: m.spawn.headingDeg } : null,
       credits: (m.sources ?? []).map((s) => s.credit ?? '').filter((s, i, a) => s && a.indexOf(s) === i),
+      water: m.water ? { levelY: m.water.levelY } : null,
+      buildArea: m.buildArea ?? null,
+      noScatter: m.noScatter ?? [],
     };
   }
   const tm = meta as unknown as TerrainMeta;

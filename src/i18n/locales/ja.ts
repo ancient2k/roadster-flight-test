@@ -121,6 +121,8 @@ export const ja: Messages = {
   'site.earth_stonehenge.subtitle': 'ソールズベリー平原、朝日の中のサーセン石の環',
   'site.earth_giza.name': 'ギザ台地',
   'site.earth_giza.subtitle': 'クフ王、カフラー王、メンカウラー王のピラミッドとスフィンクス',
+  'site.earth_bocachica.name': 'ボカチカ（Starbase）',
+  'site.earth_bocachica.subtitle': 'メキシコ湾岸の発射場、コースを作れる建設エリア',
   'site.moon_tranquility.name': '静かの基地',
   'site.moon_tranquility.subtitle': 'アポロ11号、静かの海',
   'site.moon_hadley.name': 'ハドリー谷',

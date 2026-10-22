@@ -5,7 +5,11 @@ import * as THREE from 'three/webgpu';
 import { float, positionWorld, positionLocal, mx_noise_float, smoothstep, length, cameraPosition, vec3, vec4, mix, texture, uv, uniform, normalize, dot, max, pow, cameraViewMatrix } from 'three/tsl';
 import type { TerrainField } from './terrainData';
 
-export interface GrassOptions { radius: number; spacing: number; maxInstances: number }
+export interface GrassOptions {
+  radius: number; spacing: number; maxInstances: number;
+  /** No clumps where this returns true (build field, water, launch site). */
+  exclude?: (x: number, z: number) => boolean;
+}
 
 const hash = (x: number, z: number, s: number) => {
   const h = Math.sin(x * 127.1 + z * 311.7 + s * 74.7) * 43758.5453;
@@ -124,6 +128,7 @@ export class GrassField {
       if (d > radius) continue;
       // thin out with distance (density ∝ 1/(1 + d/12))
       if (hash(i, j, 3) > 1 / (1 + d / 9)) continue;
+      if (this.opts.exclude?.(x, z)) continue;
       const nrm = this.field.normal(x, z);
       if (nrm.y < 0.85) continue;
       q.setFromAxisAngle(up, hash(i, j, 4) * Math.PI * 2);

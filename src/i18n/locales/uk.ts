@@ -121,6 +121,8 @@ export const uk: Messages = {
   'site.earth_stonehenge.subtitle': 'Солсберійська рівнина, коло сарсенів у ранковому світлі',
   'site.earth_giza.name': 'Плато Гіза',
   'site.earth_giza.subtitle': 'Хеопс, Хефрен, Мікерин і Сфінкс',
+  'site.earth_bocachica.name': 'Бока-Чика (Starbase)',
+  'site.earth_bocachica.subtitle': 'Стартовий майданчик на узбережжі затоки, поле для власних трас',
   'site.moon_tranquility.name': 'База Спокою',
   'site.moon_tranquility.subtitle': 'Аполлон-11, Море Спокою',
   'site.moon_hadley.name': 'Борозна Гедлі',

@@ -121,6 +121,8 @@ export const tr: Messages = {
   'site.earth_stonehenge.subtitle': 'Salisbury Ovası, sabah ışığında sarsen çemberi',
   'site.earth_giza.name': 'Gize Platosu',
   'site.earth_giza.subtitle': 'Keops, Kefren, Mikerinos ve Sfenks',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Körfez kıyısındaki fırlatma alanı, kendi pistlerin için yapı alanı',
   'site.moon_tranquility.name': 'Sükûnet Üssü',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Hadley Oluğu',

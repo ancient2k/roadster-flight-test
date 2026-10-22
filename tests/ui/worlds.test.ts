@@ -13,7 +13,7 @@ describe('worlds menu, derived from src/shared/worlds.ts', () => {
   it('every shared site appears exactly once under its body, availability comes from SITES', () => {
     const listed = BODIES.flatMap((b) => sitesOf(b.id));
     expect(listed.map((s) => s.id).sort()).toEqual(SITES.map((s) => s.id).sort());
-    expect(sitesOf('earth').map((s) => s.id)).toEqual(['earth_mcgregor', 'earth_stonehenge', 'earth_giza']);
+    expect(sitesOf('earth').map((s) => s.id)).toEqual(['earth_mcgregor', 'earth_stonehenge', 'earth_giza', 'earth_bocachica']);
     expect(sitesOf('space').map((s) => s.id)).toEqual(['space_sun']);
     for (const s of listed) expect(s).toBe(SITES.find((x) => x.id === s.id)); // same objects, no copy
   });

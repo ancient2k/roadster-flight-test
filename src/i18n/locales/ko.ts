@@ -121,6 +121,8 @@ export const ko: Messages = {
   'site.earth_stonehenge.subtitle': '솔즈베리 평원, 아침 햇살 속 사르센 환상열석',
   'site.earth_giza.name': '기자 고원',
   'site.earth_giza.subtitle': '쿠푸, 카프레, 멘카우레 피라미드와 스핑크스',
+  'site.earth_bocachica.name': '보카치카 (Starbase)',
+  'site.earth_bocachica.subtitle': '멕시코만 연안의 발사장, 나만의 코스를 짓는 부지',
   'site.moon_tranquility.name': '고요의 기지',
   'site.moon_tranquility.subtitle': '아폴로 11호, 고요의 바다',
   'site.moon_hadley.name': '해들리 열구',

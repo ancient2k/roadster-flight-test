@@ -7,7 +7,7 @@ import { ENVIRONMENTS, type BodyId, type Environment, type SurfaceKind } from '.
 import { fmtNum, t } from '../i18n';
 
 export type SiteId =
-  | 'earth_mcgregor' | 'earth_stonehenge' | 'earth_giza'
+  | 'earth_mcgregor' | 'earth_stonehenge' | 'earth_giza' | 'earth_bocachica'
   | 'moon_tranquility' | 'moon_hadley' | 'moon_shackleton'
   | 'mars_jezero' | 'mars_gale' | 'mars_valles'
   | 'space_sun';
@@ -52,6 +52,10 @@ const RAW_SITES: RawSite[] = [
   { id: 'earth_giza', body: 'earth', surface: 'sand',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: -300 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: -0.4, y: 0.55, z: 0.3 }),
     look: 'day', geo: { lat: 29.9792, lon: 31.1342, digits: [4, 4] }, assetDir: 'assets/worlds/earth_giza', available: true },
+  // spawn and sun from public/assets/worlds/earth_bocachica/meta.json (tools/worlds/bocachica.py)
+  { id: 'earth_bocachica', body: 'earth', surface: 'sand',
+    ground: 'terrain', spawn: { pos: { x: -980, y: 0, z: -90 }, headingDeg: 90, speedMs: 0 }, sunDir: norm({ x: 0.45, y: 0.71, z: 0.54 }),
+    look: 'day', geo: { lat: 25.997, lon: -97.157, digits: [3, 3] }, assetDir: 'assets/worlds/earth_bocachica', available: true },
   { id: 'moon_tranquility', body: 'moon', surface: 'regolith',
     ground: 'terrain', spawn: { pos: { x: 0, y: 0, z: -60 }, headingDeg: 0, speedMs: 0 }, sunDir: norm({ x: -0.8, y: 0.2, z: 0.1 }),
     look: 'lunar_day', geo: { lat: 0.674, lon: 23.473, digits: [3, 3] }, assetDir: 'assets/worlds/moon_tranquility', available: true },

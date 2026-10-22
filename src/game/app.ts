@@ -26,6 +26,11 @@ import { t, upper } from '../i18n';
 import { AERO_LABEL, ASSIST_LABEL, FAN_LABEL } from '../ui/labels';
 import { cloneState, copyStateInto, interpolateState } from './interp';
 import { ManualController, SimSession, type Controller, type SessionMode } from './session';
+import { buildLevelScene, tileToWorld, type LevelArea, type LevelScene } from '../render/level/levelScene';
+import { partDef, placeTransform } from '@shared/parts';
+import type { Level } from '@shared/level';
+import type { LandmarkShape } from '@sim/core/world';
+import type { SiteDef } from '@shared/worlds';
 
 export interface AppOptions { forceWebGL?: boolean; quality?: Settings['graphics']['quality']; skipMenu?: boolean }
 
@@ -43,6 +48,16 @@ export function pyramidCourts(shapes: { id: string; data: Float32Array }[]): { m
     for (let i = 0; i < l.data.length; i += 3) { minX = Math.min(minX, l.data[i]); maxX = Math.max(maxX, l.data[i]); minZ = Math.min(minZ, l.data[i + 2]); maxZ = Math.max(maxZ, l.data[i + 2]); }
     return { minX: minX - 20, maxX: maxX + 20, minZ: minZ - 20, maxZ: maxZ + 20 };
   });
+}
+
+/** Car position behind the start line of a level (the start piece's road runs along its own +z). */
+export function levelStart(level: Level, area: LevelArea): { x: number; z: number; headingDeg: number } | null {
+  const p = level.parts.find((q) => q.type === 'start');
+  if (!p) return null;
+  const f = placeTransform(partDef('start'), p.i, p.j, p.rot, 1);
+  const [cx, cz] = f(0.5, 0.3), [fx, fz] = f(0.5, 0.7);     // 6 m before the line, heading along the road
+  const [x, z] = tileToWorld(area, cx, cz);
+  return { x, z, headingDeg: Math.atan2(fx - cx, fz - cz) * 180 / Math.PI };
 }
 
 export function findFlatSpawn(heightAt: (x: number, z: number) => number, x0: number, z0: number, headingDeg: number, maxR = 120): { x: number; z: number; groundY: number; roughness: number } {
@@ -101,6 +116,9 @@ export class App {
   private orbitPanel: OrbitPanel | null = null;
   private propPoses: PropPose[] = [];
   private switching = false;
+  /** Track-editor level in the current world (Boca Chica) and its static colliders. */
+  private levelScene: LevelScene | null = null;
+  private extraShapes: LandmarkShape[] = [];
   /** McGregor renderer (created in init) and the lazily created world renderer, each with its own canvas. */
   private trackRenderer!: GameRenderer;
   private trackCanvas!: HTMLCanvasElement;
@@ -181,9 +199,64 @@ export class App {
    * Switch to a Phase-2 site: renderer (terrain/sky/sun) and physics (same heights as rendered,
    * gravity/air of the body) are rebuilt; the session starts in free flight at the site's spawn.
    */
+  /** Physics of a terrain or space site: heightmap, landmark colliders (+ the level's solids), movable props. */
+  private async createSiteSim(site: SiteDef, w: WorldHandle | null): Promise<RoadsterSim> {
+    const t = w?.terrain;
+    const spc = w?.spawn ?? { x: site.spawn.pos.x, z: site.spawn.pos.z };
+    // full-resolution physics around the spawn (the coarse outer ring differs by ~10 cm from the render mesh)
+    // and under the pyramid talus (it must meet the exact ground, else the car trips over its lip)
+    const landmarks = [...(w?.collisionShapes() ?? []), ...this.extraShapes];
+    const fineAreas = pyramidCourts(landmarks);
+    // movable, breakable landmarks (LM, LRV, rovers; Roadster 1 in the Sun scene)
+    const props = w?.dynamicProps?.() ?? [];
+    const sim = await createRoadsterSim(t
+      ? { ground: 'terrain', terrain: { heights: t.heights, size: t.size, extentM: t.extentM, fineCenter: { x: spc.x, z: spc.z }, fineAreas }, landmarks, props }
+      : { ground: 'space', props });
+    sim.setEnvironment(environmentFor(site.id));
+    return sim;
+  }
+
+  /** Removes the track-editor level from the world (next physics build without its colliders). */
+  private clearLevel(): void {
+    this.levelScene?.group.removeFromParent();
+    this.levelScene?.dispose();
+    this.levelScene = null;
+    this.extraShapes = [];
+  }
+
+  /**
+   * Drives a track-editor level: loads Boca Chica if needed, puts the pieces into the world and the physics and
+   * the car behind the start line (or at the west end of the build field without a start piece).
+   */
+  async playLevel(level: Level): Promise<void> {
+    const id: SiteId = 'earth_bocachica';
+    if (this.siteId !== id || !this.renderer.worldHandle?.buildArea) await this.startWorld(id);
+    const w = this.renderer.worldHandle;
+    const area = w?.buildArea as LevelArea | null | undefined;
+    if (!w || !area) throw new Error('the site has no build area');
+    this.clearLevel();
+    this.levelScene = buildLevelScene(level, area);
+    w.group.add(this.levelScene.group);
+    this.extraShapes = this.levelScene.shapes;
+    this.loop.paused = true;
+    try {
+      this.sim.dispose();
+      this.sim = await this.createSiteSim(siteDef(id), w);
+      this.sim.surface = siteDef(id).surface;
+      this.sim.hardGround = [];
+      this.applySettings(this.settings.get());
+      const s = levelStart(level, area) ?? { x: w.spawn.x, z: w.spawn.z, headingDeg: w.spawn.headingDeg };
+      const spawn = spawnPose({ x: s.x, y: area.y, z: s.z }, s.headingDeg, 0);
+      this.startSession({ kind: 'manual', spawn, siteId: id }, false);
+    } finally {
+      this.loop.paused = false;
+    }
+  }
+
   async startWorld(id: SiteId, assist?: AssistLevel): Promise<void> {
     if (this.switching) return;
     this.switching = true;
+    this.clearLevel();
     this.loop.paused = true;
     const overlay = this.showLoading(siteDef(id));
     const T: Record<string, number> = {}; let tm = performance.now();
@@ -201,18 +274,7 @@ export class App {
           sim = await createRoadsterSim();
           sim.setEnvironment(EARTH);
         } else {
-          const t = w?.terrain;
-          const spc = w?.spawn ?? { x: site.spawn.pos.x, z: site.spawn.pos.z };
-          // full-resolution physics around the spawn (the coarse outer ring differs by ~10 cm from the render mesh)
-          // and under the pyramid talus (it must meet the exact ground, else the car trips over its lip)
-          const landmarks = w?.collisionShapes() ?? [];
-          const fineAreas = pyramidCourts(landmarks);
-          // movable, breakable landmarks (LM, LRV, rovers; Roadster 1 in the Sun scene)
-          const props = w?.dynamicProps?.() ?? [];
-          sim = await createRoadsterSim(t
-            ? { ground: 'terrain', terrain: { heights: t.heights, size: t.size, extentM: t.extentM, fineCenter: { x: spc.x, z: spc.z }, fineAreas }, landmarks, props }
-            : { ground: 'space', props });
-          sim.setEnvironment(environmentFor(id));
+          sim = await this.createSiteSim(site, w);
         }
         sim.surface = site.surface;
         // the pyramid courts are levelled bedrock, not the site's sand

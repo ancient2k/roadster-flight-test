@@ -121,6 +121,8 @@ export const zhHans: Messages = {
   'site.earth_stonehenge.subtitle': '索尔兹伯里平原，晨光中的砂岩巨石圈',
   'site.earth_giza.name': '吉萨高原',
   'site.earth_giza.subtitle': '胡夫、哈夫拉、孟卡拉金字塔与狮身人面像',
+  'site.earth_bocachica.name': '博卡奇卡（Starbase）',
+  'site.earth_bocachica.subtitle': '墨西哥湾沿岸的发射场，可自建赛道的场地',
   'site.moon_tranquility.name': '静海基地',
   'site.moon_tranquility.subtitle': '阿波罗 11 号，静海',
   'site.moon_hadley.name': '哈德利月溪',

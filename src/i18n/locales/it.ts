@@ -121,6 +121,8 @@ export const it: Messages = {
   'site.earth_stonehenge.subtitle': 'Piana di Salisbury, cerchio di sarsen alla luce del mattino',
   'site.earth_giza.name': 'Altopiano di Giza',
   'site.earth_giza.subtitle': 'Cheope, Chefren, Micerino e la Sfinge',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Base di lancio sulla costa del Golfo, area per i tuoi tracciati',
   'site.moon_tranquility.name': 'Base della Tranquillità',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Solco di Hadley',

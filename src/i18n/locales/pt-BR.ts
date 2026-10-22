@@ -121,6 +121,8 @@ export const ptBR: Messages = {
   'site.earth_stonehenge.subtitle': 'Planície de Salisbury, círculo de sarsens na luz da manhã',
   'site.earth_giza.name': 'Planalto de Gizé',
   'site.earth_giza.subtitle': 'Quéops, Quéfren, Miquerinos e a Esfinge',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Base de lançamento na costa do Golfo, área para suas próprias pistas',
   'site.moon_tranquility.name': 'Base da Tranquilidade',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Sulco de Hadley',

@@ -121,6 +121,8 @@ export const de: Messages = {
   'site.earth_stonehenge.subtitle': 'Salisbury Plain, Sarsen-Kreis bei Morgenlicht',
   'site.earth_giza.name': 'Gizeh-Plateau',
   'site.earth_giza.subtitle': 'Cheops, Chephren, Mykerinos und die Sphinx',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Startgelände an der Golfküste, Baufeld für eigene Strecken',
   'site.moon_tranquility.name': 'Tranquility Base',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Hadley-Rille',

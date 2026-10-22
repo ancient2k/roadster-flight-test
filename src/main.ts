@@ -65,6 +65,8 @@ async function boot(): Promise<void> {
     startFreePlay: (id?: StuntId) => { app.menu.hide(); app.startFreePlay(id); },
     outcome: () => app.session?.outcome,
     startWorld: (id: string) => { app.menu.hide(); return app.startWorld(id as never); },
+    /** Test hook: drive a track-editor level (src/shared/level.ts). */
+    playLevel: (level: unknown) => { app.menu.hide(); return app.playLevel(level as never); },
     /** Test hook: advance the simulation synchronously by `seconds` (rendering continues normally). */
     fastForward: (seconds: number) => {
       const n = Math.round(seconds / app.sim.dt);

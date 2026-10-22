@@ -1,0 +1,190 @@
+{
+  "site": "earth_bocachica",
+  "body": "earth",
+  "name": "Boca Chica (Starbase)",
+  "description": "Starbase, Texas: launch site of the Starship test flights on the Gulf coast, beach-ridge plain, tidal flats and lagoons of the Rio Grande delta. Graded build field for the level editor.",
+  "frame": "+X = east, +Y = up, -Z = north; origin = centre of the near tile; refOrigin = the OSM reference point 25.997 N, 97.157 W (tools/worlds/data/starbase_osm.json, Starbase models); heights relative to the near tile centre (decodeHeightmap).",
+  "geo": {
+    "refLat": 25.997,
+    "refLon": -97.157,
+    "radiusM": 6371000.0
+  },
+  "sources": [
+    {
+      "use": "near + far height",
+      "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage",
+      "credit": "U.S. Geological Survey, 3D Elevation Program (3DEP) 1 m lidar DTM / 1/3 arc-second",
+      "license": "Public Domain (USGS)"
+    },
+    {
+      "use": "albedo",
+      "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage",
+      "credit": "USDA Farm Service Agency, National Agriculture Imagery Program (NAIP), via USGS The National Map",
+      "license": "Public Domain"
+    },
+    {
+      "use": "launch site outline, roads",
+      "url": "https://www.openstreetmap.org",
+      "credit": "© OpenStreetMap contributors",
+      "license": "ODbL 1.0"
+    }
+  ],
+  "tiles": {
+    "near": {
+      "heightmap": "terrain_h16.png",
+      "resolution": 2049,
+      "sizeM": 4000.0,
+      "metersPerPixel": 1.9531,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -3.7,
+      "heightMaxM": 8.5,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)",
+      "albedo": "albedo.jpg",
+      "albedoNote": "NAIP colour orthoimage scaled to a sand albedo; launch site (OSM fence) painted as caliche, build field as concrete.",
+      "splat": "splat.png"
+    },
+    "far": {
+      "heightmap": "terrain_far_h16.png",
+      "resolution": 1025,
+      "sizeM": 30000.0,
+      "metersPerPixel": 29.2969,
+      "centerX": 0.0,
+      "centerZ": 0.0,
+      "heightMinM": -39.4,
+      "heightMaxM": 7.3,
+      "decode": "h = heightMinM + v / 65535 * (heightMaxM - heightMinM)"
+    }
+  },
+  "refOrigin": {
+    "x": 400.0,
+    "y": 0.0,
+    "z": 250.0,
+    "note": "position of the REF point (OSM / Starbase model origin) in world coordinates"
+  },
+  "buildArea": {
+    "minX": -1040.0,
+    "minZ": -450.0,
+    "tileM": 20.0,
+    "nx": 48,
+    "nz": 36,
+    "y": 0.862,
+    "note": "graded flat field; tile (i, j) covers x = minX + i·tileM, z = minZ + j·tileM"
+  },
+  "noScatter": [
+    [
+      [
+        210.0,
+        110.0
+      ],
+      [
+        210.0,
+        475.0
+      ],
+      [
+        490.0,
+        475.0
+      ],
+      [
+        495.0,
+        562.0
+      ],
+      [
+        555.0,
+        562.0
+      ],
+      [
+        560.0,
+        475.0
+      ],
+      [
+        815.0,
+        475.0
+      ],
+      [
+        820.0,
+        190.0
+      ],
+      [
+        780.0,
+        150.0
+      ],
+      [
+        550.0,
+        122.0
+      ]
+    ]
+  ],
+  "water": {
+    "levelY": -0.377,
+    "note": "sea, lagoons and tidal channels (hydro-flattened lidar)"
+  },
+  "spawn": {
+    "x": -980.0,
+    "y": 0.862,
+    "z": -90.0,
+    "headingDeg": 90.0,
+    "compassDeg": 90.0,
+    "note": "west end of the build field, facing east towards the launch towers"
+  },
+  "sun": {
+    "azimuthDeg": 140.0,
+    "elevationDeg": 45.0,
+    "note": "late morning in autumn (Starship launch window)",
+    "illuminanceLux": 100000,
+    "colorTempK": 5600,
+    "direction": [
+      0.454519,
+      0.707107,
+      0.541675
+    ]
+  },
+  "detailTextures": {
+    "fine": "sand",
+    "rock": "sand",
+    "dark": "grass_chalk"
+  },
+  "landmarks": [
+    {
+      "file": "starbase.glb",
+      "x": 400.0,
+      "y": 0.537,
+      "z": 250.0,
+      "headingDeg": 0.0,
+      "bake": false,
+      "note": "launch site structures, model origin = REF point"
+    },
+    {
+      "file": "tower_a_lod1.glb",
+      "x": 626.53,
+      "y": 0.537,
+      "z": 346.55,
+      "headingDeg": 3.984,
+      "collider": "box",
+      "bake": false,
+      "note": "integration tower (OSM 968227813), articulated catch arms"
+    },
+    {
+      "file": "tower_b_lod1.glb",
+      "x": 293.28,
+      "y": 0.537,
+      "z": 244.9,
+      "headingDeg": -84.886,
+      "collider": "box",
+      "bake": false,
+      "note": "integration tower (OSM 1207227015), articulated catch arms"
+    },
+    {
+      "file": "starship_stack_lod1.glb",
+      "x": 656.0,
+      "y": 20.537,
+      "z": 344.5,
+      "headingDeg": 3.984,
+      "collider": "box",
+      "bake": false,
+      "note": "Super Heavy + Starship on launch mount a"
+    }
+  ],
+  "rocks": {},
+  "license": "USGS 3DEP and NAIP: public domain; OpenStreetMap: © OpenStreetMap contributors, ODbL"
+}

@@ -121,6 +121,8 @@ export const fr: Messages = {
   'site.earth_stonehenge.subtitle': 'Plaine de Salisbury, cercle de sarsens dans la lumière du matin',
   'site.earth_giza.name': 'Plateau de Gizeh',
   'site.earth_giza.subtitle': 'Khéops, Khéphren, Mykérinos et le Sphinx',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Site de lancement sur le golfe, terrain pour vos propres circuits',
   'site.moon_tranquility.name': 'Base de la Tranquillité',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Rainure de Hadley',

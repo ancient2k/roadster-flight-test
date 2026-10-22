@@ -121,6 +121,8 @@ export const pl: Messages = {
   'site.earth_stonehenge.subtitle': 'Równina Salisbury, krąg sarsenów w porannym świetle',
   'site.earth_giza.name': 'Płaskowyż Giza',
   'site.earth_giza.subtitle': 'Cheops, Chefren, Mykerinos i Sfinks',
+  'site.earth_bocachica.name': 'Boca Chica (Starbase)',
+  'site.earth_bocachica.subtitle': 'Kosmodrom nad Zatoką, plac do budowy własnych tras',
   'site.moon_tranquility.name': 'Baza Spokoju',
   'site.moon_tranquility.subtitle': 'Apollo 11, Mare Tranquillitatis',
   'site.moon_hadley.name': 'Bruzda Hadley',
