@@ -15,7 +15,7 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "paths": { "@shared/*": ["./src/shared/*"], "@sim/*": ["./src/sim/*"] }
   },

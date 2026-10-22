@@ -45,8 +45,16 @@ automatically. A GitHub Pages workflow is in `.github/workflows/pages.yml`.
 fallback. A desktop with a dedicated or Apple-silicon GPU is recommended. Download size: ≈ 21 MB at the start
 (program, car, McGregor), plus 9–16 MB per world.
 
+**Install as an app:** the site is a Progressive Web App. Chrome and Edge (desktop and Android) offer
+*Install* in the address bar or menu; on iPhone and iPad use Safari's *Share → Add to Home Screen*. The app
+starts full-screen in landscape. After one visit it also starts **offline**: the program, the McGregor scene and
+every world you have opened are kept in the browser cache; worlds you have not opened yet need a connection.
+A new version installs in the background and is used from the next start. Details in
+[docs/MOBILE.md](docs/MOBILE.md#install-as-an-app). Phones and tablets get touch controls; see the same page.
+
 URL parameters: `?q=low|medium|high|ultra` (graphics), `?stunt=<id>` (straight into a stunt), `?nomenu`,
-`?webgl`, `?lang=<code>` (UI language, e.g. `?lang=ja`).
+`?webgl`, `?lang=<code>` (UI language, e.g. `?lang=ja`), `?touch` (touch controls on a desktop), `?nosw`
+(removes the offline cache and the service worker).
 
 ## Controls
 
@@ -91,7 +99,8 @@ Settings → Display → Language; `?lang=<code>` overrides both. Numbers and da
 ```bash
 npm run typecheck
 npm test             # Vitest: physics, tank/thrusters/valves, GNC, stunts incl. Monte Carlo and step-size convergence, worlds, UI logic, locales
-npm run test:e2e     # Playwright against the production build: menu, 5 stunts in real time, free play, WebGL2, all worlds, load times, all 14 languages
+npm run test:e2e     # Playwright against the production build: menu, 5 stunts in real time, free play, WebGL2, all worlds, load times, all 14 languages, installable app + offline start
+npx playwright test tests/e2e/mobile --project=phone-small --project=pixel7   # phone emulation: touch controls, HUD layout
 ```
 
 The E2E tests need a browser with a GPU (Playwright starts Chromium with WebGPU); CI therefore runs only the
@@ -109,7 +118,7 @@ type check and Vitest.
 | `src/ui/`, `src/input/`, `src/audio/` | Stream-style HUD, menus, input (keyboard/gamepad), procedural audio |
 | `src/i18n/` | Localisation: `t()`, plurals, number formats, language detection, the 14 locale files |
 | `src/game/` | Game loop, sessions, world switching, Sun dive, orbit of Roadster 1 |
-| `tools/` | Blender scripts for all models, world data pipeline, GNC tools (Monte Carlo, sweeps), web package |
+| `tools/` | Blender scripts for all models, world data pipeline, GNC tools (Monte Carlo, sweeps), web package, service worker + app icons (`tools/pwa/`, `tools/make-icons.mjs`) |
 
 Technical background: [docs/PHYSICS.md](docs/PHYSICS.md) (vehicle, propulsion, control, validation) and
 [docs/RENDERING.md](docs/RENDERING.md) (graphics, worlds, asset pipeline). Known limitations:

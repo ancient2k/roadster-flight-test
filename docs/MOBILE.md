@@ -35,15 +35,29 @@ endless boot screen (the UI language is not loaded at that point).
 - **Touch controls** (`src/ui/touchControls.ts`, `src/input/touch.ts`), visible only on touch
   devices and only while driving:
   - left: floating drive stick (steer; push = throttle, pull = brake) and **Handbrake**;
-  - right: floating attitude stick (yaw; pull = nose up, as on a gamepad), **Lift**, **Down**,
-    **Boost** and the two roll buttons;
+  - right: floating attitude stick (yaw; pull = nose up, as on a gamepad) and a three-row button
+    block: the two roll buttons on top, **Boost** and **Down** on the left, a tall **Lift** at the thumb;
   - top right: **⋯** (tray with assist level, fans, aero, compressor, reverse, launch mode, slow
     motion, photo mode, pause, help), **Cam**, **↺** (reset) and **☰** (menu).
   The overlay writes analog values per control id into `InputManager.touch`; the mapper treats
   them like a gamepad, so every action of `src/input/bindings.ts` is reachable and keyboard or
   gamepad rebinding has no effect on the touch layout. Menus are plain buttons and work by tap.
+- **HUD with touch controls** (`src/ui/hud/Hud.ts`). While the touch overlay is shown, the HUD
+  measures the visible buttons, the stick rests and the stick hints and lays itself out around them:
+  - the gauge row (G-force, attitude sphere, top view, altitude) moves from the screen corners into the
+    lowest band that is free, centred between the sticks; when four gauges do not fit, the top view is
+    left out and the sphere turns into the PITCH ring on a wall;
+  - the readouts top right start below the ⋯ / CAM / ↺ / ☰ bar and get a soft dark backing; in portrait
+    they move below the mode block; the damage view goes next to them when the space down to the
+    button block is too short; the low-air warning sits below the readouts, the 0–60 timer above the gauges;
+  - text keeps a minimum size (readouts ≈ 10 px labels / 16 px values, gauge labels ≥ 9 px);
+  - everything stays inside the safe area (notch, Dynamic Island, home indicator): the overlay and the
+    HUD canvas both use `env(safe-area-inset-*)` through the CSS variables `--rft-sa-*`
+    (`src/ui/touch.css`).
+  Without the touch overlay (desktop, or a menu open) the HUD keeps the stream layout.
 - **Portrait.** A dismissable hint asks to turn the device to landscape. Title menu and HUD are
-  laid out for landscape; the title screen also fits in portrait.
+  laid out for landscape; in portrait the sticks sit side by side left of the button block and the
+  gauge row moves above them, so the game stays usable.
 
 ## Limits
 
@@ -62,9 +76,10 @@ endless boot screen (the UI language is not loaded at that point).
 - The "taking long" hint can appear during one very long download (no completed request for 25 s).
 - A WebGPU device loss *after* the start is not handled here.
 - Menu footers and the help screen still show keyboard hints (the input device is never `touch`).
-- The **⋯** tray covers the top-right HUD readouts while it is open.
+- The **⋯** tray covers the top-right HUD readouts while it is open (it has its own dark panel).
 - No gyro steering, no haptics, no on-screen rebinding for the touch layout.
-- The HUD is sized for desktop; on small phones some secondary readouts are tight.
+- The gauge ring labels (G-FORCE, ALTITUDE, …) stay English like the stream graphics.
+- Safe-area insets are emulated in the tests (`--rft-safe-<side>`), not measured on a real notch.
 
 ## How it was tested
 
@@ -90,10 +105,73 @@ speed and Safari's per-tab memory limit are **not** reproduced.
   ]
   ```
 
-  (WebKit needs `npx playwright install webkit`.) Under the default desktop config the spec
-  forces the touch UI with `?touch` and skips the mobile-only quality check.
+  (WebKit needs `npx playwright install webkit`.) `playwright.config.ts` has these phone projects;
+  they only run the `mobile*` specs:
+
+  | Project | Device | Landscape viewport | Browser |
+  |---|---|---|---|
+  | `phone-small` | iPhone SE (3rd gen) | 667 × 375 | Chromium |
+  | `galaxy` | Galaxy S24 | 780 × 360 | Chromium |
+  | `pixel7` | Pixel 7 | 839 × 412 | Chromium |
+  | `iphone-max` | iPhone 15 Pro Max, notch emulated | 739 × 430 | WebKit |
+
+  ```bash
+  PORT=4640 npx playwright test tests/e2e/mobile --project=phone-small --project=galaxy --project=pixel7 --project=iphone-max
+  ```
+
+  Under the `desktop` project the spec forces the touch UI with `?touch` and skips the mobile-only
+  quality check.
+- `tests/e2e/mobile-hud.spec.ts` (“mobile HUD layout”): free play in landscape (English, German,
+  Russian, French, Japanese) and portrait, the ⋯ tray, pause and settings menus. It checks
+  geometrically that no HUD group (`Hud.layoutBoxes()`) overlaps another one or a touch control, that
+  stick rests and hints do not run into the buttons, that nothing leaves the screen and that no button
+  label is clipped. Screenshots go to `$RFT_SHOTS` (`hud-<project>-<view>.png`).
 - Unit tests: `tests/ui/touch.test.ts` (stick mapping, touch → mapper, every control reachable,
   device classification, mobile caps).
 
 Debug switches: `?touch` forces the touch UI on desktop, `?q=low`, `?webgl` force quality and
-renderer, `?bootslow=<s>` shortens the stall hint thresholds.
+renderer, `?bootslow=<s>` shortens the stall hint thresholds, `?nosw` removes the service worker and
+its caches.
+
+## Install as an app
+
+The site is a Progressive Web App: `public/manifest.json` (name *Roadster Flight Test*, short name
+*Roadster FT*, full-screen, landscape, black), own icons in `public/icons/` (192, 512, maskable 512,
+180 for iOS, SVG; regenerate with `node tools/make-icons.mjs`) and a small hand-written service worker
+(no Workbox / vite-plugin-pwa).
+
+- **Chrome / Edge** (Windows, macOS, Linux, Android): *Install* in the address bar or the menu
+  (Android: *Add to Home screen* → *Install*). Verified with Chromium's own installability check
+  (`Page.getInstallabilityErrors` is empty, `tests/e2e/pwa.spec.ts`).
+- **iPhone / iPad**: Safari → *Share* → *Add to Home Screen*. `index.html` carries
+  `apple-touch-icon`, `apple-mobile-web-app-capable`, `-title` and a black-translucent status bar.
+  iOS has no install prompt and ignores the manifest orientation; the app opens without browser UI.
+- Paths are relative (`start_url`, `scope` and `id` are `./`, the worker is `./sw.js`), so the app works
+  on GitHub Pages in `/roadster-flight-test/` and from the web ZIP in any folder of any web server.
+  Service workers need HTTPS (or `localhost`); over plain HTTP or `file://` the game runs without one.
+
+**Service worker** (`tools/pwa/sw.template.js`, written as `sw.js` into the build output by the Vite
+plugin `tools/pwa/plugin.ts`; registered by `src/pwa/register.ts`):
+
+| What | Cache | Strategy |
+|---|---|---|
+| `index.html`, manifest, icons, fonts, hashed JS/CSS/workers in `assets/` (6.4 MB, ~2.5 MB over gzip) | `rft-shell-<build hash>` | precached on install; cache first; any `?query` gets the cached page |
+| everything under `assets/<folder>/` (car, McGregor scene, textures, worlds, props; 147 files) | `rft-assets` | cached on first use, key = URL + content hash of the file |
+| other files (licence texts, `LIESMICH.txt`) | – | network |
+
+- The worker registers only after the game is ready, so the precache does not slow the first start.
+  On the first visit the page loaded its files before the worker existed; the worker then copies those
+  files into its cache (mostly from the HTTP cache), so the next start is already offline-capable.
+- **Versions:** the plugin hashes every file at build time. A new deploy gets a new shell cache (the old
+  one is deleted) and keeps every asset whose content did not change; changed assets are dropped and
+  fetched again when needed. The new worker installs in the background during a visit and waits; at the
+  next start `register.ts` activates it and reloads the page once, so that start already runs the new
+  build with matching assets (a version is never mixed with the other's files in one session).
+- **Offline after one visit:** title menu, free play, the stunts at McGregor and every world that was
+  opened online at least once. Worlds never opened need a connection. The browser may evict the
+  cache when storage runs low; Safari also clears the data of a site not used for 7 days unless it
+  was added to the home screen.
+- **Boot screen:** files from the worker report `transferSize` 0 in Resource Timing; `index.html`
+  counts their body size instead (`encodedBodySize`, else `decodedBodySize`), so the MB figure and the
+  bar move on cached starts as well (it shows the amount loaded, not network traffic).
+- `?nosw` unregisters the worker and deletes its caches (debugging).
