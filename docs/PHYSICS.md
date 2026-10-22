@@ -129,8 +129,9 @@ stream (660–735 s) showed that the automatic director, not the physics, made t
 - The 5.5° long lens behind the ramp foot (`wall_rear`) had a zone that covered the whole ramp, so it held the entire
   10 s hang (the underside filling the frame) and the whole drop, half roll and landing of the launch (the car, then
   only its cloud). The stream uses it only while the car stands at the foot; it now gives up the car above 2.5 m.
-  The high wide angle (`wall_wide`) looked onto the top of the overhang with the hanging car hidden underneath; it is
-  now for the run-up only. The hang stays on the locked-off wide shot (`wall_side`) like the stream, the launch cuts
+  The high wide angle (`wall_wide`) looked onto the top of the overhang with the hanging car hidden underneath; it now
+  gives up the car above 8 m (run-up, and a short insert on the lower wall on the way down). The climb and the hang
+  stay on the locked-off wide shot (`wall_side`) like the stream, the launch cuts
   to the landing camera as the car drops off the overhang (stream 726 s) and keeps it through the rollout.
 - The hang no longer has a landing camera (the stream has none; it caused cuts 1.2 s apart at the foot).
 - The chase camera swung round to the front of the car whenever the reversing speed crossed 3 m/s on the way down

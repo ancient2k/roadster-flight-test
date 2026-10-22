@@ -144,7 +144,7 @@ export const BROADCAST_SHOTS: BroadcastShot[] = [
   // down): up the wall the long lens would show nothing but the underside filling the frame (hang, drop).
   { id: 'wall_rear', site: 'ramp_hang', label: 'Rampe von hinten', pos: { x: wall.origin.x - 1.0, y: 2.0, z: wall.origin.z - 32 }, lookAt: null, fovDeg: 5.5, trackCar: true, ev: -1.0,
     maxCarY: 2.5, zone: { c: { x: wall.origin.x, y: 0, z: wall.origin.z - 6 }, r: 9 } },
-  // High wide angle for the run-up only: from 24 m up it looks onto the top of the overhang, the car hanging
+  // High wide angle, only while the car is low: from 24 m up it looks onto the top of the overhang, the car hanging
   // underneath it is hidden (the stream holds the locked-off wide shot for the whole hang).
   { id: 'wall_wide', site: 'ramp_hang', label: 'Rampe total', pos: { x: wall.origin.x - 38, y: 24, z: wall.origin.z - 40 }, lookAt: null, fovDeg: 42, trackCar: true, maxCarY: 8 },
   // Kickflip over the semi: broadside from the far side like t_963, plus a low tracking shot.
