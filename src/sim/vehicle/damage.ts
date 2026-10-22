@@ -1,4 +1,5 @@
-// Vehicle damage model (setting "Vehicle damage: Realistic"). Off = previous behaviour, untouched.
+// Vehicle damage model (setting "Vehicle damage": Off / Visual / Full = mode 'realistic'). Off = previous
+// behaviour, untouched. Visual = dents and torn-off parts only (the car drives as if intact, collision rule of Off).
 //
 // Input: the chassis contacts the kernel records per step (RoadsterSim.bodyContacts: body-frame point,
 // direction into the car, approach speed before/after the step, solver impulse) and the landings of the
@@ -9,15 +10,17 @@
 //
 // Output: permanent crush per zone (Campbell crush stiffness), dents for the renderer, functional damage fed
 // into the vehicle through narrow hooks — VehicleBus.damage (chassis: toe / grip / lost wheel, fans: skirt
-// leak, aero: wing downforce) and Propulsion.thrustScale / leakAreaM2 — torn-off parts as Rapier bodies like
-// the R12 props, and the total-loss decision (state.crashed). Everything is deterministic (no random numbers).
+// leak, aero: wing/diffuser downforce, total loss: drive and fans dead) and Propulsion.thrustScale / leakAreaM2 —
+// torn-off parts as Rapier bodies (momentum-conserving release, the car loses their mass), and the total-loss
+// decision (state.crashed). Everything is deterministic (no random numbers).
 import { RAPIER, type BodyContact, type ForceModule, type RoadsterSim, type StepContext } from '@sim/core/roadsterSim';
 import { GROUP_PROP, GROUP_WORLD, groups } from '@sim/core/world';
 import { ROADSTER } from '@shared/roadster';
 import { DEG, clamp, qaxisAngle, qrot, v3, type Quat, type Vec3 } from '@shared/math';
 import type { VehicleState } from '@shared/types';
 import {
-  DAMAGE_ZONES, intactDamage, type DamageMode, type DamageState, type DamageZone, type Dent, type DetachablePart,
+  DAMAGE_ZONES, DETACHABLE_PARTS, PART_GEOMETRY, inBox, intactDamage,
+  type DamageMode, type DamageState, type DamageZone, type Dent, type DetachablePart,
 } from '@shared/damage';
 import type { VehicleBus } from './bus';
 import type { IntegrityModule } from './integrity';
@@ -88,18 +91,61 @@ export const NOZZLE_DMG = {
  *  quadrant leaks like an extra 20 mm gap along its whole length (5× the sealed gap → suction mostly gone). */
 export const SKIRT_DMG = { maxY: -0.1, yieldJ: 1_000, fullJ: 10_000, extraGapM: 0.02 };
 
-/** Rear wing on carbon struts [EST]: torn off above breakJ near it; without it the car keeps ≈ 30 % of the
- *  downforce (body + diffuser, ROADSTER.aero.clA lowDrag 0.40 vs highDownforce 2.60 m²). */
-export const WING_DMG = { breakJ: 2_000, minZ: -2.3, maxZ: -0.9, minY: 0.3, downforceScale: 0.3 };
+/** Rear wing on carbon struts [EST]: without it the car keeps ≈ 30 % of the downforce (body + diffuser,
+ *  ROADSTER.aero.clA lowDrag 0.40 vs highDownforce 2.60 m²); without the diffuser another 15 % is gone. */
+export const WING_DMG = { downforceScale: 0.3, diffuserDownforceScale: 0.85 };
 
-/** Debris bodies (torn-off parts): mass (kg), origin = node origin of the car model (body frame). */
-const PARTS: Record<DetachablePart, { massKg: number; origin: Vec3 }> = {
-  Wing: { massKg: 9, origin: { x: 0, y: 0.46, z: -1.5 } },
-  Wheel_FL: { massKg: 32, origin: { ...ROADSTER.wheels[0].pos } },   // 21" wheel + tyre + hub/brake ≈ 32 kg
-  Wheel_FR: { massKg: 32, origin: { ...ROADSTER.wheels[1].pos } },
-  Wheel_RL: { massKg: 34, origin: { ...ROADSTER.wheels[2].pos } },
-  Wheel_RR: { massKg: 34, origin: { ...ROADSTER.wheels[3].pos } },
+/**
+ * Detachable parts [EST, engineering reasoning]: mass (kg) and the impact energy (J) absorbed within the part's
+ * box (PART_GEOMETRY, + HIT_MARGIN_M) at which its mounts fail. Mount loads: carbon wing struts and bumper
+ * clips/brackets give way at a few kJ (bumper systems are sized for the 4–8 km/h tests, ECE R42 / 49 CFR 581:
+ * ≈ 1–4 kJ without damage; a front fascia is usually torn off from ≈ 15–20 km/h on), door hinges and latch
+ * (FMVSS 206: ≈ 11 kN longitudinal per hinge) take ≈ 10 kJ of side intrusion, the diffuser and the brass bells
+ * of the main nozzles on their brackets less. Wheels are torn off by the suspension-link model (WHEEL_DMG.fullJ).
+ * Masses: 21" wheel + tyre + hub/brake ≈ 32–34 kg, carbon door with glass ≈ 15 kg.
+ */
+export const PART_DMG: Record<DetachablePart, { massKg: number; breakJ: number }> = {
+  Wing: { massKg: 9, breakJ: 2_000 },
+  Door_L: { massKg: 15, breakJ: 10_000 },
+  Door_R: { massKg: 15, breakJ: 10_000 },
+  Bumper_F: { massKg: 7, breakJ: 5_000 },
+  Bumper_R: { massKg: 6, breakJ: 4_000 },
+  Diffuser: { massKg: 5, breakJ: 3_000 },
+  NozzleCover_L: { massKg: 1.2, breakJ: 1_500 },
+  NozzleCover_R: { massKg: 1.2, breakJ: 1_500 },
+  Wheel_FL: { massKg: 32, breakJ: Infinity },
+  Wheel_FR: { massKg: 32, breakJ: Infinity },
+  Wheel_RL: { massKg: 34, breakJ: Infinity },
+  Wheel_RR: { massKg: 34, breakJ: Infinity },
 };
+/** Contacts within this distance of a part's box load the part (the hull is a coarse convex hull). */
+export const HIT_MARGIN_M = 0.1;
+/** Nozzles (ROADSTER.nozzles indices) whose brass bell is the cover: torn off → bell gone (damage 1). */
+const COVER_NOZZLES: Partial<Record<DetachablePart, number[]>> = { NozzleCover_L: [0, 1], NozzleCover_R: [2, 3] };
+
+/**
+ * Release of a torn-off part: it keeps the velocity of its attachment point plus a kick away from the car
+ * (outward + up) whose energy is a share `kickShare` of the impact energy beyond the break energy,
+ * ½·m·Δv² = kickShare·(E − E_break), limited to `kickMaxMs`; at least `kickMinMs`. The car gets the reaction
+ * impulse −m·Δv and loses the part's mass (momentum conserved).
+ */
+export const RELEASE = { kickShare: 0.01, kickMinMs: 1.2, kickMaxMs: 7 };
+/**
+ * Debris limits (performance and clutter): at most MAX_DEBRIS bodies (the oldest goes first), each one removed
+ * after DEBRIS_LIFE_S or when it has fallen far below the car (off the world). Resting debris sleeps in Rapier.
+ */
+export const MAX_DEBRIS = 8;
+export const DEBRIS_LIFE_S = 45;
+
+/**
+ * Total loss (mode 'realistic'): structural integrity = 1 − severity (the worst zone's crush relative to its
+ * critical crush, CRUSH.criticalM); below integrityMin the survival cell / drive train has failed. Also a total
+ * loss: a heavy hit — more than heavyHitJ absorbed within hitWindowS (≈ 1.7 t at 50 km/h into a rigid wall,
+ * beyond any crush a road car's drive train survives) —, maxWheelsLost torn-off wheels (the car sits on its
+ * floor) and a rollover onto the roof/side. Then drive, fans and nozzles are dead until the reset.
+ */
+export const TOTAL_LOSS = { integrityMin: 0.02, heavyHitJ: 160_000, hitWindowS: 0.25, maxWheelsLost: 2 };
+
 const WHEEL_PART: DetachablePart[] = ['Wheel_FL', 'Wheel_FR', 'Wheel_RL', 'Wheel_RR'];
 const MAX_DENTS = 24;
 /** Wheels touching down within this time after the first one belong to the same landing. */
@@ -110,14 +156,15 @@ const d01 = (e: number, y: number, f: number) => clamp((e - y) / (f - y), 0, 1);
 
 /** Zone of a body-frame contact point with direction `dir` (into the car). */
 export function zoneOf(p: Vec3, dir: Vec3): DamageZone {
-  if (p.y > 0.45) return 'roof';
+  // above the beltline: the roof spans the cabin (hull z ≈ −0.95 … 0.55); behind it sit the deck and the wing
+  if (p.y > 0.45) return p.z < -1.0 ? 'rear' : 'roof';
   if (p.y < -0.2 && dir.y > 0.6) return 'underbody';
   if (p.z > 1.6) return 'front';
   if (p.z < -1.65) return 'rear';
   return p.x >= 0 ? 'left' : 'right';
 }
 
-interface Debris { part: DetachablePart; body: RAPIER.RigidBody }
+interface Debris { part: DetachablePart; body: RAPIER.RigidBody; massKg: number; t0: number }
 
 export class DamageModule implements ForceModule {
   readonly name = 'damage';
@@ -131,8 +178,11 @@ export class DamageModule implements ForceModule {
   private wheelBend = [0, 0, 0, 0];      // signed bending energy (sign = toe direction)
   private nozzleE = new Array(ROADSTER.nozzles.length).fill(0);
   private skirtE = [0, 0, 0, 0];
-  private wingE = 0;
+  private partE: Record<DetachablePart, number> = Object.fromEntries(DETACHABLE_PARTS.map((p) => [p, 0])) as Record<DetachablePart, number>;
   private debris: Debris[] = [];
+  private hitE = 0;
+  private hitT0 = -Infinity;
+  private t = 0;
   private landing: { t: number; sinkMs: number } | null = null;
   private landingCharged = [false, false, false, false];
   // per-step scratch
@@ -142,23 +192,29 @@ export class DamageModule implements ForceModule {
 
   constructor(bus: VehicleBus, integrity: IntegrityModule) { this.bus = bus; this.integrity = integrity; }
 
+  /** Functional effects and total loss (mode 'realistic' = "Full"); 'visual' only shows dents and debris. */
+  get functional(): boolean { return this.mode === 'realistic'; }
+
   /** Switch the model on/off; takes full effect with the next sim.reset() (repair). */
   setMode(sim: RoadsterSim, mode: DamageMode): void {
     this.mode = mode;
     this.state.mode = mode;
-    const on = mode === 'realistic';
-    sim.recordBodyContacts = on;
-    sim.impactCrash = !on;
-    this.integrity.crashOnHardLanding = !on;
+    sim.recordBodyContacts = mode !== 'off';
+    // 'visual' keeps the collision rule of 'off' (a hard body impact / hard landing is a crash)
+    sim.impactCrash = !this.functional;
+    this.integrity.crashOnHardLanding = !this.functional;
   }
 
   reset(sim: RoadsterSim): void {
     for (const d of this.debris) sim.world.removeRigidBody(d.body);
     this.debris = [];
+    sim.setDetachedMass(0);
+    for (const p of DETACHABLE_PARTS) this.partE[p] = 0;
+    this.hitE = 0; this.hitT0 = -Infinity; this.t = 0;
     Object.assign(this.state, intactDamage(this.mode));
     for (const z of DAMAGE_ZONES) this.zoneE[z] = 0;
     this.dentE = [];
-    this.wheelE.fill(0); this.wheelBend.fill(0); this.nozzleE.fill(0); this.skirtE.fill(0); this.wingE = 0;
+    this.wheelE.fill(0); this.wheelBend.fill(0); this.nozzleE.fill(0); this.skirtE.fill(0);
     this.landing = null; this.landingCharged.fill(false);
     this.bus.damage.reset();
     sim.propulsion.thrustScale.fill(1);
@@ -169,13 +225,14 @@ export class DamageModule implements ForceModule {
   apply(_ctx: StepContext): void { /* effects reach the vehicle through bus.damage and the propulsion hooks */ }
 
   writeState(state: VehicleState, sim: RoadsterSim): void {
-    if (this.mode !== 'realistic') { state.damage = undefined; return; }
+    if (this.mode === 'off') { state.damage = undefined; return; }
     state.damage = this.state;
     const ds = this.state;
+    this.t = state.t;
     if (sim.bodyContacts.length) this.absorbContacts(sim, sim.bodyContacts);
     this.absorbLanding(state);
     this.updateFunctions(sim);
-    this.updateDebris();
+    this.updateDebris(sim);
     ds.leakKgS = sim.propulsion.leakKgS;
     if (ds.totalLoss) state.crashed = true;
   }
@@ -198,6 +255,10 @@ export class DamageModule implements ForceModule {
       sp.x += e * c.p.x; sp.y += e * c.p.y; sp.z += e * c.p.z;
       sd.x += e * c.dir.x; sd.y += e * c.dir.y; sd.z += e * c.dir.z;
       ds.energyJ += e;
+      if (this.t - this.hitT0 > TOTAL_LOSS.hitWindowS) { this.hitT0 = this.t; this.hitE = 0; }
+      this.hitE += e;
+      // detachable parts (wheels: see the links below)
+      for (const part of DETACHABLE_PARTS) if (PART_DMG[part].breakJ < Infinity && inBox(PART_GEOMETRY[part].box, c.p, HIT_MARGIN_M)) this.partE[part] += e;
       // wheels / links
       for (let i = 0; i < 4; i++) {
         const w = ROADSTER.wheels[i].pos;
@@ -219,11 +280,16 @@ export class DamageModule implements ForceModule {
       }
       // skirts
       if (c.p.y < SKIRT_DMG.maxY) this.skirtE[(c.p.x >= 0 ? 0 : 1) + (c.p.z >= -0.1 ? 0 : 2)] += e;
-      // wing
-      if (c.p.z < WING_DMG.maxZ && c.p.z > WING_DMG.minZ && c.p.y > WING_DMG.minY) this.wingE += e;
     }
     for (const z of DAMAGE_ZONES) if (this.stepE[z] > 0) this.addZoneEnergy(z);
-    if (rollover && !ds.totalLoss) { ds.totalLoss = true; ds.rev++; }
+    if (rollover || this.hitE > TOTAL_LOSS.heavyHitJ) this.writeOff();
+  }
+
+  /** Total loss (mode 'realistic' only): drive, fans and nozzles dead until the reset. */
+  private writeOff(): void {
+    const ds = this.state;
+    if (!this.functional || ds.totalLoss) return;
+    ds.totalLoss = true; ds.rev++;
   }
 
   private addZoneEnergy(z: DamageZone): void {
@@ -267,7 +333,6 @@ export class DamageModule implements ForceModule {
     }
     if (changed) ds.rev++;
     ds.severity = Math.max(...DAMAGE_ZONES.map((k) => ds.zones[k]));
-    if (ds.severity >= 1 && !ds.totalLoss) { ds.totalLoss = true; ds.rev++; }
   }
 
   // ------------------------------------------------------------------ hard landings → suspension links
@@ -292,66 +357,125 @@ export class DamageModule implements ForceModule {
 
   // ------------------------------------------------------------------ energies → functions
   private updateFunctions(sim: RoadsterSim): void {
-    const ds = this.state, bd = this.bus.damage;
+    const ds = this.state, bd = this.bus.damage, fx = this.functional;
     for (let i = 0; i < 4; i++) {
       const d = d01(this.wheelE[i], WHEEL_DMG.yieldJ, WHEEL_DMG.fullJ);
       ds.wheels[i] = d;
       const bend = d01(Math.abs(this.wheelBend[i]), WHEEL_DMG.yieldJ, WHEEL_DMG.fullJ);
       ds.toeDeg[i] = Math.sign(this.wheelBend[i]) * WHEEL_DMG.maxToeDeg * bend;
+      // 'visual': a torn-off wheel would leave the car standing on an invisible one → wheels stay on
+      if (d >= 1 && !ds.wheelLost[i] && fx) { ds.wheelLost[i] = true; this.detach(sim, WHEEL_PART[i], this.wheelE[i] - WHEEL_DMG.fullJ); }
+      if (!fx) continue;
       bd.toeRad[i] = ds.toeDeg[i] * DEG;
       bd.gripScale[i] = 1 - WHEEL_DMG.gripLoss * d;
-      if (d >= 1 && !ds.wheelLost[i]) { ds.wheelLost[i] = true; bd.wheelLost[i] = 1; this.detach(sim, WHEEL_PART[i]); }
+      bd.wheelLost[i] = ds.wheelLost[i] ? 1 : 0;
+    }
+    for (const part of DETACHABLE_PARTS) {
+      const spec = PART_DMG[part];
+      if (spec.breakJ === Infinity || ds.lost.includes(part) || this.partE[part] <= spec.breakJ) continue;
+      for (const n of COVER_NOZZLES[part] ?? []) this.nozzleE[n] = Math.max(this.nozzleE[n], NOZZLE_DMG.fullJ);
+      if (part === 'Wing') ds.wingLost = true;
+      this.detach(sim, part, this.partE[part] - spec.breakJ);
     }
     let leak = 0;
     for (let i = 0; i < ROADSTER.nozzles.length; i++) {
       const d = d01(this.nozzleE[i], NOZZLE_DMG.yieldJ, NOZZLE_DMG.fullJ);
       ds.nozzles[i] = d;
-      sim.propulsion.thrustScale[i] = 1 - NOZZLE_DMG.thrustLoss * d;
+      if (fx) sim.propulsion.thrustScale[i] = ds.totalLoss ? 0 : 1 - NOZZLE_DMG.thrustLoss * d;
       leak += d * d * (NOZZLE_DMG.leakAreaM2[ROADSTER.nozzles[i].group] ?? 0);
     }
-    sim.propulsion.leakAreaM2 = leak;
+    if (fx) sim.propulsion.leakAreaM2 = leak;
     for (let q = 0; q < 4; q++) {
       const d = d01(this.skirtE[q], SKIRT_DMG.yieldJ, SKIRT_DMG.fullJ);
       ds.skirts[q] = d;
-      bd.skirtLeakM[q] = SKIRT_DMG.extraGapM * d;
+      if (fx) bd.skirtLeakM[q] = SKIRT_DMG.extraGapM * d;
     }
-    if (!ds.wingLost && this.wingE > WING_DMG.breakJ) { ds.wingLost = true; this.detach(sim, 'Wing'); }
-    bd.downforceScale = ds.wingLost ? WING_DMG.downforceScale : 1;
+    // structural integrity → total loss
+    ds.integrity = clamp(1 - ds.severity, 0, 1);
+    if (ds.integrity < TOTAL_LOSS.integrityMin || ds.wheelLost.filter(Boolean).length >= TOTAL_LOSS.maxWheelsLost) this.writeOff();
+    if (!fx) return;
+    bd.downforceScale = (ds.wingLost ? WING_DMG.downforceScale : 1) * (ds.lost.includes('Diffuser') ? WING_DMG.diffuserDownforceScale : 1);
+    bd.powerOff = ds.totalLoss;
   }
 
   // ------------------------------------------------------------------ torn-off parts
-  private detach(sim: RoadsterSim, part: DetachablePart): void {
-    const spec = PARTS[part];
+  /**
+   * Tear a part off: a dynamic Rapier body at the part's pose with the velocity of its attachment point plus a
+   * kick away from the car (RELEASE). Mode 'realistic': the car loses the part's mass and takes the reaction
+   * impulse, so the total momentum is unchanged.
+   */
+  private detach(sim: RoadsterSim, part: DetachablePart, surplusJ: number): void {
+    const geo = PART_GEOMETRY[part], massKg = PART_DMG[part].massKg;
     const q = sim.body.rotation() as Quat;
-    const pos = sim.toWorld(spec.origin);
-    const v = sim.pointVelocity(pos);
-    // thrown outward/upward a little (the joint fails under the impact load) – deterministic
-    const out = qrot(q, { x: spec.origin.x > 0.1 ? 1.2 : spec.origin.x < -0.1 ? -1.2 : 0, y: 0.8, z: spec.origin.x === 0 ? -0.8 : 0 });
+    const pos = sim.toWorld(geo.origin);
+    const vp = sim.pointVelocity(pos);
+    // kick direction (body frame): away from the car's centre in the horizontal plane, and up
+    const o = geo.origin;
+    const side = Math.abs(o.x) > 0.3 ? Math.sign(o.x) : 0;
+    const kb = { x: side, y: 0.9, z: side === 0 ? Math.sign(o.z) : 0 };
+    const kl = Math.hypot(kb.x, kb.y, kb.z);
+    const dv = clamp(Math.sqrt((2 * RELEASE.kickShare * Math.max(0, surplusJ)) / massKg), RELEASE.kickMinMs, RELEASE.kickMaxMs);
+    const kick = qrot(q, { x: (kb.x / kl) * dv, y: (kb.y / kl) * dv, z: (kb.z / kl) * dv });
     const w = sim.body.angvel();
     const g = groups(GROUP_PROP, GROUP_WORLD | GROUP_PROP);   // world + props, never the car (no snagging)
     const body = sim.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(pos.x, pos.y, pos.z).setRotation(q)
-      .setLinvel(v.x + out.x, v.y + out.y, v.z + out.z).setAngvel({ x: w.x, y: w.y, z: w.z })
-      .setCcdEnabled(true).setLinearDamping(0.05).setAngularDamping(0.2));
-    const desc = part === 'Wing'
-      ? RAPIER.ColliderDesc.cuboid(0.75, 0.05, 0.2).setTranslation(0, 0.02, -0.25)
-      : RAPIER.ColliderDesc.cylinder(ROADSTER.wheels[WHEEL_PART.indexOf(part)].width / 2, ROADSTER.wheels[WHEEL_PART.indexOf(part)].radius)
-        .setRotation(qaxisAngle({ x: 0, y: 0, z: 1 }, 90 * DEG));
-    sim.world.createCollider(desc.setMass(spec.massKg).setFriction(0.8).setRestitution(0.2).setCollisionGroups(g).setSolverGroups(g), body);
-    this.debris.push({ part, body });
+      .setLinvel(vp.x + kick.x, vp.y + kick.y, vp.z + kick.z).setAngvel({ x: w.x, y: w.y, z: w.z })
+      .setCcdEnabled(true).setLinearDamping(0.05).setAngularDamping(0.3));
+    const wi = WHEEL_PART.indexOf(part);
+    const c = geo.center ?? { x: 0, y: 0, z: 0 };
+    const desc = wi >= 0
+      ? RAPIER.ColliderDesc.cylinder(ROADSTER.wheels[wi].width / 2, ROADSTER.wheels[wi].radius).setRotation(qaxisAngle({ x: 0, y: 0, z: 1 }, 90 * DEG))
+      : RAPIER.ColliderDesc.cuboid(geo.half.x, geo.half.y, geo.half.z).setTranslation(c.x, c.y, c.z);
+    sim.world.createCollider(desc.setMass(massKg).setFriction(0.8).setRestitution(0.2).setCollisionGroups(g).setSolverGroups(g), body);
+    if (this.functional) this.recoil(sim, pos, massKg, vp, kick);
+    this.debris.push({ part, body, massKg, t0: this.t });
+    this.state.lost.push(part);
     this.state.debris.push({ part, pos: { ...pos }, quat: { ...q } });
+    this.state.rev++;
+    if (this.debris.length > MAX_DEBRIS) this.removeDebris(sim, 0);
+  }
+
+  /** Momentum balance of a release: M·v = (M − m)·v' + m·(v_p + Δv); angular part from the kick impulse. */
+  private recoil(sim: RoadsterSim, pos: Vec3, m: number, vp: Vec3, kick: Vec3): void {
+    const M = sim.getState().massKg;
+    const v = sim.body.linvel();
+    sim.setDetachedMass(sim.detachedMassKg + m);
+    const M1 = M - m;
+    sim.body.setLinvel({
+      x: (M * v.x - m * (vp.x + kick.x)) / M1,
+      y: (M * v.y - m * (vp.y + kick.y)) / M1,
+      z: (M * v.z - m * (vp.z + kick.z)) / M1,
+    }, true);
+    const com = sim.comWorld();
+    const r = { x: pos.x - com.x, y: pos.y - com.y, z: pos.z - com.z };
+    const j = { x: -m * kick.x, y: -m * kick.y, z: -m * kick.z };
+    sim.body.applyTorqueImpulse({ x: r.y * j.z - r.z * j.y, y: r.z * j.x - r.x * j.z, z: r.x * j.y - r.y * j.x }, true);
+  }
+
+  private removeDebris(sim: RoadsterSim, i: number): void {
+    sim.world.removeRigidBody(this.debris[i].body);
+    this.debris.splice(i, 1);
+    this.state.debris.splice(i, 1);
     this.state.rev++;
   }
 
-  private updateDebris(): void {
-    for (let i = 0; i < this.debris.length; i++) {
-      const b = this.debris[i].body, d = this.state.debris[i];
-      const p = b.translation(), r = b.rotation();
+  private updateDebris(sim: RoadsterSim): void {
+    const carY = sim.body.translation().y;
+    for (let i = this.debris.length - 1; i >= 0; i--) {
+      const b = this.debris[i].body;
+      const p = b.translation();
+      if (this.t - this.debris[i].t0 > DEBRIS_LIFE_S || p.y < carY - 200) { this.removeDebris(sim, i); continue; }
+      const d = this.state.debris[i], r = b.rotation();
       d.pos.x = p.x; d.pos.y = p.y; d.pos.z = p.z;
       d.quat.x = r.x; d.quat.y = r.y; d.quat.z = r.z; d.quat.w = r.w;
     }
   }
 
+  /** Test/diagnostic access: the debris bodies (part, Rapier body, mass). */
+  debrisBodies(): ReadonlyArray<{ part: DetachablePart; body: RAPIER.RigidBody; massKg: number }> { return this.debris; }
+  /** Test/diagnostic access: impact energy absorbed within a part's box (J). */
+  partEnergy(part: DetachablePart): number { return this.partE[part]; }
   /** Test/diagnostic access: absorbed energy per zone (J). */
   zoneEnergy(z: DamageZone): number { return this.zoneE[z]; }
   /** Test hook: deposit energy at a body-frame point as if a contact had absorbed it (direction into the car). */
@@ -359,5 +483,6 @@ export class DamageModule implements ForceModule {
     const vn = 2;
     this.absorbContacts(sim, [{ p, dir, vnPre: vn, vnPost: 0, impulse: energyJ / (0.5 * vn), prop: false }]);
     this.updateFunctions(sim);
+    this.updateDebris(sim);
   }
 }

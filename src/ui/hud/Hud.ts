@@ -5,7 +5,7 @@ import type { AssistLevel, StuntId, TelemetryFrame, VehicleState } from '../../s
 import { ROADSTER } from '../../shared/roadster';
 import { DISPLAY_FONT, loadFonts } from '../fonts';
 import { AERO_LABEL, ASSIST_LABEL, FAN_LABEL, airWarning, phaseLabel, stuntInfo } from '../labels';
-import { t, upper } from '../../i18n';
+import { getLocale, t, upper } from '../../i18n';
 import * as U from '../units';
 import { ARC_SWEEP_DEG, LAYOUT, REF_H, SCALES, fillAngleRad, follow, fraction, hudScale } from './gaugeMath';
 import { CAR_FACES, HeadingTracker, SPHERE_CAMERA, paintMesh, removeYaw } from './carModel';
@@ -33,6 +33,8 @@ export interface HudContext {
   scale?: number;
   /** Show the extra (non-stream) panels. */
   extras?: boolean;
+  /** Bindings of the reset control (keyboard · gamepad · touch) for the "destroyed" banner. */
+  resetHint?: string;
 }
 
 const COLORS = {
@@ -57,6 +59,9 @@ export class Hud {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private flashEl: HTMLDivElement;
+  /** Total loss (vehicle damage "Full"): persistent "Destroyed – reset" banner. */
+  private destroyedEl: HTMLDivElement;
+  private destroyedKey = '';
   private art: HTMLCanvasElement = document.createElement('canvas');
   private panel: HTMLCanvasElement = document.createElement('canvas');
   private ro: ResizeObserver;
@@ -84,7 +89,11 @@ export class Hud {
     this.flashEl.className = 'rft-flash';
     this.flashEl.setAttribute('role', 'status');
     this.flashEl.setAttribute('aria-live', 'polite');
-    this.el.append(this.canvas, this.flashEl);
+    this.destroyedEl = document.createElement('div');
+    this.destroyedEl.className = 'rft-destroyed';
+    this.destroyedEl.setAttribute('role', 'alert');
+    this.destroyedEl.hidden = true;
+    this.el.append(this.canvas, this.flashEl, this.destroyedEl);
     root.appendChild(this.el);
     this.ctx = this.canvas.getContext('2d', { alpha: true })!;
     this.ro = new ResizeObserver(() => this.resize());
@@ -152,6 +161,19 @@ export class Hud {
 
     const timerValue = this.updateTimer(tel, ctx);
     this.draw(tel, state, ctx, timerValue);
+    this.updateDestroyed(!!state.damage?.totalLoss, ctx.resetHint ?? '');
+  }
+
+  /** "Destroyed – reset" banner while the car is a total loss (DOM, so it stays crisp and is announced). */
+  private updateDestroyed(on: boolean, hint: string): void {
+    if (this.destroyedEl.hidden === !on && (!on || this.destroyedKey === hint + getLocale())) return;
+    this.destroyedEl.hidden = !on;
+    if (!on) return;
+    this.destroyedKey = hint + getLocale();
+    const b = document.createElement('b'), sp = document.createElement('span');
+    b.textContent = upper(t('damage.destroyed'));
+    sp.textContent = t('damage.resetHint', { keys: hint });
+    this.destroyedEl.replaceChildren(b, sp);
   }
 
   private deriveLayout(tel: TelemetryFrame, state: Readonly<VehicleState>, ctx: HudContext): HudLayout {

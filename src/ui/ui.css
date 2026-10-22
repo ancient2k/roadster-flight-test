@@ -27,4 +27,13 @@
 }
 .rft-flash.show { opacity: 1; transform: translate(-50%, 0); }
 .rft-flash[data-kind="success"] { border-color: rgba(58, 209, 122, 0.55); }
+.rft-destroyed {
+  position: absolute; left: 50%; top: 30%; transform: translateX(-50%); text-align: center; pointer-events: none;
+  padding: 0.8em 2.2em 0.75em; white-space: nowrap; color: #ffd7d3;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.68) 15%, rgba(0,0,0,0.68) 85%, transparent);
+  border-top: 1px solid var(--rft-red); border-bottom: 1px solid var(--rft-red);
+}
+.rft-destroyed[hidden] { display: none; }
+.rft-destroyed b { display: block; font: 700 clamp(20px, 2.8vh, 52px) / 1.1 var(--rft-display); letter-spacing: 0.2em; text-shadow: 0 0 18px var(--rft-red-glow); }
+.rft-destroyed span { display: block; margin-top: 0.5em; font: 600 clamp(12px, 1.5vh, 24px) / 1.2 var(--rft-display); letter-spacing: 0.12em; color: #fff; opacity: 0.85; }
 .rft-flash[data-kind="warn"] { color: #ffd7d3; border-color: var(--rft-red); text-shadow: 0 0 18px var(--rft-red-glow); }

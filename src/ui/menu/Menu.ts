@@ -9,7 +9,7 @@ import { CONTROL_IDS, type ControlId, type MenuNav } from '../../input/types';
 import { CONTROL_META, groupLabel, type ControlGroup } from '../../input/bindings';
 import type { InputManager } from '../../input/InputManager';
 import { Emitter, h, svg } from '../dom';
-import { LOCALE_CODES, LOCALE_NAMES, applyLanguageSetting, fmtDate, fmtNum, fmtPct, getLocale, matchLocale, onLocaleChange, t, type LanguageSetting } from '../../i18n';
+import { LOCALE_CODES, LOCALE_NAMES, applyLanguageSetting, fmtDate, fmtNum, fmtPct, getLocale, matchLocale, onLocaleChange, t, type LanguageSetting, type MsgKey } from '../../i18n';
 import { loadFonts } from '../fonts';
 import { ASSIST_DESC, ASSIST_LABEL, REFERENCE_LABEL, STUNTS, reasonText, stuntInfo } from '../labels';
 import type { Settings, SettingsStore } from '../settings';
@@ -20,8 +20,14 @@ import { ASSIST_ICONS, BODY_ICONS, STUNT_ICONS, WORLD_ICONS } from './icons';
 import { BODIES, bodyFacts, gravityText, sitesOf } from '../worlds';
 import type { SiteId } from '../../shared/worlds';
 import type { BodyId } from '../../shared/environment';
-import { DAMAGE_ZONES, damageLevel, type DamageState } from '../../shared/damage';
+import { DAMAGE_ZONES, damageLevel, type DamageState, type DetachablePart } from '../../shared/damage';
 import { drawDamageView } from '../hud/damageView';
+
+/** Torn-off parts listed in the results (wheels and the wing have rows of their own). */
+const PART_LABEL: Partial<Record<DetachablePart, MsgKey>> = {
+  Door_L: 'damage.part.doorL', Door_R: 'damage.part.doorR', Bumper_F: 'damage.part.bumperF', Bumper_R: 'damage.part.bumperR',
+  Diffuser: 'damage.part.diffuser', NozzleCover_L: 'damage.part.nozzleCoverL', NozzleCover_R: 'damage.part.nozzleCoverR',
+};
 import '../ui.css';
 import './menu.css';
 
@@ -418,7 +424,7 @@ export class Menu extends Emitter<MenuEvents> {
           this.toggleRow(t('settings.valveDelays'), s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), t('settings.valveDelaysNote')),
           this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
           this.toggleRow(t('settings.wind'), s.realism.wind, (v) => upd((d) => { d.realism.wind = v; }, 'realism.wind'), t('settings.windNote')),
-          this.segRow(t('damage.setting'), [['off', t('damage.off')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'), t('damage.settingNote')),
+          this.segRow(t('damage.setting'), [['off', t('damage.off')], ['visual', t('damage.visual')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'), t('damage.settingNote')),
         );
         break;
     }
@@ -596,6 +602,8 @@ export class Menu extends Emitter<MenuEvents> {
     const sk = d.skirts.filter((v) => v > 0.005).length;
     if (sk) rows.push([t('damage.skirts'), t('damage.damaged', { n: String(sk) })]);
     if (d.wingLost) rows.push([t('damage.wing'), t('damage.lost')]);
+    const parts = d.lost.filter((p) => PART_LABEL[p]).map((p) => t(PART_LABEL[p]!));
+    if (parts.length) rows.push([t('damage.parts'), parts.join(', ')]);
     const canvas = h('canvas', { class: 'rft-damage-view', 'aria-hidden': 'true', style: 'width:84px;height:170px;flex:none' }) as HTMLCanvasElement;
     const paint = () => {
       const dpr = Math.min(3, globalThis.devicePixelRatio || 1);

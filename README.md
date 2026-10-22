@@ -21,6 +21,9 @@ at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, sho
   the stones of Stonehenge can be knocked over; they break when the impact energy is high enough. Roadster 1 can
   be rammed, and a panel shows its new orbit around the Sun. On the Moon, on Mars and at Giza the wheels kick up
   dust and leave tracks, and the thrusters blow the ground clear.
+- **Vehicle damage** (Settings → Simulation, Off / Visual / Full): crashes dent the body and tear off the wing,
+  doors, bumpers, diffuser, nozzle covers and wheels, which fly as real parts of the model. With "Full" the
+  missing parts change how the car drives, and a heavy crash destroys it – reset (Backspace) to repair.
 - **14 UI languages** (see [Languages](#languages)).
 
 ## Getting started

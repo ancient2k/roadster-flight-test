@@ -12,9 +12,11 @@ export class DamageFactors {
   readonly wheelLost = new Uint8Array(4);
   /** Torn fan skirt per quadrant: extra leak gap (m) along the quadrant's skirt. */
   readonly skirtLeakM = new Float64Array(4);
-  /** Downforce left after the rear wing was torn off. */
+  /** Downforce left after the rear wing / diffuser was torn off. */
   downforceScale = 1;
-  reset(): void { this.toeRad.fill(0); this.gripScale.fill(1); this.wheelLost.fill(0); this.skirtLeakM.fill(0); this.downforceScale = 1; }
+  /** Total loss: no drive torque, fans spin down (the brakes still work). */
+  powerOff = false;
+  reset(): void { this.toeRad.fill(0); this.gripScale.fill(1); this.wheelLost.fill(0); this.skirtLeakM.fill(0); this.downforceScale = 1; this.powerOff = false; }
 }
 
 export class VehicleBus {

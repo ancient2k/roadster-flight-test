@@ -150,7 +150,8 @@ export class App {
   startSession(mode: SessionMode, attract = false, assist?: AssistLevel): void {
     this.attract = attract;
     this.manual = null;
-    setDamageMode(this.sim, attract ? 'off' : this.settings.get().realism.damage); // the demo never takes damage
+    // the demo and the auto stunts never take damage
+    setDamageMode(this.sim, attract || mode.kind === 'auto' ? 'off' : this.settings.get().realism.damage);
     this.session = new SimSession(this.sim, mode, this.makeController);
     if (assist && this.manual) (this.manual as ManualController).assist = assist;
     this.session.infiniteAir = this.settings.get().realism.infiniteAir;
@@ -392,7 +393,7 @@ export class App {
       if (this.resultTimer <= 0) {
         this.resultShown = true;
         if (this.attract) { this.startSession(this.session.mode, true); }
-        else if (this.session.mode.kind === 'auto' || this.session.outcome.reason === 'totalLoss') this.showResults();
+        else if (this.session.mode.kind === 'auto') this.showResults();
       }
     }
 
@@ -408,6 +409,7 @@ export class App {
     this.hud.update(tel, this.view, {
       mode: mode.kind, stunt: mode.stunt, assist: this.manual?.assist, units: s.units,
       scale: s.hud.scale, extras: s.hud.showExtras, timerT0: stuntCtl ? tel.t - stuntCtl.phaseTime : undefined,
+      resetHint: this.view.damage?.totalLoss ? this.resetHint() : undefined,
     });
     const cam = this.renderer.camera;
     const fwd = v3(), up = v3();
@@ -467,6 +469,12 @@ export class App {
       reason: r?.reason ?? this.session.outcome.reason, metrics, telemetry: tel, startT,
       damage: this.sim.getState().damage ? structuredClone(this.sim.getState().damage) : undefined,
     });
+  }
+
+  /** Reset control for on-screen hints: key · gamepad button · touch button (↺). */
+  private resetHint(): string {
+    const keys = this.input.hint('reset'), pad = this.input.hint('reset', 'gamepad');
+    return [keys, pad !== keys ? pad : '', '↺'].filter(Boolean).join(' · ');
   }
 
   get playerInput(): PlayerInput | null { return this.lastInput; }

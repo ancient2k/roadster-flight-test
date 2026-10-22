@@ -53,8 +53,41 @@ upside down on the wall ramp as in the stream; on a skid pad it lifts lateral gr
   lunar regolith and Martian soil — pressure-sinkage, compaction and bulldozing resistance, slip sinkage, and
   Janosi–Hanamoto shear traction. The rut depth of the tyre tracks in the graphics is the same Bekker sinkage.
 - **Suspension and chassis** (`chassis.ts`): ray-cast wheels with spring/damper, chassis collision hull,
-  impact detection and a damage model (`integrity.ts`).
+  landing / impact detection (`integrity.ts`).
 - **Aero** (`aero.ts`): drag and downforce for the low-drag and high-downforce modes, rear wing pitch.
+
+## Damage
+
+Setting Simulation → Vehicle damage: **Off** (a hard body impact or landing is a collision, as before),
+**Visual** (dents and torn-off parts, but the car drives as if intact, keeps the collision rule of Off and is never
+written off; wheels stay on) and **Full** (`'realistic'`, everything below). The attract demo and the auto stunts
+never take damage. Model: `src/sim/vehicle/damage.ts`, data contract `src/shared/damage.ts`.
+
+- **Impact energy**: per chassis contact point the work of the contact impulse on the approach speed,
+  E = J·(v_pre + v_post)/2 (against a movable object ½·J·v_pre). It crushes the hit zone after Campbell
+  (F/w = A + B·C, coefficient ranges from crash tests; ≈ 0.48 m at 56 km/h into a rigid barrier, none below
+  ≈ 6 km/h), bends suspension links (toe error, less grip), crushes nozzle bells (less thrust, feed-line leak) and
+  tears the fan skirts.
+- **Parts that tear off**: rear wing, both doors, front and rear bumper, diffuser and the two covers of the main
+  nozzles (their brass bells) break off when the impact energy absorbed within the part's box exceeds its break
+  energy (wing 2 kJ, doors 10 kJ, bumpers 4–5 kJ, diffuser 3 kJ, nozzle covers 1.5 kJ — mount strength estimates
+  against the bumper tests ECE R42 / 49 CFR 581 and the hinge loads of FMVSS 206); a wheel goes with its links
+  (15 kJ). The car model has no mirrors. Wing, doors and wheels are nodes of `roadster.glb`; bumpers, diffuser and
+  nozzle covers are cut out of the Body mesh at runtime (`render/car/carDamage.ts`), so the debris shows the real
+  geometry including its dents.
+- **Release**: a torn-off part becomes a dynamic Rapier body (box or wheel cylinder, its mass, collides with the
+  world and objects, not with the car) with the velocity of its attachment point plus a kick away from the car,
+  ½·m·Δv² = 1 % of the energy beyond the break energy (1.2–7 m/s). The car loses the part's mass and takes the
+  reaction impulse, so the total momentum is unchanged. At most 8 debris bodies (the oldest goes first), each
+  removed after 45 s; resting debris sleeps.
+- **Missing parts in the driving physics**: no wing → 30 % of the downforce left, no diffuser → another −15 %;
+  no wheel → no contact and no tyre forces at that corner; crushed bell or torn-off cover → up to −60 % thrust of
+  that nozzle (bare sonic orifice instead of the expansion bell) and a leak of the feed line.
+- **Total loss**: structural integrity = 1 − severity (worst zone crush / its critical crush: front 0.45 m, rear
+  0.40 m, sides 0.25 m, floor 0.06 m, roof 0.12 m); below 0.02, after more than 160 kJ absorbed within 0.25 s, with
+  two wheels torn off or rolled onto the roof/side the car is destroyed: drive (also regen) and fans are dead, the
+  nozzles give no thrust, the wreck smokes. The HUD shows "Destroyed – reset" with the reset control (Backspace,
+  gamepad View, touch ↺); the reset repairs the car completely and removes the debris.
 
 ## Guidance, navigation and control
 
