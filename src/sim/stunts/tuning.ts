@@ -47,6 +47,8 @@ export const TUNING = {
     coastHeightM: 2.5,         // below this wheel height the descent holds its along-heading speed (level touchdown)
     landLocalZ: -13,           // ramp-local z the descent heads for (R14 estimate ≈ 13 m in front of the ramp foot; lip end at z = −7.95).
                                // The drift off the overhang (exit speed, half flip) carries the car to ≈ −17 m anyway.
+    driveAwayS: 3.5,           // after touchdown: drive off out of the landing cloud for this long (stream 729.7–733 s) ...
+    driveAwaySpeedMs: 6.0,     // ... at this speed, then brake to a stop
     fanLevel: null as number | null, // grip-mode fan level on the wall (null = demand control; a fixed 1 makes the skirt seal flutter on R 11)
   },
   rampHang: {

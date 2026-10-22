@@ -49,13 +49,16 @@ export function dampAngle(current: number, target: number, lambda: number, dt: n
 
 /**
  * Yaw (world heading, 0 = +Z, 90° = +X) the chase camera should look along.
- * Uses the velocity direction when moving and the body forward otherwise; returns null when
+ * Uses the velocity direction when moving forward and the body forward otherwise; returns null when
  * neither has a usable horizontal component (car pointing straight up the wall).
  */
 export function chaseYaw(bodyFwd: Vec3, linVel: Vec3, minSpeed = 3): number | null {
   const hv = Math.hypot(linVel.x, linVel.z);
-  if (hv > minSpeed) return Math.atan2(linVel.x, linVel.z);
   const hf = Math.hypot(bodyFwd.x, bodyFwd.z);
+  // reversing (the ramp hang backs down the wall at ≈ 3 m/s): stay behind the car instead of swinging
+  // round to the front whenever the speed crosses minSpeed
+  const reversing = hf > 0.25 && linVel.x * bodyFwd.x + linVel.z * bodyFwd.z < -0.5 * hv * hf;
+  if (hv > minSpeed && !reversing) return Math.atan2(linVel.x, linVel.z);
   if (hf > 0.25) return Math.atan2(bodyFwd.x, bodyFwd.z);
   return null;
 }
@@ -111,11 +114,12 @@ export interface BroadcastShot {
   maxCarY?: number;
   /**
    * Phase camera of the stream: preferred while the car is within `r` metres (horizontal) of
-   * `c` – and, with `dir`, only while it moves along `dir` (e.g. rolling back down the wall ramp) –
+   * `c` – and, with `dir`, only while it moves along `dir` (e.g. dropping off the wall ramp) –
    * and avoided elsewhere. The director only sees the car's position and velocity, so the stream's
-   * per-phase cameras (approach, roll, landing) are bound to where those phases happen.
+   * per-phase cameras (approach, roll, landing) are bound to where those phases happen. Once on air, the shot
+   * keeps the car within `rKeep` whatever its direction (the ramp landing camera follows the car driving off).
    */
-  zone?: { c: Vec3; r: number; dir?: Vec3 };
+  zone?: { c: Vec3; r: number; dir?: Vec3; rKeep?: number };
 }
 
 const wall = TRACK.ramps.find((r) => r.kind === 'wallRamp')!;
@@ -136,13 +140,13 @@ export const BROADCAST_SHOTS: BroadcastShot[] = [
   // car fills ≈ 40 % of the frame width at the ramp foot as at 668 s (10° gave ≈ 22 %), and 2 m high
   // so the roof and rear window show as in the stream (was 1.4 m). The eye adaptation would lift the
   // washed concrete to ≈ 150/255; the stream camera holds it at ≈ 90–115 (iris −1 EV).
+  // The stream uses it only while the car is at the foot of the ramp (668–672 s waiting, 712–717 s back
+  // down): up the wall the long lens would show nothing but the underside filling the frame (hang, drop).
   { id: 'wall_rear', site: 'ramp_hang', label: 'Rampe von hinten', pos: { x: wall.origin.x - 1.0, y: 2.0, z: wall.origin.z - 32 }, lookAt: null, fovDeg: 5.5, trackCar: true, ev: -1.0,
-    zone: { c: { x: wall.origin.x, y: 0, z: wall.origin.z - 8 }, r: 12 } },
-  { id: 'wall_wide', site: 'ramp_hang', label: 'Rampe total', pos: { x: wall.origin.x - 38, y: 24, z: wall.origin.z - 40 }, lookAt: null, fovDeg: 42, trackCar: true },
-  // Stream ramp landing (726-732 s): low long-lens camera ~65 m to the side, panning with the car as
-  // it comes down off the wall and rolls out (-z) into its own ground cloud.
-  { id: 'wall_land', site: 'ramp_hang', label: 'Rampe Landung', pos: { x: wall.origin.x - 68, y: 1.4, z: wall.origin.z - 8 }, lookAt: { x: wall.origin.x - 2.5, y: 3, z: wall.origin.z - 6 }, fovDeg: 15, trackCar: true,
-    maxCarY: 14, zone: { c: { x: wall.origin.x - 2.5, y: 0, z: wall.origin.z - 4 }, r: 9, dir: { x: 0, y: 0, z: -1 } } },
+    maxCarY: 2.5, zone: { c: { x: wall.origin.x, y: 0, z: wall.origin.z - 6 }, r: 9 } },
+  // High wide angle for the run-up only: from 24 m up it looks onto the top of the overhang, the car hanging
+  // underneath it is hidden (the stream holds the locked-off wide shot for the whole hang).
+  { id: 'wall_wide', site: 'ramp_hang', label: 'Rampe total', pos: { x: wall.origin.x - 38, y: 24, z: wall.origin.z - 40 }, lookAt: null, fovDeg: 42, trackCar: true, maxCarY: 8 },
   // Kickflip over the semi: broadside from the far side like t_963, plus a low tracking shot.
   // Low and oblique like t_963: from the kicker side of the pad the camera looks along the row at
   // ~45°, so Model 3 and Model Y overlap the Semi in depth, the car crosses left to right above the
@@ -187,14 +191,16 @@ export const BROADCAST_SHOTS: BroadcastShot[] = [
 for (const s of BROADCAST_SHOTS.filter((x) => x.site === 'ramp_hang')) {
   BROADCAST_SHOTS.push({ ...s, id: s.id.replace('wall', 'wlaunch'), site: 'ramp_launch' });
 }
-// The launch car drives off the end of the overhang (z −8) and lands ≈ 17 m in front of the ramp foot,
-// further out than the hang car rolling down the wall. The stream follows the drop with a panning
-// camera on the ground ≈ 54 m in front of the ramp foot and 16 m to the side (calibrated on the ramp
-// silhouette at 720 s and 727–728 s, R15): the landing camera stands there and aims at the touchdown.
-Object.assign(BROADCAST_SHOTS.find((s) => s.id === 'wlaunch_land')!, {
-  pos: { x: wall.origin.x - 16, y: 1.8, z: wall.origin.z - 54 }, lookAt: { x: wall.origin.x, y: 3, z: wall.origin.z - 17 }, fovDeg: 40,
-  zone: { c: { x: wall.origin.x, y: 0, z: wall.origin.z - 15 }, r: 10, dir: { x: 0, y: 0, z: -1 } },
-});
+// The launch car drives off the end of the overhang (z −8) and lands ≈ 17 m in front of the ramp foot.
+// The stream follows the drop with a panning camera on the ground ≈ 54 m in front of the ramp foot and
+// 16 m to the side (calibrated on the ramp silhouette at 720 s and 727–728 s, R15): the landing camera
+// stands there and aims at the touchdown. It takes the car from the drop off the overhang end (≈ 22 m up,
+// stream 726 s) down to the rollout. The hang has no landing: the stream stays on the wide shot while the
+// car reverses down and cuts to the rear view at the foot (712 s). After the touchdown the car drives off out of
+// its cloud (stream 729.7–733 s): the camera keeps it (rKeep) until the results.
+BROADCAST_SHOTS.push({ id: 'wlaunch_land', site: 'ramp_launch', label: 'Rampe Landung', pos: { x: wall.origin.x - 16, y: 1.8, z: wall.origin.z - 54 },
+  lookAt: { x: wall.origin.x, y: 3, z: wall.origin.z - 17 }, fovDeg: 40, trackCar: true, maxCarY: 25,
+  zone: { c: { x: wall.origin.x, y: 0, z: wall.origin.z - 15 }, r: 10, dir: { x: 0, y: 0, z: -1 }, rKeep: 22 } });
 
 /** Region of the pad that belongs to each stunt site (used to pick the shot set). */
 export function nearestSite(p: Vec3): StuntId | 'overview' {
@@ -217,8 +223,17 @@ export function nearestSite(p: Vec3): StuntId | 'overview' {
   return best;
 }
 
+/**
+ * Shot set for the car at p during `stunt`. Both wall-ramp stunts run on the same ramp, so the position
+ * alone cannot tell them apart: the launch gets its own set (landing camera at the touchdown).
+ */
+export function shotSite(p: Vec3, stunt: StuntId | null = null): StuntId | 'overview' {
+  const site = nearestSite(p);
+  return site === 'ramp_hang' && stunt === 'ramp_launch' ? 'ramp_launch' : site;
+}
+
 /** Score of a shot for the car at p: prefers cameras at a pleasant distance with line of sight. */
-export function shotScore(shot: BroadcastShot, p: Vec3, vel?: Vec3): number {
+export function shotScore(shot: BroadcastShot, p: Vec3, vel?: Vec3, onAir = false): number {
   const d = Math.hypot(p.x - shot.pos.x, p.y - shot.pos.y, p.z - shot.pos.z);
   const ideal = 25 * Math.tan(30 * DEG) / Math.tan((shot.fovDeg / 2) * DEG); // longer lens, further away
   let s = 1 - Math.abs(d - ideal) / (ideal * 1.5);
@@ -232,12 +247,14 @@ export function shotScore(shot: BroadcastShot, p: Vec3, vel?: Vec3): number {
     if (cos < Math.cos(shot.fovDeg * 0.45 * DEG)) s -= 3;
     else s += 0.4;
   }
-  if (shot.zone) s += inZone(shot.zone, p, vel) ? 1.2 : -1.5;
+  if (shot.zone) s += inZone(shot.zone, p, vel, onAir) ? 1.2 : -1.5;
   return s;
 }
 
-function inZone(z: NonNullable<BroadcastShot['zone']>, p: Vec3, vel?: Vec3): boolean {
-  if (Math.hypot(p.x - z.c.x, p.z - z.c.z) > z.r) return false;
+function inZone(z: NonNullable<BroadcastShot['zone']>, p: Vec3, vel?: Vec3, onAir = false): boolean {
+  const d = Math.hypot(p.x - z.c.x, p.z - z.c.z);
+  if (onAir && z.rKeep !== undefined && d <= z.rKeep) return true;
+  if (d > z.r) return false;
   if (!z.dir) return true;
   return vel !== undefined && vel.x * z.dir.x + vel.y * z.dir.y + vel.z * z.dir.z > 0.5;
 }
@@ -250,6 +267,8 @@ export class BroadcastDirector {
   current: BroadcastShot | null = null;
   heldS = 0;
   forced: string | null = null;
+  /** Stunt being flown (picks the shot set where two stunts share a site), or null. */
+  stunt: StuntId | null = null;
   constructor(public shots: BroadcastShot[] = BROADCAST_SHOTS, public minHold = 2.4, public maxHold = 7) {}
 
   /** Returns the shot to use this frame and whether a cut happened (`vel`: car velocity, m/s). */
@@ -263,12 +282,12 @@ export class BroadcastDirector {
         return { shot: f, cut };
       }
     }
-    const siteId = nearestSite(p);
+    const siteId = shotSite(p, this.stunt);
     const candidates = this.shots.filter((s) => s.site === siteId);
     const pool = candidates.length ? candidates : this.shots.filter((s) => s.site === 'overview');
     let best = pool[0], bestScore = -Infinity;
     for (const s of pool) {
-      let sc = shotScore(s, p, vel);
+      let sc = shotScore(s, p, vel, s === this.current);
       if (s === this.current) sc += 0.35; // inertia
       if (sc > bestScore) { bestScore = sc; best = s; }
     }
@@ -276,7 +295,7 @@ export class BroadcastDirector {
     let cut = false;
     if (!cur) cut = true;
     else if (cur !== best) {
-      const curScore = shotScore(cur, p, vel);
+      const curScore = shotScore(cur, p, vel, true);
       const leftSite = cur.site !== siteId && !(cur.site === 'overview' && pool[0].site === 'overview');
       if (leftSite) cut = true;                      // new stunt site (e.g. stunt start): cut at once
       else if (curScore < -1) cut = true;            // lost the car
@@ -288,7 +307,7 @@ export class BroadcastDirector {
     } else if (this.heldS > this.maxHold * 1.6 && pool.length > 1) {
       // rotate to the second best for variety
       const alt = pool.filter((s) => s !== cur).sort((a, b) => shotScore(b, p, vel) - shotScore(a, p, vel))[0];
-      if (alt && shotScore(alt, p, vel) > -0.5) { best = alt; cut = true; }
+      if (alt && shotScore(alt, p, vel) > -0.5 && !(cur.zone?.rKeep !== undefined && shotScore(cur, p, vel, true) > 0)) { best = alt; cut = true; }
     }
     if (cut) { this.current = best; this.heldS = 0; }
     return { shot: this.current!, cut };

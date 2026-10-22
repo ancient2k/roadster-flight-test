@@ -1,7 +1,7 @@
 // Public renderer facade. The game layer only talks to this class (see index.ts).
 import * as THREE from 'three/webgpu';
 import { uniform, vec4, log, min, luminance, float, uv } from 'three/tsl';
-import type { TelemetryFrame, VehicleState } from '../shared/types';
+import type { StuntId, TelemetryFrame, VehicleState } from '../shared/types';
 import { TRACK } from '../shared/track';
 import { DynamicResolution, QUALITY_PRESETS, settingsForBackend, type QualityLevel, type QualitySettings } from './quality';
 import { buildTrack, type TrackWorld } from './world/track';
@@ -842,6 +842,8 @@ export class GameRenderer {
   }
 
   setBroadcastShot(id: string | 'auto'): void { this.rig.setBroadcastShot(id); }
+  /** Stunt of the session: the broadcast director picks its camera set (ramp hang and launch share the ramp). */
+  setBroadcastStunt(stunt: StuntId | null): void { this.rig.director.stunt = stunt; }
 
   get cameraMode(): CameraMode { return this.rig.mode; }
   get camera(): THREE.PerspectiveCamera { return this.rig.camera; }
