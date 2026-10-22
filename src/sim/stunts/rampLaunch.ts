@@ -1,6 +1,6 @@
 // Wall ramp launch: drive up the wall on fan suction, release the fans at the top so the car drops
 // off the overhang (inverted, moving away from the wall), half roll to wheels-down facing away from
-// the wall, landing burn on the four corner jets, drive away. Reference: RECHERCHE §2B.
+// the wall, landing burn on the four corner jets, drive away out of the cloud. Reference: RECHERCHE §2B.
 import { DEG, qrot, v3 } from '@shared/math';
 import { TRACK, headingToForward } from '@shared/track';
 import type { RoadsterSim } from '../core/roadsterSim';
@@ -112,10 +112,19 @@ export class RampLaunchStunt extends Stunt {
         const v = Math.max(P.awayMinMs, Math.min(P.awaySpeedMs, P.awayGain * (local.z - P.landLocalZ)));
         return { x: this.away.x * v, z: this.away.z * v };
       }),
+      // stream 729.7–733 s: the car touches down rolling and drives off out of its own cloud, away from the
+      // wall, before it stops (settle on the suspension first, then a gentle pull-away and a brake to a stop)
       rollout: {
         update: () => {
-          this.rolloutBrake();
-          if ((this.phaseTime > 1 && this.est.speed < 0.3) || this.phaseTime > 8) { this.succeed(); return 'done'; }
+          const t = this.phaseTime;
+          if (t < P.driveAwayS) {
+            this.drive.reverse = false; this.drive.steer = 0; this.drive.launchMode = false;
+            if (t < 0.5) { this.drive.throttle = 0; this.drive.brake = 0; } else this.holdSpeed(P.driveAwaySpeedMs);
+            return null;
+          }
+          this.drive.throttle = 0; this.drive.launchMode = false;
+          this.drive.brake = Math.min(0.8, 0.3 + (t - P.driveAwayS));
+          if ((this.est.speed < 0.3) || t > P.driveAwayS + 8) { this.succeed(); return 'done'; }
           return null;
         },
       },

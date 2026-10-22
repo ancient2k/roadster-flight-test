@@ -126,7 +126,27 @@ Trade-offs against the HUD, documented rather than tuned away:
   brakes at 0.50 g net (≈ 1.5 g specific; the 4 fps frames show 2.8–3.2 g peaks between the 1 fps samples).
 
 In the launch the car speeds up as the wall steepens (1.4 g at the entry, cap 9 m/s), slows to ≈ 3.5 m/s on the
-overhang and drives off its end at 5.8 s, rolls wheels-down and lands with the corner jets.
+overhang and drives off its end at 5.8 s, rolls wheels-down and lands with the corner jets. As in the stream
+(729.7–733 s) it then drives off out of its landing cloud at ≈ 6 m/s for 3.5 s and brakes to a stop.
+
+**Broadcast cameras of the two wall stunts (R16).** A frame-by-frame review of both stunts in real time against the
+stream (660–735 s) showed that the automatic director, not the physics, made them look wrong:
+
+- Both stunts run on the same ramp, and the director chose its camera set from the car's position only, so the
+  launch never used its own cameras: the landing camera calibrated in R15 was never shown. The director now knows
+  the stunt being flown (`BroadcastDirector.stunt`, set by the session).
+- The 5.5° long lens behind the ramp foot (`wall_rear`) had a zone that covered the whole ramp, so it held the entire
+  10 s hang (the underside filling the frame) and the whole drop, half roll and landing of the launch (the car, then
+  only its cloud). The stream uses it only while the car stands at the foot; it now gives up the car above 2.5 m.
+  The high wide angle (`wall_wide`) looked onto the top of the overhang with the hanging car hidden underneath; it now
+  gives up the car above 8 m (run-up, and a short insert on the lower wall on the way down). The climb and the hang
+  stay on the locked-off wide shot (`wall_side`) like the stream, the launch cuts
+  to the landing camera as the car drops off the overhang (stream 726 s) and keeps it through the rollout.
+- The hang no longer has a landing camera (the stream has none; it caused cuts 1.2 s apart at the foot).
+- The chase camera swung round to the front of the car whenever the reversing speed crossed 3 m/s on the way down
+  the wall; it now stays behind a reversing car.
+
+`tests/render/logic.test.ts` replays both recorded trajectories through the director.
 
 The ramp's slab sides carry a lit red band with small white lamps every 0.6 m and a white edge, as in the close-up at
 696 s and the drone replay; the steel tower behind the ramp and a lattice truss along the back of the arc and the

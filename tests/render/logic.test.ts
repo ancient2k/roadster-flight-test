@@ -33,6 +33,7 @@ describe('camera maths', () => {
     expect(chaseYaw({ x: 0, y: 0, z: 1 }, { x: 10, y: 0, z: 0 })).toBeCloseTo(90 * DEG, 9);
     expect(chaseYaw({ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 })).toBeCloseTo(0, 9);
     expect(chaseYaw({ x: 0, y: 1, z: 0.01 }, { x: 0, y: 5, z: 0 })).toBeNull();
+    expect(chaseYaw({ x: 0, y: 0, z: 1 }, { x: 0.3, y: 0, z: -4 })).toBeCloseTo(0, 9);   // reversing: stays behind the car
   });
 
   it('chase camera sits behind and above the target', () => {
@@ -141,6 +142,39 @@ describe('broadcast director', () => {
     expect(shotScore(land, { x: 60, y: 1.0, z: 43 }, { x: 0, y: -1, z: -1.5 })).toBeGreaterThan(0.5);    // touchdown ≈ 17 m out (R15)
     expect(shotScore(land, { x: 60, y: 0.4, z: 55 }, { x: 0, y: 0, z: 7 })).toBeLessThan(0);      // approach
     expect(shotScore(land, { x: 60, y: 19, z: 66 }, { x: 0, y: 0, z: -2 })).toBeLessThan(0);      // high on the wall
+  });
+
+  // GNC runs of the two wall-ramp stunts (real-time recordings, 0.5 s samples [t, x, y, z]); ramp entry at
+  // t ≈ 9 s / 6.7 s. Both run on the same ramp, so the director needs the stunt to pick the launch set.
+  const HANG = [[3,60,0.4,30],[4,60,0.4,33.6],[5,60,0.4,41.9],[6,60,0.4,48.9],[7,60,0.4,54.2],[8,60,0.4,57.7],[8.5,60,0.4,59],[9,60,0.5,60.7],
+    [9.5,60,0.9,62.7],[10,60,1.5,64.3],[10.5,60,2.7,66.4],[11,60,4.3,68],[11.5,60,6.1,69.2],[12,60,7.9,69.9],[13,60,10.4,70.4],[15,60,11.1,70.4],
+    [16,60,13.2,70.1],[17,60,17.1,68.3],[18,60,20,65],[19,60,21.1,61.9],[20,60,21.5,60.3],[29,60,21.5,60.3],[30,60,21.1,61.9],[31,60,20.5,63.9],
+    [32,60,18.9,66.7],[33,60,16.3,68.9],[34,60,13.2,70.1],[35,60,9.9,70.4],[36,60,6.7,69.5],[37,60,3.9,67.7],[38,60,1.8,65.1],[39,60,0.7,62.2],
+    [40,60,0.5,60.2],[41,60,0.4,57.2],[41.5,60,0.4,55.8],[44,60,0.4,55.8]];
+  const LAUNCH = [[2,60,0.4,30],[3,60,0.4,35.4],[4,60,0.4,42.1],[5,60,0.4,48.7],[6,60,0.4,55.1],[6.5,60,0.4,58.4],[7,60,0.6,61.5],[7.5,60,1.5,64.5],
+    [8,60,3.3,67],[8.5,60,5.9,69.1],[9,60,9.4,70.3],[9.5,60,13.6,70],[10,60,17.5,68],[10.5,60,20.3,64.4],[11,60,21.5,60.2],[11.5,60,22.1,56.7],
+    [12,60,22.6,54],[12.5,60,22.5,51.9],[13,59.6,19.8,50],[13.5,58.9,14.4,48.1],[14,58,9.2,46.2],[14.5,57.4,5.3,44.8],[15,57.1,2.6,44],
+    [15.5,56.9,1.1,43.6],[16,56.8,0.7,43.2],[16.5,56.7,0.5,42.9],[17,56.7,0.5,42.5],[17.5,56.7,0.5,40.3],[18,56.7,0.5,37.8],
+    [18.5,56.7,0.5,35.1],[19,56.7,0.5,32.5],[19.5,56.6,0.5,29.8],[20,56.6,0.5,27.1],[20.5,56.5,0.5,24.6],[21,56.5,0.5,23.9],[23,56.5,0.5,23.9]];
+  const stuntDirector = (stunt: 'ramp_hang' | 'ramp_launch') => { const d = new BroadcastDirector(); d.stunt = stunt; return d; };
+  it('wall ramp hang: the long rear lens only at the foot, the wide shot for the hang (stream 674–710 s)', () => {
+    const { seq } = run(stuntDirector('ramp_hang'), HANG);
+    const at = (t: number) => [...seq].reverse().find((s) => s.t <= t)!.id;
+    for (let t = 12; t <= 36; t += 0.5) expect(at(t), `t = ${t}`).not.toBe('wall_rear');
+    for (let t = 19; t <= 30; t += 0.5) expect(at(t), `t = ${t}`).toBe('wall_side');   // hang: the car is under the overhang
+    for (const s of seq) expect(s.id.startsWith('wall_'), s.id).toBe(true);
+    // no ping-pong: every shot after the first is held at least half the minimum hold
+    for (let i = 1; i + 1 < seq.length; i++) expect(seq[i + 1].t - seq[i].t, `${seq[i].id} at ${seq[i].t}`).toBeGreaterThan(1.2);
+  });
+  it('ramp launch: its own camera set, the drop and the touchdown on the landing camera', () => {
+    const { seq } = run(stuntDirector('ramp_launch'), LAUNCH);
+    const at = (t: number) => [...seq].reverse().find((s) => s.t <= t)!.id;
+    for (const s of seq) expect(s.id.startsWith('wlaunch_'), s.id).toBe(true);
+    for (let t = 10; t <= 15; t += 0.5) expect(at(t), `t = ${t}`).not.toBe('wlaunch_rear');
+    expect(at(14.5)).toBe('wlaunch_land');   // falling, ≈ 5 m up
+    expect(at(16.5)).toBe('wlaunch_land');   // touchdown / rollout
+    for (let t = 17; t <= 23; t += 0.5) expect(at(t), `t = ${t}`).toBe('wlaunch_land');   // drives off out of the cloud, stops
+    for (let i = 1; i + 1 < seq.length; i++) expect(seq[i + 1].t - seq[i].t, `${seq[i].id} at ${seq[i].t}`).toBeGreaterThan(1.2);
   });
 
   it('fixed framings score the car negatively when it is out of the view cone', () => {

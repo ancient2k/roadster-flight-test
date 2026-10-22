@@ -182,6 +182,7 @@ export class App {
     this.renderer.resetEffects();
     this.hud?.reset();
     this.audio.reset();
+    this.renderer.setBroadcastStunt(mode.stunt ?? null);
     this.renderer.setCameraMode(mode.kind === 'auto' ? 'broadcast' : 'chase');
     if (mode.kind === 'auto') this.renderer.setBroadcastShot('auto');
   }
