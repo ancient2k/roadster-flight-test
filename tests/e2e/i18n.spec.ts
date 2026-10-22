@@ -3,7 +3,8 @@
 import { expect, test } from '@playwright/test';
 import { LOCALE_CODES, t } from '../../src/i18n';
 
-test.describe.configure({ timeout: 300_000 });
+// 14 cold boots of ≈ 25–30 s each (q=low, fresh page) plus the settings check
+test.describe.configure({ timeout: 600_000 });
 
 test('all 14 languages load via ?lang= without console errors', async ({ page }) => {
   const errors: string[] = [];

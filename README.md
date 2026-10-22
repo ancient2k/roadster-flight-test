@@ -1,5 +1,16 @@
 # Roadster Flight Test
 
+<p align="center">
+  <a href="https://roadster.ageco-labs.de"><img src="docs/media/banner.jpg" width="100%"
+    alt="In-game screenshot: the Roadster in front of the Starbase launch tower with the Starship stack, Boca Chica"></a>
+</p>
+<p align="center">
+  <a href="https://roadster.ageco-labs.de"><img src="docs/media/play-now.png" width="220" alt="▶ Play now"></a><br>
+  <sub><a href="https://roadster.ageco-labs.de">roadster.ageco-labs.de</a> · also on
+  <a href="https://ancient2k.github.io/roadster-flight-test/">GitHub Pages</a> · runs in the browser, no install
+  needed (desktop with WebGPU recommended)</sub>
+</p>
+
 A free, unofficial browser simulation of the 2nd-generation Tesla Roadster as it was shown on 15 October 2026
 at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, short flights. Real-time physics
 (Rapier plus a custom thermodynamic and GNC stack), WebGPU rendering with a WebGL2 fallback, no backend.
