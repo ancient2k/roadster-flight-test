@@ -1,6 +1,7 @@
 // App shell: wires renderer, vehicle physics (+ core), GNC, input/HUD/menus/audio
 // around the headless SimSession and the fixed-step loop.
 import { GameRenderer, type WorldHandle } from '../render';
+import { cameraInput } from '../render/camera/cameraRig';
 import { createRoadsterSim, setDamageMode } from '@sim/vehicle';
 import { steepStoneWithoutGrip } from '@sim/vehicle/fans';
 import type { RoadsterSim } from '@sim/core/roadsterSim';
@@ -335,6 +336,7 @@ export class App {
 
   private applySettings(s: Readonly<Settings>): void {
     this.input.setOptions(s.controls);
+    cameraInput.rightButton = !s.controls.mouseAttitude; // the right button turns the chase camera unless it steers
     this.audio.setVolume(s.audio);
     this.hud.setVisible(s.hud.visible);
     if (this.renderer.getStats().quality !== s.graphics.quality) this.renderer.setQuality(s.graphics.quality);

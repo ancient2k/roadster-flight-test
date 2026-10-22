@@ -61,6 +61,7 @@ Default bindings; they can be changed in the game under Settings → Controls.
 | Pitch / roll / yaw | K, I / Q, E / J, L | right stick / LB, RB |
 | Fans · aero · compressor · assist | F · V · R · N | D-pad |
 | Camera · slow motion · photo mode | C · T · F2 | Y · R3 |
+| Turn / zoom the chase camera | drag with the left (or right) mouse button · mouse wheel; it swings back behind the car after ≈ 2 s of driving | – |
 | Pause · restart · menu · help | P · Backspace · Esc · F1 | Menu · View |
 | Start the Sun dive / time warp | Enter / PageUp, PageDown | – |
 

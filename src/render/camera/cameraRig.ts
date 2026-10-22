@@ -1,4 +1,4 @@
-// Camera modes: chase (damped spring + collision), orbit (mouse), cockpit, top, broadcast
+// Camera modes: chase (damped spring + collision, mouse look), orbit (mouse), cockpit, top, broadcast
 // (fixed stream cameras with automatic cuts), photo (orbit + DoF).
 import * as THREE from 'three/webgpu';
 import type { VehicleState } from '../../shared/types';
@@ -10,6 +10,15 @@ import {
 
 export type CameraMode = 'chase' | 'orbit' | 'cockpit' | 'top' | 'broadcast' | 'photo';
 export const CAMERA_MODES: CameraMode[] = ['chase', 'orbit', 'cockpit', 'top', 'broadcast', 'photo'];
+
+/**
+ * Mouse buttons that turn the chase camera: the left one always, the right one only while it is not the
+ * attitude stick (Settings → Controls → mouse for attitude; src/game/app.ts keeps this in sync).
+ */
+export const cameraInput = { rightButton: true };
+
+/** Mouse look of the chase camera: seconds without a drag before it swings back behind the car (when moving). */
+export const LOOK_RECENTER_S = 1.8;
 
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
@@ -31,6 +40,10 @@ export class CameraRig {
   private orbit = { yaw: Math.PI * 0.8, pitch: 0.18, dist: 9 };
   private dragging = false;
   private lastPointer = { x: 0, y: 0 };
+  /** Chase mouse look: yaw/pitch offsets (rad) around the car, distance factor, time since the last drag (s). */
+  private look = { yaw: 0, pitch: 0, zoom: 1, idle: Infinity };
+  /** 0 = level chase behind the car, 1 = chase in the car's own frame (on a wall or overhang). */
+  private wall = 0;
   private ray = new THREE.Raycaster();
   private shot: BroadcastShot | null = null;
   private shotLook: Spring3 | null = null;
@@ -45,6 +58,7 @@ export class CameraRig {
   setMode(m: CameraMode): void {
     if (m === this.mode) return;
     this.mode = m;
+    this.look.yaw = this.look.pitch = 0;
     this.chasePos = null;
     this.lookPos = null;
     this.shot = null;
@@ -74,30 +88,43 @@ export class CameraRig {
   get broadcastShots(): readonly BroadcastShot[] { return BROADCAST_SHOTS; }
   get currentShot(): BroadcastShot | null { return this.shot; }
 
-  /** Mouse orbit / zoom for orbit and photo modes. */
+  /** Mouse orbit / zoom for orbit and photo modes; drag-to-look and zoom for the chase camera. */
   attachInput(el: HTMLElement): void {
     this.cleanup?.();
-    const down = (e: PointerEvent) => { if (this.mode !== 'orbit' && this.mode !== 'photo') return; this.dragging = true; this.lastPointer = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); };
+    const orbiting = () => this.mode === 'orbit' || this.mode === 'photo';
+    const down = (e: PointerEvent) => {
+      const button = e.pointerType !== 'mouse' || e.button === 0 || (e.button === 2 && cameraInput.rightButton);
+      if (!button || !(orbiting() || this.mode === 'chase')) return;
+      this.dragging = true; this.lastPointer = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId);
+    };
     const move = (e: PointerEvent) => {
       if (!this.dragging) return;
       const dx = e.clientX - this.lastPointer.x, dy = e.clientY - this.lastPointer.y;
       this.lastPointer = { x: e.clientX, y: e.clientY };
+      if (this.mode === 'chase') {
+        this.look.yaw -= dx * 0.006;
+        this.look.pitch = THREE.MathUtils.clamp(this.look.pitch + dy * 0.004, -0.35, 1.1);
+        this.look.idle = 0;
+        return;
+      }
       this.orbit.yaw -= dx * 0.006;
       this.orbit.pitch = THREE.MathUtils.clamp(this.orbit.pitch + dy * 0.004, -0.15, 1.45);
     };
     const up = () => { this.dragging = false; };
     const wheel = (e: WheelEvent) => {
-      if (this.mode !== 'orbit' && this.mode !== 'photo') return;
-      this.orbit.dist = THREE.MathUtils.clamp(this.orbit.dist * Math.exp(e.deltaY * 0.001), 2.5, 80);
+      if (this.mode === 'chase') this.look.zoom = THREE.MathUtils.clamp(this.look.zoom * Math.exp(e.deltaY * 0.001), 0.55, 3);
+      else if (orbiting()) this.orbit.dist = THREE.MathUtils.clamp(this.orbit.dist * Math.exp(e.deltaY * 0.001), 2.5, 80);
+      else return;
       e.preventDefault();
     };
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
     el.addEventListener('wheel', wheel, { passive: false });
     this.cleanup = () => {
       el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up); el.removeEventListener('wheel', wheel);
+      el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); el.removeEventListener('wheel', wheel);
     };
   }
 
@@ -124,16 +151,34 @@ export class CameraRig {
         // airborne blend (smoothed so the camera glides out after take-off and back after landing)
         const airborne = !s.groundContact && s.heightAboveGroundM > 0.6 ? 1 : 0;
         this.air += (airborne - this.air) * (1 - Math.exp(-dt * (airborne ? 2.2 : 1.2)));
+        // On a wall or overhang (ramp hang, launch, pyramid faces) "behind and above" in world terms lies
+        // behind the ramp: there the camera follows in the car's own frame, behind it along the surface and
+        // out over its roof, i.e. on the open inside of the curve.
+        const up = qrot(s.quat, { x: 0, y: 1, z: 0 });
+        const onWall = s.groundContact ? THREE.MathUtils.clamp((0.75 - up.y) / 0.5, 0, 1) : 0;
+        this.wall += (onWall - this.wall) * (1 - Math.exp(-dt * (onWall > this.wall ? 3 : 0.9)));
+        if (this.chasePos === null) this.wall = onWall;
         const target = { x: car.x, y: car.y + 0.6 * (1 - this.air), z: car.z };
         const dRaw = chaseOffset(target, this.yaw, s.speedMs, undefined, this.air);
-        const desired = clampAboveGround(dRaw, 0.6, this.groundAt(dRaw.x, dRaw.z));
         const look = chaseLook(target, s.linVel, this.air);
+        if (this.wall > 0.001) {
+          const w = this.wall;
+          const h = 3.2 + 2.8 * THREE.MathUtils.clamp(-up.y, 0, 1); // upside down: further out, so the ground shows
+          const bx = car.x - fwd.x * 6 + up.x * h, by = car.y - fwd.y * 6 + up.y * h, bz = car.z - fwd.z * 6 + up.z * h;
+          dRaw.x += (bx - dRaw.x) * w; dRaw.y += (by - dRaw.y) * w; dRaw.z += (bz - dRaw.z) * w;
+          look.x += (car.x + up.x * 0.6 - look.x) * w; look.y += (car.y + up.y * 0.6 - look.y) * w; look.z += (car.z + up.z * 0.6 - look.z) * w;
+        }
+        const desired = clampAboveGround(dRaw, 0.6, this.groundAt(dRaw.x, dRaw.z));
         if (!this.chasePos || !this.lookPos) { this.chasePos = spring3(desired); this.lookPos = spring3(look); }
         const p = smoothDamp3(this.chasePos, desired, 0.22 + 0.25 * this.air, dt);
         const l = smoothDamp3(this.lookPos, look, 0.06 + 0.12 * this.air, dt);
-        const pos = this.avoidCollision(new THREE.Vector3(l.x, l.y, l.z), new THREE.Vector3(p.x, p.y, p.z));
+        const lv = new THREE.Vector3(l.x, l.y, l.z);
+        const pv = this.applyLook(lv, new THREE.Vector3(p.x, p.y, p.z), s.speedMs, dt);
+        const pos = this.avoidCollision(lv, clampAboveGround(pv, 0.4, this.groundAt(pv.x, pv.z)) as THREE.Vector3, this.wall > 0.3 ? up : null);
         cam.position.copy(pos);
-        cam.up.set(0, 1, 0);
+        // looking (almost) straight up or down the wall: world up would be degenerate, take the car's heading
+        const vd = lv.clone().sub(pos).normalize();
+        if (Math.abs(vd.y) > 0.97) cam.up.set(fwd.x, fwd.y, fwd.z); else cam.up.set(0, 1, 0);
         cam.lookAt(l.x, l.y, l.z);
         fov = 55 + Math.min(12, s.speedMs * 0.12) - 13 * this.air;
         this.focusDistance = cam.position.distanceTo(car);
@@ -204,7 +249,25 @@ export class CameraRig {
     cam.updateMatrixWorld();
   }
 
-  private avoidCollision(target: THREE.Vector3, desired: THREE.Vector3): THREE.Vector3 {
+  /** Chase mouse look: turn the camera around the look point, zoom, and swing back once idle and moving. */
+  private applyLook(target: THREE.Vector3, p: THREE.Vector3, speedMs: number, dt: number): THREE.Vector3 {
+    const L = this.look;
+    if (!this.dragging) L.idle += dt;
+    if (L.idle > LOOK_RECENTER_S && speedMs > 2) {
+      const k = 1 - Math.exp(-dt / 0.9);
+      L.yaw = Math.atan2(Math.sin(L.yaw), Math.cos(L.yaw)) * (1 - k);
+      L.pitch *= 1 - k;
+    }
+    if (Math.abs(L.yaw) < 1e-4 && Math.abs(L.pitch) < 1e-4 && L.zoom === 1) return p;
+    const off = p.clone().sub(target);
+    const r = off.length() * L.zoom;
+    if (r < 1e-3) return p;
+    const az = Math.atan2(off.x, off.z) + L.yaw;
+    const el = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(off.y / off.length(), -1, 1)) + L.pitch, -0.45, 1.45);
+    return target.clone().add(new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(r));
+  }
+
+  private avoidCollision(target: THREE.Vector3, desired: THREE.Vector3, carUp: { x: number; y: number; z: number } | null = null): THREE.Vector3 {
     if (!this.colliders.length) return desired;
     // three rays (centre + 1.5 m either side at the camera end) keep a margin to walls
     const blocked = (p: THREE.Vector3): number | null => {
@@ -225,6 +288,13 @@ export class CameraRig {
       return nearest;
     };
     if (blocked(desired) === null) return desired;
+    // on a wall: first move out over the car's roof (the open side of the ramp)
+    if (carUp) {
+      for (const k of [3, 6, 9]) {
+        const p = desired.clone().addScaledVector(new THREE.Vector3(carUp.x, carUp.y, carUp.z), k);
+        if (blocked(p) === null) return p;
+      }
+    }
     // first swing around the car (keeps distance and height), then crane up, only then pull in
     const off = new THREE.Vector3().subVectors(desired, target);
     for (const a of [25, -25, 50, -50, 80, -80, 110, -110]) {

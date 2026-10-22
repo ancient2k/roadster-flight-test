@@ -9,7 +9,11 @@
 - **Post chain** (`post.ts`): screen-space reflections, temporal anti-aliasing, bloom, the ground-cloud volume
   composited at half resolution before TRAA.
 - **Cameras** (`cameraMath.ts`, `camera/`): chase, orbit and photo cameras plus fixed broadcast cameras modelled on
-  the framing of the live stream for each stunt.
+  the framing of the live stream for each stunt. The chase camera can be turned and zoomed with the mouse (drag,
+  wheel) and swings back behind the car after `LOOK_RECENTER_S` of driving. On a wall or overhang (car on the
+  ground with its roof tilted past ≈ 40°) it follows in the car's own frame, behind along the surface and out
+  over the roof, so the ramp no longer hides the car (`tests/perf/_occlusion.mjs`: ramp hang 38 % → 0 % of
+  the time hidden, ramp launch 10 % → 0 %).
 
 ## Temporal stability (ghosting, flicker)
 
