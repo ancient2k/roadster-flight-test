@@ -1,5 +1,13 @@
 /* On-screen touch controls (src/ui/touchControls.ts) and the small-screen menu adjustments.
-   Everything is inside the safe area (notch / home indicator) and sized off the short screen side. */
+   Everything is inside the safe area (notch / home indicator) and sized off the short screen side.
+   The insets go through --rft-sa-*; tests emulate a notch by setting --rft-safe-<side> on :root
+   (the HUD canvas reads the same values, src/ui/hud/Hud.ts). */
+:root {
+  --rft-sa-t: var(--rft-safe-top, env(safe-area-inset-top, 0px));
+  --rft-sa-r: var(--rft-safe-right, env(safe-area-inset-right, 0px));
+  --rft-sa-b: var(--rft-safe-bottom, env(safe-area-inset-bottom, 0px));
+  --rft-sa-l: var(--rft-safe-left, env(safe-area-inset-left, 0px));
+}
 .rft-touch {
   --tb: clamp(44px, 11vmin, 76px);
   position: absolute; inset: 0; z-index: 40; pointer-events: none;
@@ -12,7 +20,7 @@
 /* stick zones: lower half of each side (the camera can still be dragged in the top centre) */
 .rft-touch-zone { position: absolute; bottom: 0; height: 58%; }
 .rft-touch-zone.left { left: 0; width: 38%; }
-.rft-touch-zone.right { right: calc(var(--tb) * 1.6 + env(safe-area-inset-right)); width: 30%; }
+.rft-touch-zone.right { right: calc(var(--tb) * 1.6 + var(--rft-sa-r)); width: 30%; }
 .rft-touch-stick { position: absolute; inset: 0; }
 .rft-touch-base {
   position: absolute; left: 50%; top: 58%; width: calc(var(--tb) * 1.9); height: calc(var(--tb) * 1.9);
@@ -20,13 +28,23 @@
   border: 2px solid rgba(255,255,255,.28); background: rgba(0,0,0,.18); transition: opacity .15s; opacity: .3;
 }
 .rft-touch-stick.on .rft-touch-base { opacity: 1; transition: none; }
+/* the attitude stick rests left of centre, clear of the button block next to it */
+.rft-touch-zone.right .rft-touch-base { left: 40%; }
+.rft-touch-zone.right .rft-touch-hint { right: 20%; }
+/* portrait: the button block is as wide as a third of the screen; the zones sit side by side left of it */
+@media (orientation: portrait) {
+  .rft-touch-zone.left { width: 34%; }
+  .rft-touch-zone.right { right: calc(var(--tb) * 2.6 + 28px + var(--rft-sa-r)); width: 32%; }
+  .rft-touch-zone.right .rft-touch-base { left: 50%; }
+  .rft-touch-zone.right .rft-touch-hint { right: 0; }
+}
 .rft-touch-knob {
   position: absolute; left: 50%; top: 50%; width: 44%; height: 44%; margin: -22% 0 0 -22%; border-radius: 50%;
   background: rgba(255,255,255,.75); box-shadow: 0 0 12px rgba(0,0,0,.5);
 }
 .rft-touch-stick.on .rft-touch-knob { background: #fff; }
 .rft-touch-hint {
-  position: absolute; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom)); text-align: center;
+  position: absolute; left: 0; right: 0; bottom: calc(10px + var(--rft-sa-b)); text-align: center;
   color: rgba(255,255,255,.45); font-size: .8em; letter-spacing: .24em; text-transform: uppercase; pointer-events: none;
 }
 .rft-touch-stick.on .rft-touch-hint { opacity: 0; }
@@ -39,30 +57,36 @@
 }
 .rft-touch-btn.on { background: var(--rft-red, #e8261c); border-color: #fff; }
 
-/* right column: boost / lift / down, roll pair above the attitude stick */
+/* right block: roll pair on top, boost / down on the left, a tall lift button at the thumb on the right
+   (three rows instead of four, so the HUD readouts above keep their room on short screens) */
 .rft-touch-btns.right {
-  position: absolute; right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom));
-  display: grid; grid-template-columns: var(--tb) var(--tb); grid-template-areas: "rollL rollR" "boost boost" "lift lift" "down down";
+  position: absolute; right: calc(12px + var(--rft-sa-r)); bottom: calc(12px + var(--rft-sa-b));
+  display: grid; grid-template-columns: calc(var(--tb) * 1.3) calc(var(--tb) * 1.3); grid-template-rows: var(--tb) var(--tb) calc(var(--tb) * .8);
+  grid-template-areas: "rollL rollR" "boost lift" "down lift";
   gap: 8px; pointer-events: none;
 }
 .rft-touch-btns.right .boost { grid-area: boost; }
-.rft-touch-btns.right .lift { grid-area: lift; height: calc(var(--tb) * 1.35); }
-.rft-touch-btns.right .down { grid-area: down; height: calc(var(--tb) * .8); }
+.rft-touch-btns.right .lift { grid-area: lift; height: auto; }
+.rft-touch-btns.right .down { grid-area: down; height: auto; }
+.rft-touch-btns.right .rft-touch-btn { min-width: 0; padding: 0 .25em; letter-spacing: .03em; white-space: nowrap; overflow: hidden; }
 .rft-touch-btns.right .rollL { grid-area: rollL; font-size: 1.6em; }
 .rft-touch-btns.right .rollR { grid-area: rollR; font-size: 1.6em; }
 .rft-touch-btns.left {
-  position: absolute; left: calc(12px + env(safe-area-inset-left)); top: 34%; display: flex; gap: 8px; pointer-events: none;
+  position: absolute; left: calc(12px + var(--rft-sa-l)); top: 34%; display: flex; gap: 8px; pointer-events: none;
 }
 
 /* top right: more / camera / reset / menu; tray below */
 .rft-touch-top {
-  position: absolute; top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right));
+  position: absolute; top: calc(8px + var(--rft-sa-t)); right: calc(8px + var(--rft-sa-r));
   display: flex; gap: 6px; touch-action: auto;
 }
 .rft-touch-top .rft-touch-btn, .rft-touch-tray .rft-touch-btn { height: calc(var(--tb) * .72); min-width: calc(var(--tb) * .72); font-size: .85em; }
 .rft-touch-tray {
-  position: absolute; top: calc(var(--tb) * .72 + 16px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right));
+  position: absolute; top: calc(var(--tb) * .72 + 16px + var(--rft-sa-t)); right: calc(8px + var(--rft-sa-r));
   display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: min(70vw, 560px);
+  /* own panel: it covers the HUD readouts top right while open, so it must not mix with them */
+  padding: 8px; border-radius: 14px; background: rgba(8,8,10,.86); border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 6px 24px rgba(0,0,0,.5);
 }
 .rft-touch-tray[hidden] { display: none; }
 .rft-touch-more.on { border-color: #fff; }
@@ -83,7 +107,7 @@
 html.rft-has-touch, html.rft-has-touch body { touch-action: manipulation; overscroll-behavior: none; }
 @media (max-width: 700px), (max-height: 500px) {
   .rft-menu { font-size: 13px; }
-  .rft-title { padding: max(4vh, env(safe-area-inset-top)) max(5vw, env(safe-area-inset-right)) max(3vh, env(safe-area-inset-bottom)) max(5vw, env(safe-area-inset-left)); overflow-y: auto; }
+  .rft-title { padding: max(4vh, var(--rft-sa-t)) max(5vw, var(--rft-sa-r)) max(3vh, var(--rft-sa-b)) max(5vw, var(--rft-sa-l)); overflow-y: auto; }
   .rft-logo .l1 { font-size: min(5.6em, 13vw); }
   .rft-logo .l2 { font-size: min(2.3em, 6vw); letter-spacing: .24em; }
   .rft-eyebrow { letter-spacing: .14em; }

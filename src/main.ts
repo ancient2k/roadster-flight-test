@@ -5,6 +5,7 @@ import { classifyDevice, defaultQualityFor, setDeviceProfile, type QualityLevel 
 import { SETTINGS_KEY } from './ui/settings';
 import { TouchControls, hasTouch } from './ui/touchControls';
 import { PREPARING_STEPS, type BootState } from './ui/bootProgress';
+import { applyPendingUpdate, registerServiceWorker } from './pwa/register';
 import type { StuntId } from '@shared/types';
 
 declare global {
@@ -90,6 +91,7 @@ async function boot(): Promise<void> {
   if (/[#&]track=/.test(location.hash)) void app.openEditor();
   try { sessionStorage.removeItem(RETRY_KEY); } catch { /* blocked */ }
   hideBootScreen();
+  void registerServiceWorker();
 }
 
 // ------------------------------------------------------------------ boot screen (index.html)
@@ -163,6 +165,7 @@ function hideBootScreen(): void {
   setTimeout(() => el.remove(), 500);
 }
 
+void applyPendingUpdate();
 startBootStatus();
 boot().catch((e) => {
   console.error(e);

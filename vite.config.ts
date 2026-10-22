@@ -1,8 +1,10 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import { serviceWorkerPlugin } from './tools/pwa/plugin.ts';
 
 export default defineConfig({
   base: './',
+  plugins: [serviceWorkerPlugin()], // sw.js for the installable app (docs/MOBILE.md)
   resolve: {
     alias: {
       '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),

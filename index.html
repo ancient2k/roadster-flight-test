@@ -3,10 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Unofficial fan simulation of the Tesla Roadster Gen 2 prototype in the browser: cold-gas thrusters, fan suction, stunts and ten worlds." />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <!-- installable app (public/manifest.json, service worker: src/pwa/register.ts) and iOS "Add to Home Screen" -->
+    <link rel="manifest" href="./manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Roadster FT" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Roadster Flight Test</title>
-    <link rel="icon" href="data:," />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="./icons/icon-192.png" sizes="192x192" type="image/png" />
     <style>html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavior:none}#app{position:fixed;inset:0}</style>
     <style>
       #boot{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#000;color:#ddd;font:600 13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.32em;transition:opacity .4s}
@@ -37,6 +46,7 @@
       // the downloaded bytes (finished files plus the car model in flight) and the renderer's start-up steps
       // (src/ui/bootProgress.ts), and keeps creeping towards the next step so it never looks frozen.
       // window.__rftBoot is the watchdog state src/main.ts continues (phase line, "taking long" hint, errors).
+      // With the service worker the MB figure is the amount loaded (from network or cache), not network traffic.
       (function () {
         var bar = document.querySelector('#boot .bar i'), mb = document.querySelector('#boot .mb'), sum = 0, EXPECT = 22e6;
         var now = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
@@ -59,8 +69,12 @@
           mbShown = Math.max(mbShown, sum + lv);
           mb.textContent = (mbShown / 1e6).toFixed(1) + ' MB';
         }
+        // under the service worker (src/pwa/register.ts) the worker reports each file it serves; Resource Timing
+        // has no sizes for those (transferSize 0; WebKit also no body sizes), so it is not counted twice
+        var sw = navigator.serviceWorker, viaSw = !!(sw && sw.controller);
+        if (viaSw) sw.onmessage = function (e) { var d = e.data; if (d && d.type === 'rft-bytes') { sum += d.n; delete live[abs(d.url)]; st.lastNet = now(); } };
         try {
-          new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { sum += e.transferSize || e.encodedBodySize || 0; delete live[e.name]; }); st.lastNet = now(); })
+          new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (!viaSw) sum += e.transferSize || e.encodedBodySize || e.decodedBodySize || 0; delete live[e.name]; }); st.lastNet = now(); })
             .observe({ type: 'resource', buffered: true });
         } catch (e) { /* no PerformanceObserver: steps and creep only */ }
         var tick = setInterval(function () { if (!document.getElementById('boot')) clearInterval(tick); else show(); }, 200);

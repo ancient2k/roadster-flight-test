@@ -56,6 +56,29 @@ const ASSIST_COLOR: Record<AssistLevel, string> = { ASSIST: '#62d68c', STABILIZE
 
 interface RingAnim { g: number; alt: number; df: number; pitch: number }
 
+/** Screen rectangle in CSS px (HUD canvas = viewport). */
+export interface HudBox { name: string; x: number; y: number; w: number; h: number }
+type Rect = Omit<HudBox, 'name'>;
+
+/**
+ * Layout while the on-screen touch controls are shown (src/ui/touchControls.ts): the gauge row moves
+ * into the lowest band that is free of the measured buttons, stick rests and stick hints (four gauges,
+ * or three without the top view when that is too wide), and the readouts start below the top buttons.
+ */
+interface TouchLayout {
+  /** Gauge row centre line and gauge centres (left ring, sphere, [top view], altitude). */
+  y: number; xs: number[];
+  /** Bottom of the top-right button bar, top of the right button block (CSS px). */
+  topBarBottom: number; rightBlockTop: number;
+}
+
+/** Gauge extent around its centre in reference px (ring + label above, unit + end ticks below). */
+const GAUGE_HALF_W = 84, GAUGE_UP = 80, GAUGE_DOWN = 70, GAUGE_STEP = 184;
+/** Smallest ring label / unit size in CSS px in the touch layout (the stream sizes get tiny on phones). */
+const TOUCH_MIN_LABEL_PX = 9, TOUCH_MIN_UNIT_PX = 8.5;
+/** Text scale of the readouts in the touch layout (desktop keeps max(0.7, s)). */
+const TOUCH_TEXT_SCALE = 0.95;
+
 export class Hud {
   readonly el: HTMLDivElement;
   private canvas: HTMLCanvasElement;
@@ -80,6 +103,13 @@ export class Hud {
   private lastStunt: StuntId | undefined;
   private fontsReady = false;
   private flashTimer = 0;
+  private safeProbe: HTMLDivElement;
+  /** Safe-area insets (notch, home indicator) in CSS px. */
+  private safe = { t: 0, r: 0, b: 0, l: 0 };
+  private touchRoot: HTMLElement | null = null;
+  private touchShown = false;
+  private touch: TouchLayout | null = null;
+  private boxes: HudBox[] = [];
 
   constructor(private root: HTMLElement) {
     this.el = document.createElement('div');
@@ -95,7 +125,10 @@ export class Hud {
     this.destroyedEl.className = 'rft-destroyed';
     this.destroyedEl.setAttribute('role', 'alert');
     this.destroyedEl.hidden = true;
-    this.el.append(this.canvas, this.flashEl, this.destroyedEl);
+    // reads the safe-area insets the touch overlay uses (--rft-sa-*, src/ui/touch.css)
+    this.safeProbe = document.createElement('div');
+    this.safeProbe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;padding:var(--rft-sa-t,0px) var(--rft-sa-r,0px) var(--rft-sa-b,0px) var(--rft-sa-l,0px)';
+    this.el.append(this.canvas, this.flashEl, this.destroyedEl, this.safeProbe);
     root.appendChild(this.el);
     this.ctx = this.canvas.getContext('2d', { alpha: true })!;
     this.ro = new ResizeObserver(() => this.resize());
@@ -109,6 +142,9 @@ export class Hud {
     this.el.style.visibility = v ? 'visible' : 'hidden';
   }
   isVisible(): boolean { return this.visible; }
+
+  /** Groups drawn in the last frame (CSS px), for layout tests: gauges, readouts, warnings, timer. */
+  layoutBoxes(): HudBox[] { return this.boxes.map((b) => ({ ...b })); }
 
   /** Centered broadcast-style message ("SUCCESS", "FANS SUCTION"). */
   flash(message: string, kind: 'info' | 'success' | 'warn' = 'info', ms = 2200): void {
@@ -135,6 +171,7 @@ export class Hud {
   // ------------------------------------------------------------------ frame update
   update(tel: TelemetryFrame, state: Readonly<VehicleState>, ctx: HudContext): void {
     if (!this.visible) return;
+    this.checkTouch();
     // UI animation runs on wall-clock time (works while the sim is paused or in slow motion)
     const now = performance.now();
     const dt = Number.isFinite(this.lastWall) ? Math.min(0.1, Math.max(0, (now - this.lastWall) / 1000)) : 1 / 60;
@@ -199,6 +236,7 @@ export class Hud {
     this.cssH = Math.max(1, r.height || this.root.clientHeight || window.innerHeight);
     this.dpr = Math.min(window.devicePixelRatio || 1, this.cssW > 2600 ? 1.5 : 2);
     this.s = hudScale(this.cssW, this.cssH) * this.userScale;
+    this.readSafeArea();
     this.canvas.width = Math.round(this.cssW * this.dpr);
     this.canvas.height = Math.round(this.cssH * this.dpr);
     this.canvas.style.width = `${this.cssW}px`;
@@ -212,61 +250,145 @@ export class Hud {
     actx.clearRect(0, 0, w, h);
     drawTopViewArt(actx, w / 2, h / 2, s);
     this.renderPanel();
+    this.layoutTouch();
   }
 
-  /** Reference-px anchor helpers. */
-  private fromLeft(xRef: number): number { return xRef * this.s; }
-  private fromRight(xRef: number): number { return this.cssW - (1920 - xRef) * this.s; }
-  private rowY(): number { return this.cssH - (REF_H - LAYOUT.ringY) * this.s; }
+  /** Touch overlay shown or hidden since the last frame (menus <-> driving): lay the HUD out again. */
+  private checkTouch(): void {
+    if (!this.touchRoot?.isConnected) this.touchRoot = document.querySelector<HTMLElement>('.rft-touch');
+    const shown = !!this.touchRoot && !this.touchRoot.hidden;
+    if (shown !== this.touchShown) { this.touchShown = shown; this.readSafeArea(); this.layoutTouch(); }
+  }
+
+  private readSafeArea(): void {
+    const cs = getComputedStyle(this.safeProbe), px = (v: string) => parseFloat(v) || 0;
+    this.safe = { t: px(cs.paddingTop), r: px(cs.paddingRight), b: px(cs.paddingBottom), l: px(cs.paddingLeft) };
+  }
+
+  /** Measures the visible touch controls and finds the lowest free band for the gauge row. */
+  private layoutTouch(): void {
+    this.touch = null;
+    const root = this.touchRoot;
+    if (!this.touchShown || !root) return;
+    const host = this.el.getBoundingClientRect();
+    const rel = (r: DOMRect): Rect => ({ x: r.left - host.left, y: r.top - host.top, w: r.width, h: r.height });
+    const obstacles: Rect[] = [];
+    const add = (r: DOMRect) => { if (r.width > 0 && r.height > 0) obstacles.push(rel(r)); };
+    for (const e of root.querySelectorAll<HTMLElement>('.rft-touch-btns .rft-touch-btn, .rft-touch-top, .rft-touch-base')) add(e.getBoundingClientRect());
+    for (const e of root.querySelectorAll<HTMLElement>('.rft-touch-hint')) { // the hint box spans the zone; only its text counts
+      const range = document.createRange(); range.selectNodeContents(e); add(range.getBoundingClientRect());
+    }
+    const bar = root.querySelector('.rft-touch-top')?.getBoundingClientRect();
+    const block = root.querySelector('.rft-touch-btns.right')?.getBoundingClientRect();
+    const W = this.cssW, H = this.cssH, s = this.s, M = 6;
+    const hx = GAUGE_HALF_W * s, up = GAUGE_UP * s, down = GAUGE_DOWN * s, step = GAUGE_STEP * s;
+    const lo = 8 + this.safe.l, hi = W - 8 - this.safe.r;
+    for (let y = H - this.safe.b - 4 - down; y - up > H * 0.3; y -= 4) {
+      // free horizontal intervals in the band of the gauge row
+      const blocked = obstacles.filter((r) => r.y < y + down + M && r.y + r.h > y - up - M)
+        .map((r) => [r.x - M, r.x + r.w + M] as const).sort((a, b) => a[0] - b[0]);
+      const free: Array<[number, number]> = [];
+      let a = lo;
+      for (const [b0, b1] of blocked) { if (b0 > a) free.push([a, Math.min(b0, hi)]); a = Math.max(a, b1); }
+      if (a < hi) free.push([a, hi]);
+      for (const n of [4, 3]) {
+        const need = (n - 1) * step + 2 * hx;
+        const fit = free.filter(([f0, f1]) => f1 - f0 >= need)
+          .map(([f0, f1]) => Math.min(Math.max(W / 2, f0 + need / 2), f1 - need / 2))
+          .sort((p, q) => Math.abs(p - W / 2) - Math.abs(q - W / 2))[0];
+        if (fit === undefined) continue;
+        const x0 = fit - ((n - 1) * step) / 2;
+        this.touch = {
+          y, xs: Array.from({ length: n }, (_, i) => x0 + i * step),
+          topBarBottom: bar ? bar.bottom - host.top : 0, rightBlockTop: block ? block.top - host.top : H,
+        };
+        return;
+      }
+    }
+  }
+
+  /** Reference-px anchor helpers (inside the safe area). */
+  private fromLeft(xRef: number): number { return this.safe.l + xRef * this.s; }
+  private fromRight(xRef: number): number { return this.cssW - this.safe.r - (1920 - xRef) * this.s; }
+  private rowY(): number { return this.cssH - this.safe.b - (REF_H - LAYOUT.ringY) * this.s; }
+
+  private box(name: string, x: number, y: number, w: number, h: number): void { this.boxes.push({ name, x, y, w, h }); }
+
+  /** Width of a text line as text1 draws it (maxW squeezes). */
+  private textW(str: string, px: number, weight: number, spacing: number, maxW?: number): number {
+    const c = this.ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+    c.font = `${weight} ${px.toFixed(2)}px ${DISPLAY_FONT}`;
+    const ls = 'letterSpacing' in c;
+    if (ls) c.letterSpacing = `${spacing.toFixed(2)}px`;
+    const w = c.measureText(str).width + (ls ? 0 : spacing * str.length);
+    if (ls) c.letterSpacing = '0px';
+    return maxW !== undefined ? Math.min(w, maxW) : w;
+  }
 
   // ------------------------------------------------------------------ drawing
   private draw(tel: TelemetryFrame, state: Readonly<VehicleState>, ctx: HudContext, timer: number | null): void {
     const c = this.ctx, s = this.s;
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     c.clearRect(0, 0, this.cssW, this.cssH);
+    this.boxes = [];
     if (!this.fontsReady) return;
 
-    const y = this.rowY();
-    const xL = this.fromLeft(LAYOUT.leftRingX), xS = this.fromLeft(LAYOUT.sphereX);
-    const xT = this.fromRight(LAYOUT.topViewX), xR = this.fromRight(LAYOUT.rightRingX);
+    const tl = this.touch;
+    const y = tl ? tl.y : this.rowY();
+    // gauge centres: stream corners, or the free band of the touch layout (3 gauges: no top view)
+    const xs = tl ? tl.xs : [this.fromLeft(LAYOUT.leftRingX), this.fromLeft(LAYOUT.sphereX), this.fromRight(LAYOUT.topViewX), this.fromRight(LAYOUT.rightRingX)];
+    const four = xs.length === 4;
+    const xL = xs[0], xS = xs[1], xR = xs[xs.length - 1];
     const m = this.rampMix;
 
-    this.drawPanels(y);
+    if (tl) this.drawPanels(y, xL - GAUGE_STEP * s * 0.75, xR + GAUGE_STEP * s * 0.75); else this.drawPanels(y);
 
     // left ring: G-FORCE (flight) <-> DOWNFORCE (ramp)
     this.drawTrack(xL, y);
     if (m < 1) this.drawRing(xL, y, this.anim.g, 'G-FORCE', this.text.g, 'G', 1 - m);
     if (m > 0) this.drawRing(xL, y, this.anim.df, 'DOWNFORCE', this.text.df, 'KG', m);
 
-    this.drawSphere(xS, y, state);
+    // sphere; with three gauges it gives way to the PITCH ring in the ramp layout
+    if (four || m < 1) this.drawSphere(xS, y, state, four ? 1 : 1 - m);
+    if (!four && m > 0) { this.drawTrack(xS, y, m); this.drawRing(xS, y, this.anim.pitch, 'PITCH', this.text.pitch, 'DEG', m); }
 
     // right: top view (flight) <-> PITCH ring (ramp)
-    if (m < 1) {
-      const aw = this.art.width / this.dpr, ah = this.art.height / this.dpr;
-      c.globalAlpha = 1 - m;
-      c.drawImage(this.art, xT - aw / 2, y - 9 * s - ah / 2, aw, ah);
-      c.globalAlpha = 1;
-      drawNozzles(c, xT, y - 9 * s, s, tel.thrusterDuty, 1 - m);
+    if (four) {
+      const xT = xs[2];
+      if (m < 1) {
+        const aw = this.art.width / this.dpr, ah = this.art.height / this.dpr;
+        c.globalAlpha = 1 - m;
+        c.drawImage(this.art, xT - aw / 2, y - 9 * s - ah / 2, aw, ah);
+        c.globalAlpha = 1;
+        drawNozzles(c, xT, y - 9 * s, s, tel.thrusterDuty, 1 - m);
+      }
+      if (m > 0) { this.drawTrack(xT, y, m); this.drawRing(xT, y, this.anim.pitch, 'PITCH', this.text.pitch, 'DEG', m); }
     }
-    if (m > 0) { this.drawTrack(xT, y, m); this.drawRing(xT, y, this.anim.pitch, 'PITCH', this.text.pitch, 'DEG', m); }
 
     this.drawTrack(xR, y);
     this.drawRing(xR, y, this.anim.alt, 'ALTITUDE', this.text.alt, this.text.altUnit, 1);
+    const names = four ? ['gauge-left', 'gauge-sphere', 'gauge-top', 'gauge-alt'] : ['gauge-left', 'gauge-sphere', 'gauge-alt'];
+    xs.forEach((x, i) => this.box(names[i], x - GAUGE_HALF_W * s, y - GAUGE_UP * s, 2 * GAUGE_HALF_W * s, (GAUGE_UP + GAUGE_DOWN) * s));
 
-    if (timer !== null) this.drawTimer(timer);
+    if (timer !== null) this.drawTimer(timer, tl ? y - GAUGE_UP * s - 8 : undefined);
     const aw = airWarning(tel.phase);
-    if (ctx.extras !== false) this.drawExtras(tel, state, ctx, aw !== null);
-    if (aw) this.drawAirWarning(aw);
+    const below = ctx.extras !== false ? this.drawExtras(tel, state, ctx, aw !== null) : 0;
+    if (aw) this.drawAirWarning(aw, this.touchShown ? below + 10 : undefined);
   }
 
   /** Soft dark backing behind each group (the stream keys its HUD over a subtle vignette). Pre-rendered on resize. */
-  private drawPanels(y: number): void {
+  private drawPanels(y: number, x0 = 0, x1 = this.cssW): void {
     const c = this.ctx;
     const pw = this.panel.width / this.dpr, ph = this.panel.height / this.dpr;
-    const top = y + 130 * this.s - ph;
-    c.drawImage(this.panel, -pw * 0.08, top, pw, ph);
+    const top = y + 130 * this.s - ph, mid = (x0 + x1) / 2;
+    // left copy and mirrored right copy, each clipped to its half (they meet behind a centred gauge row)
     c.save();
-    c.translate(this.cssW, 0); c.scale(-1, 1);
+    c.beginPath(); c.rect(0, 0, mid, this.cssH); c.clip();
+    c.drawImage(this.panel, x0 - pw * 0.08, top, pw, ph);
+    c.restore();
+    c.save();
+    c.beginPath(); c.rect(mid, 0, this.cssW - mid, this.cssH); c.clip();
+    c.translate(x1, 0); c.scale(-1, 1);
     c.drawImage(this.panel, -pw * 0.08, top, pw, ph);
     c.restore();
   }
@@ -332,9 +454,10 @@ export class Hud {
 
     c.textAlign = 'center';
     c.textBaseline = 'alphabetic';
-    this.text1(label, x, y - 29.8 * s, 15 * s, 600, COLORS.label, 0.3 * s);
+    const tl = this.touch !== null;
+    this.text1(label, x, y - 29.8 * s, Math.max(15 * s, tl ? TOUCH_MIN_LABEL_PX : 0), 600, COLORS.label, 0.3 * s, 2 * r - 6 * s);
     this.text1(value, x, y + 13.5 * s, 41.5 * s, 400, COLORS.value, 1 * s);
-    this.text1(unit, x, y + 36.5 * s, 13 * s, 600, COLORS.unit, 0.4 * s);
+    this.text1(unit, x, y + 36.5 * s + (tl ? 1 : 0), Math.max(13 * s, tl ? TOUCH_MIN_UNIT_PX : 0), 600, COLORS.unit, 0.4 * s);
     c.restore();
   }
 
@@ -348,10 +471,11 @@ export class Hud {
     if ('letterSpacing' in c) c.letterSpacing = '0px';
   }
 
-  private drawSphere(x: number, y: number, state: Readonly<VehicleState>): void {
+  private drawSphere(x: number, y: number, state: Readonly<VehicleState>, alpha = 1): void {
     const c = this.ctx, s = this.s, R = LAYOUT.sphereR * s;
     const q = removeYaw(state.quat, this.heading.update(state.quat));
     c.save();
+    c.globalAlpha = alpha;
     // sphere body
     const g = c.createRadialGradient(x - R * 0.3, y - R * 0.35, R * 0.1, x, y, R);
     g.addColorStop(0, 'rgba(255,255,255,0.05)');
@@ -385,12 +509,14 @@ export class Hud {
     c.restore();
   }
 
-  private drawTimer(t: number): void {
+  /** bottom: lowest y of the timer (touch layout: above the gauge row); default stream position. */
+  private drawTimer(t: number, bottom?: number): void {
     const c = this.ctx, s = this.s;
     const text = U.streamTimer(t);
     const cap = 64 * s, stroke = 8.2 * s;        // measured: 72 px tall incl. stroke at 1080p
-    const cy = this.cssH - (REF_H - 868) * s;
+    const cy = bottom !== undefined ? bottom - cap / 2 - stroke : this.cssH - this.safe.b - (REF_H - 868) * s;
     const w = timerWidth(text, cap);
+    this.box('timer', this.cssW / 2 - w / 2 - cap * 0.2, cy - cap / 2 - stroke / 2, w + cap * 0.4, cap + stroke);
     c.save();
     c.translate(this.cssW / 2, cy);
     c.transform(1, 0, -0.2, 1, 0, 0);            // italic ≈ 11°
@@ -408,11 +534,14 @@ export class Hud {
   private pulse(): number { return 0.5 + 0.5 * Math.sin((performance.now() / 1000) * Math.PI * 2 * 1.6); }
 
   /** Low-air warning from ManualAssist (phase ids LOW_AIR / AUTOLAND): top centre, pulsing red. */
-  private drawAirWarning(kind: 'low' | 'autoland'): void {
-    const c = this.ctx, s = Math.max(0.7, this.s), p = this.pulse();
+  /** minTop: touch layout, below the readouts (they share the top of a phone screen). */
+  private drawAirWarning(kind: 'low' | 'autoland', minTop?: number): void {
+    const c = this.ctx, s = minTop !== undefined ? TOUCH_TEXT_SCALE : Math.max(0.7, this.s), p = this.pulse();
     const title = upper(t(kind === 'autoland' ? 'hud.autoland' : 'hud.lowAir'));
     const sub = upper(t(kind === 'autoland' ? 'hud.autolandSub' : 'hud.lowAirSub'));
-    const cx = this.cssW / 2, top = 74 * s, w = 380 * s, hgt = 66 * s;
+    const cx = this.cssW / 2, top = Math.max(74 * s + this.safe.t, minTop ?? 0), hgt = 66 * s;
+    const w = Math.min(380 * s, this.cssW - 2 * (16 + Math.max(this.safe.l, this.safe.r)));
+    this.box('air-warning', cx - w / 2, top, w, hgt);
     c.save();
     c.globalAlpha = 0.72 + 0.28 * p;
     c.shadowColor = `rgba(255,59,48,${0.35 + 0.5 * p})`;
@@ -429,32 +558,39 @@ export class Hud {
     c.restore();
   }
 
-  private drawExtras(tel: TelemetryFrame, state: Readonly<VehicleState>, ctx: HudContext, lowAir = false): void {
-    const c = this.ctx, s = Math.max(0.7, this.s);
-    const pad = 34 * s;
+  /** Returns the lowest y of the drawn groups (the touch layout puts the air warning below). */
+  private drawExtras(tel: TelemetryFrame, state: Readonly<VehicleState>, ctx: HudContext, lowAir = false): number {
+    const c = this.ctx, touch = this.touchShown, tl = this.touch;
+    const s = touch ? TOUCH_TEXT_SCALE : Math.max(0.7, this.s);
+    const pad = touch ? 14 : 34 * s;
+    const padL = pad + this.safe.l, padR = pad + this.safe.r, padT = pad + this.safe.t;
     c.save();
     c.textBaseline = 'alphabetic';
     // ---- top-left: mode / stunt / phase / assist
     c.textAlign = 'left';
-    let yy = pad + 12 * s;
-    const leftW = Math.max(120 * s, this.cssW / 2 - 230 * s - pad); // never into the centred warning box
-    const modeTxt = t(ctx.mode === 'auto' ? 'hud.autopilot' : 'hud.manual');
-    this.text1(modeTxt, pad, yy, 13 * s, 600, COLORS.label, 1.2 * s, leftW);
-    if (ctx.stunt) {
-      c.textAlign = 'left';
-      this.text1(upper(stuntInfo(ctx.stunt).title), pad, yy + 22 * s, 20 * s, 600, '#fff', 0.8 * s, leftW);
-      yy += 22 * s;
-    }
-    if (tel.phase) { this.text1(`${t('hud.phase')}  ${phaseLabel(tel.phase)}`, pad, yy + 20 * s, 12 * s, 600, 'rgb(200,200,200)', 1 * s, leftW); yy += 20 * s; }
+    let yy = padT + 12 * s;
+    const leftW = touch ? Math.max(120 * s, this.cssW / 2 - padL - 12) : Math.max(120 * s, this.cssW / 2 - 230 * s - pad); // never into the centred warning box
+    const lines: Array<[string, number, number, number, string, number]> = []; // text, dy, px, weight, colour, spacing
+    lines.push([t(ctx.mode === 'auto' ? 'hud.autopilot' : 'hud.manual'), 0, 13, 600, COLORS.label, 1.2]);
+    if (ctx.stunt) lines.push([upper(stuntInfo(ctx.stunt).title), 22, 20, 600, '#fff', 0.8]);
+    if (tel.phase) lines.push([`${t('hud.phase')}  ${phaseLabel(tel.phase)}`, 20, 12, 600, 'rgb(200,200,200)', 1]);
     if (ctx.mode === 'manual' && ctx.assist) {
       // the active control level, large and coloured (R14: RAW has no damping at all, it must be obvious)
-      this.text1(t('hud.assist'), pad, yy + 20 * s, 11 * s, 600, COLORS.label, 1.2 * s, leftW);
-      this.text1(upper(ASSIST_LABEL[ctx.assist]), pad, yy + 42 * s, 19 * s, 800, ASSIST_COLOR[ctx.assist], 1.2 * s, leftW);
+      lines.push([t('hud.assist'), 20, 11, 600, COLORS.label, 1.2]);
+      lines.push([upper(ASSIST_LABEL[ctx.assist]), 22, 19, 800, ASSIST_COLOR[ctx.assist], 1.2]);
     }
+    let leftR = padL;
+    for (const [str, dy, px, weight, col, sp] of lines) {
+      yy += dy * s;
+      this.text1(str, padL, yy, px * s, weight, col, sp * s, leftW);
+      leftR = Math.max(leftR, padL + this.textW(str, px * s, weight, sp * s, leftW));
+    }
+    const leftBottom = yy + 4 * s;
+    this.box('top-left', padL, padT, leftR - padL, leftBottom - padT);
 
     // ---- top-right: systems
     c.textAlign = 'right';
-    const xr = this.cssW - pad;
+    const xr = this.cssW - padR;
     const rows: Array<[string, string, string, number | null, boolean]> = [];
     const sp = U.speed(tel.speedMs, ctx.units);
     rows.push([t('hud.speed'), sp.value, sp.unit, null, false]);
@@ -470,13 +606,29 @@ export class Hud {
       const ok = ctx.compressor !== 'noAir';
       rows.push([t('hud.compressor'), upper(t(`hud.compressor.${ctx.compressor}`)), '', null, !ok]);
     }
-    yy = pad + 12 * s;
-    for (const [lab, val, unit, bar, warn] of rows) {
+    // value right-aligned at valX; the label (right-aligned left of the value column) gets what is left
+    const cols = rows.map(([lab, val, unit]) => {
       const valX = xr - (unit ? 52 * s : 0);
-      // value right-aligned at valX; the label (right-aligned left of the value column) gets what is left
-      c.font = `400 ${(17 * s).toFixed(2)}px ${DISPLAY_FONT}`;
-      const valW = c.measureText(val).width;
+      const valW = this.textW(val, 17 * s, 400, 0.3 * s);
       const labX = Math.min(xr - 150 * s, valX - valW - 12 * s);
+      return { valX, labX, labW: this.textW(lab, 11 * s, 600, 1 * s, 170 * s) };
+    });
+    const colL = Math.min(xr - 96 * s, ...cols.map((k) => k.labX - k.labW));
+    yy = padT + 12 * s;
+    if (touch) {
+      // below the touch buttons top right, and below the left block when both would meet (portrait)
+      yy = Math.max(yy, (tl?.topBarBottom ?? 0) + 8 + 11 * s);
+      if (leftR > colL - 12 * s) yy = Math.max(yy, leftBottom + 10 + 11 * s);
+    }
+    const colTop = yy - 11 * s;
+    if (touch) {
+      // phones: the readouts sit over the scene, not over the stream's dark sky; a soft backing keeps them legible
+      const h = rows.reduce((acc, r) => acc + (r[3] !== null ? 30 : 25) * s, 0) - 13 * s;
+      c.fillStyle = 'rgba(0,0,0,0.32)';
+      c.beginPath(); c.roundRect(colL - 10 * s, colTop - 6 * s, xr - colL + 18 * s, h + 12 * s, 8 * s); c.fill();
+    }
+    rows.forEach(([lab, val, unit, bar, warn], i) => {
+      const { valX, labX } = cols[i];
       this.text1(lab, labX, yy, 11 * s, 600, COLORS.label, 1 * s, 170 * s);
       this.text1(val, valX, yy + 1 * s, 17 * s, 400, warn ? warnCol : '#fff', 0.3 * s);
       if (unit) this.text1(unit, xr, yy, 11 * s, 600, COLORS.unit, 0.8 * s);
@@ -490,10 +642,26 @@ export class Hud {
         c.shadowBlur = 0;
       }
       yy += (bar !== null ? 30 : 25) * s;
+    });
+    const rowsBottom = yy - 25 * s + 6 * s;
+    this.box('top-right', colL, colTop, xr - colL, rowsBottom - colTop);
+    let low = Math.max(leftBottom, rowsBottom);
+    if (state.damage) {
+      // touch layout on a short screen: next to the readouts instead of below (the right buttons are there)
+      const beside = touch && yy + 78 * s + 8 > (tl?.rightBlockTop ?? this.cssH);
+      if (beside) low = Math.max(low, this.drawDamage(state.damage, colL - 14 * s, colTop + 11 * s, s));
+      else { yy = this.drawDamage(state.damage, xr, yy, s); low = Math.max(low, yy); }
     }
-    if (state.damage) yy = this.drawDamage(state.damage, xr, yy, s);
-    if (state.crashed) { c.textAlign = 'right'; this.text1(state.damage?.totalLoss ? upper(t('damage.totalLoss')) : t('hud.collision'), xr, yy + 6 * s, 14 * s, 800, COLORS.warn, 1.5 * s); }
+    if (state.crashed) {
+      c.textAlign = 'right';
+      const msg = state.damage?.totalLoss ? upper(t('damage.totalLoss')) : t('hud.collision');
+      this.text1(msg, xr, yy + 6 * s, 14 * s, 800, COLORS.warn, 1.5 * s);
+      const mw = this.textW(msg, 14 * s, 800, 1.5 * s);
+      this.box('collision', xr - mw, yy - 6 * s, mw, 14 * s);
+      low = Math.max(low, yy + 10 * s);
+    }
     c.restore();
+    return low;
   }
 
   /** Vehicle damage (setting "Realistic"): zone top view under the system rows, LEAK warning. Returns the next y. */
@@ -503,6 +671,9 @@ export class Hud {
     this.text1(t('damage.hud'), xr - w - 12 * s, yy, 11 * s, 600, COLORS.label, 1 * s);
     if (d.leakKgS > 0.01) this.text1(t('damage.leak'), xr - w - 12 * s, yy + 18 * s, 11 * s, 800, COLORS.warn, 1 * s);
     drawDamageView(this.ctx, xr - w / 2, yy - 8 * s + len / 2, len, d);
+    const labW = Math.max(this.textW(t('damage.hud'), 11 * s, 600, 1 * s), this.textW(t('damage.leak'), 11 * s, 800, 1 * s));
+    this.box('damage', xr - w - 12 * s - labW, yy - 11 * s, w + 12 * s + labW, len + 11 * s);
     return yy + len + 8 * s;
   }
+
 }
