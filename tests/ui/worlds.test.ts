@@ -31,6 +31,10 @@ describe('worlds menu, derived from src/shared/worlds.ts', () => {
     expect(bodyFacts('mars')[1].value).toBe('610 Pa');
     expect(bodyFacts('mars')[2].value).toBe('1.7%');
     expect(bodyFacts('moon')[2].value).toBe('–');
+    // refill chip follows the compressor setting: Fun refills everywhere via the on-board supply
+    expect(bodyFacts('moon', 'realistic')[3].value).toBe('no');
+    expect(bodyFacts('moon', 'game')[3].value).toBe('on-board');
+    expect(bodyFacts('earth', 'game')[3].value).toBe('yes');
   });
   it('site texts and coordinates follow the locale', () => {
     const giza = SITES.find((s) => s.id === 'earth_giza')!;

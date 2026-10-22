@@ -32,7 +32,16 @@ the reference for the stunt validation (`src/shared/reference.ts`).
   state and the ambient pressure (Earth, Mars, vacuum).
 - **Valves** (`valves.ts`): opening and closing delays, minimum on-time and PWM — the controller sees the
   quantised impulse it really gets.
-- **Compressor:** refills the tank on the ground (slowly, as stated in the stream).
+- **Compressor** (`compressorConfig` in `propulsion.ts`, setting Simulation → Compressor, key `refillRate`): refills
+  the tank while switched on (R).
+  - *Fun* (default, `'game'`): 12.5 kg/s, a full tank of 250 kg in 20 s, on every world. On the Moon, on Mars and in
+    space an on-board supply feeds the compressor – a gameplay simplification (`Propulsion.refillOnboard`). 20 s
+    stays as the rate: long enough to be a pit stop, short enough not to stall a free run.
+  - *Realistic* (`'realistic'`): 250 kg in 6.5 h (6–7 h as stated in the stream), and only where the compressor can
+    draw in air (`Environment.canRefill`, i.e. Earth). The Moon and space have no atmosphere; Mars (610 Pa CO₂,
+    ρ ≈ 0.020 kg/m³) has ~1/166 of the sea-level pressure, far too thin for the intake, so the rate there is zero. Switching the compressor on there
+    flashes "NO AIR TO DRAW IN" and the HUD compressor row shows NO AIR.
+  - Independent of *Infinite compressed air*, which simply keeps the tank full.
 
 ## Fan suction ("fan car")
 

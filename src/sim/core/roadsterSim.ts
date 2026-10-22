@@ -130,6 +130,8 @@ export class RoadsterSim implements VehicleSim {
   hardGround: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
   /** Current physical environment (Phase 2 worlds). Vehicle modules read airDensity from here. */
   env: Environment = { ...EARTH };
+  /** The compressor can deliver air here: an atmosphere to draw in, or the on-board supply ("Compressor: Fun"). */
+  get compressorAvailable(): boolean { return this.env.canRefill || this.propulsion.refillOnboard; }
   private state = makeState();
   private prevVel = v3();
   private prevAngVel = v3();
@@ -319,7 +321,7 @@ export class RoadsterSim implements VehicleSim {
     const dt = this.dt;
     const st = this.state;
     // 3+4. valves, regulator, nozzles, tank
-    this.propulsion.step(dt, thrusters.duty, systems.refill && this.env.canRefill);
+    this.propulsion.step(dt, thrusters.duty, systems.refill && this.compressorAvailable);
     this.updateMassProperties();
     // 5. forces
     this.body.resetForces(true); this.body.resetTorques(true);

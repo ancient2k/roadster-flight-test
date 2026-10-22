@@ -10,6 +10,21 @@ import { ValveBank, type ValveCfg } from './valves';
 
 export interface NozzleForce { pointBody: Vec3; forceBody: Vec3 }
 
+/** Compressor setting: 'game' ("Fun", default) or 'realistic'. */
+export type CompressorMode = 'realistic' | 'game';
+
+/**
+ * Refill rate and supply per compressor setting.
+ * - 'game': a full tank (250 kg) in 20 s on every world. Off Earth the air comes from an on-board supply,
+ *   a gameplay simplification: there is nothing to draw in on the Moon or in space, and Mars (610 Pa) is far too thin.
+ * - 'realistic': 6–7 h per tank as stated in the stream, and only where the atmosphere allows it (Earth).
+ */
+export function compressorConfig(mode: CompressorMode): { rateKgS: number; onboard: boolean } {
+  return mode === 'game'
+    ? { rateKgS: ROADSTER.tank.refillKgPerSGame, onboard: true }
+    : { rateKgS: ROADSTER.tank.refillKgPerSRealistic, onboard: false };
+}
+
 export class Propulsion {
   readonly tank: Tank;
   readonly valves: ValveBank;
@@ -24,12 +39,21 @@ export class Propulsion {
   totalMassFlow = 0;
   ambientPressure = P_ATM;
   refillRateKgS: number = ROADSTER.tank.refillKgPerSGame;
+  /** Compressor supply: false = it draws in the ambient atmosphere, so it only works where the environment
+   *  allows it (Environment.canRefill); true = on-board supply (setting "Compressor: Fun"), refills on every world. */
+  refillOnboard = false;
   /** Damage hooks (src/sim/vehicle/damage.ts): thrust factor per nozzle (crushed bell) and the area of a feed
    *  line leak between regulator and valves (m²); 1 / 0 for an intact car. */
   readonly thrustScale: Float64Array;
   leakAreaM2 = 0;
   /** Air lost through the leak last step (kg/s). */
   leakKgS = 0;
+
+  /** Apply the compressor setting (see compressorConfig). */
+  setCompressor(mode: CompressorMode): void {
+    const c = compressorConfig(mode);
+    this.refillRateKgS = c.rateKgS; this.refillOnboard = c.onboard;
+  }
 
   constructor(specs: readonly NozzleSpec[] = ROADSTER.nozzles, valveCfg?: ValveCfg) {
     this.specs = specs;
