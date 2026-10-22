@@ -26,14 +26,15 @@ export function gravityText(body: BodyId): string {
   return g > 0 ? `${fmtNum(g, 2)} m/s² · ${fmtNum(g / G0, 2)} g` : `0 m/s² · ${t('worlds.weightless')}`;
 }
 
-/** Short physics facts for a body (chips under the tabs). */
-export function bodyFacts(body: BodyId): Array<{ value: string; label: string }> {
+/** Short physics facts for a body (chips under the tabs). `compressor` is the setting: with 'game' (Fun) the
+ *  on-board supply refills where the atmosphere cannot. */
+export function bodyFacts(body: BodyId, compressor: 'realistic' | 'game' = 'realistic'): Array<{ value: string; label: string }> {
   const e = ENVIRONMENTS[body];
   const g = gravityOf(body);
   return [
     { value: g > 0 ? `${fmtNum(g / G0, 2)} g` : '0 g', label: g > 0 ? `${fmtNum(g, 2)} m/s²` : t('worlds.weightless') },
     { value: e.ambientPressurePa >= 1000 ? `${fmtNum(e.ambientPressurePa / 1e5, 2)} bar` : `${Math.round(e.ambientPressurePa)} Pa`, label: t('worlds.airPressure') },
     { value: e.airDensity > 0 ? fmtPct(e.airDensity / ENVIRONMENTS.earth.airDensity, { digits: e.airDensity < 0.1 ? 1 : 0 }) : '–', label: t('worlds.fansAero') },
-    { value: t(e.canRefill ? 'common.yes' : 'common.no'), label: t('worlds.refill') },
+    { value: t(e.canRefill ? 'common.yes' : compressor === 'game' ? 'worlds.refillOnboard' : 'common.no'), label: t('worlds.refill') },
   ];
 }

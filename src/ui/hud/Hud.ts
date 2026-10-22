@@ -33,6 +33,8 @@ export interface HudContext {
   scale?: number;
   /** Show the extra (non-stream) panels. */
   extras?: boolean;
+  /** Compressor while switched on: filling, tank full, or no air to draw in ("Compressor: Realistic" off Earth). */
+  compressor?: 'filling' | 'full' | 'noAir';
 }
 
 const COLORS = {
@@ -442,6 +444,10 @@ export class Hud {
     const warnCol = lowAir ? `rgba(255,75,62,${0.45 + 0.55 * pulse})` : COLORS.warn;
     rows.push([t('hud.fans'), upper(FAN_LABEL[state.fans.mode]), state.fans.mode === 'off' ? '' : `${tel.fanDeltaPKPa.toFixed(1)} KPA`, state.fans.mode === 'off' ? null : state.fans.rpmNorm, false]);
     rows.push([t('hud.aero'), upper(AERO_LABEL[state.aero.mode]), `${Math.round(state.aero.wingAngleDeg)}°`, null, false]);
+    if (ctx.compressor) {
+      const ok = ctx.compressor !== 'noAir';
+      rows.push([t('hud.compressor'), upper(t(`hud.compressor.${ctx.compressor}`)), '', null, !ok]);
+    }
     yy = pad + 12 * s;
     for (const [lab, val, unit, bar, warn] of rows) {
       const valX = xr - (unit ? 52 * s : 0);

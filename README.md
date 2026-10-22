@@ -65,6 +65,10 @@ Default bindings; they can be changed in the game under Settings → Controls.
 | Pause · restart · menu · help | P · Backspace · Esc · F1 | Menu · View |
 | Start the Sun dive / time warp | Enter / PageUp, PageDown | – |
 
+The compressor (R) refills the tank. With Settings → Simulation → Compressor on **Fun** (default) a full tank
+takes 20 s on every world (off Earth from an on-board supply, a simplification); **Realistic** takes 6–7 h and only
+works on Earth, since there is no air to draw in on the Moon or in space and Mars is far too thin.
+
 ## Languages
 
 The UI is available in **English** (source language and fallback), **German**, French, Spanish, Italian,

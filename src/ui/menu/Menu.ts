@@ -321,7 +321,7 @@ export class Menu extends Emitter<MenuEvents> {
         'data-autofocus': b.id === this.worldBody || null,
         onclick: () => { this.worldBody = b.id; this.emit('uiSound', 'move'); this.render(); },
       }, svg(BODY_ICONS[b.id], 'rft-bodyicon'), b.label)));
-    const facts = h('div', { class: 'rft-chips rft-bodyfacts' }, ...bodyFacts(body.id).map((f) => h('span', { class: 'rft-chip' }, h('b', { text: f.value }), ` ${f.label}`)));
+    const facts = h('div', { class: 'rft-chips rft-bodyfacts' }, ...bodyFacts(body.id, this.opts.settings.get().refillRate).map((f) => h('span', { class: 'rft-chip' }, h('b', { text: f.value }), ` ${f.label}`)));
     const cards = sitesOf(body.id).map((w, i) => h('button', {
       class: `rft-card rft-world${w.available ? '' : ' wip'}`, 'aria-disabled': w.available ? null : 'true',
       'aria-label': t(w.available ? 'worlds.cardAria' : 'worlds.cardAriaWip', { name: w.name, subtitle: w.subtitle }), 'data-world': w.id,
@@ -411,8 +411,8 @@ export class Menu extends Emitter<MenuEvents> {
         break;
       case 'simulation':
         panel.append(
-          this.segRow(t('settings.refill'), [['realistic', t('refill.realistic')], ['game', t('refill.game')]], s.refillRate, (v) => upd((d) => { d.refillRate = v as Settings['refillRate']; }, 'refillRate'),
-            t('settings.refillNote')),
+          this.segRow(t('settings.compressor'), [['game', t('compressor.game')], ['realistic', t('compressor.realistic')]], s.refillRate, (v) => upd((d) => { d.refillRate = v as Settings['refillRate']; }, 'refillRate'),
+            t('settings.compressorNote')),
           this.segRow(t('settings.assistDefault'), (['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((a) => [a, ASSIST_LABEL[a]] as [string, string]), s.assistDefault, (v) => upd((d) => { d.assistDefault = v as AssistLevel; }, 'assistDefault')),
           this.toggleRow(t('settings.infiniteAir'), s.realism.infiniteAir, (v) => upd((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'), t('settings.infiniteAirNote')),
           this.toggleRow(t('settings.valveDelays'), s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), t('settings.valveDelaysNote')),

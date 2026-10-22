@@ -340,7 +340,7 @@ export class App {
     this.audio.setVolume(s.audio);
     this.hud.setVisible(s.hud.visible);
     if (this.renderer.getStats().quality !== s.graphics.quality) this.renderer.setQuality(s.graphics.quality);
-    this.sim && (this.sim.propulsion.refillRateKgS = s.refillRate === 'game' ? ROADSTER.tank.refillKgPerSGame : ROADSTER.tank.refillKgPerSRealistic);
+    this.sim?.propulsion.setCompressor(s.refillRate); // 'game' = Fun: 20 s on every world, 'realistic': 6–7 h, Earth only
     if (this.session) this.session.infiniteAir = s.realism.infiniteAir;
   }
 
@@ -376,7 +376,12 @@ export class App {
         if (input.pressed.fanModeCycle) this.hud.flash(t('flash.fan', { mode: upper(FAN_LABEL[this.manual.cycleFan()]) }));
         if (input.pressed.aeroModeCycle) this.hud.flash(t('flash.aero', { mode: upper(AERO_LABEL[this.manual.cycleAero()]) }));
         if (input.pressed.assistCycle) this.hud.flash(t('flash.assist', { mode: upper(ASSIST_LABEL[this.manual.cycleAssist()]) }));
-        if (input.pressed.refillToggle) { this.manual.refill = !this.manual.refill; this.hud.flash(t(this.manual.refill ? 'flash.compressorOn' : 'flash.compressorOff')); }
+        if (input.pressed.refillToggle) {
+          this.manual.refill = !this.manual.refill;
+          // "Compressor: Realistic" on the Moon, Mars or in space: say why the tank does not fill
+          if (this.manual.refill && !this.sim.compressorAvailable) this.hud.flash(t('flash.compressorNoAir'), 'warn', 5000);
+          else this.hud.flash(t(this.manual.refill ? 'flash.compressorOn' : 'flash.compressorOff'));
+        }
         // pyramid faces need the fan suction: hint (at most every 20 s) while on steep stone without GRIP
         if (steepStoneWithoutGrip(this.sim, this.manual.fanMode) && performance.now() > this.pyramidHintAt) { this.pyramidHintAt = performance.now() + 20_000; this.hud.flash(t('pyramid.needFans', { mode: upper(FAN_LABEL.grip) }), 'warn', 4500); }
       }
@@ -408,6 +413,9 @@ export class App {
     this.hud.update(tel, this.view, {
       mode: mode.kind, stunt: mode.stunt, assist: this.manual?.assist, units: s.units,
       scale: s.hud.scale, extras: s.hud.showExtras, timerT0: stuntCtl ? tel.t - stuntCtl.phaseTime : undefined,
+      compressor: !this.manual?.refill ? undefined
+        : !this.sim.compressorAvailable ? 'noAir'
+        : tel.airMassKg >= ROADSTER.tank.fullMassKg * 0.999 ? 'full' : 'filling',
     });
     const cam = this.renderer.camera;
     const fwd = v3(), up = v3();
