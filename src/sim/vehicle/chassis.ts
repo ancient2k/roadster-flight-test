@@ -36,6 +36,10 @@ export class Wheel {
   contact = false; c = 0; cdot = 0; strutN = 0; N = 0; fx = 0; fy = 0; D = 0;
   driveTorque = 0; brakeTorque = 0; vx = 0; vy = 0;
   bumpStopN = 0;
+  /** Cosine between the contact normal and the strut axis used for rate and load (clamped, see XS.minStrutCos). */
+  ny = 1;
+  /** Highest compression speed (m/s) since the end stop was engaged (0 while it is not). */
+  stopHitMs = 0;
   /** Ground material under the wheel and its parameters. */
   surface: SurfaceKind = 'asphalt';
   prof: SurfaceParams = SURFACES.asphalt;
@@ -56,7 +60,7 @@ export class Wheel {
   reset(): void {
     this.omega = 0; this.sx = 0; this.sy = 0; this.steer = 0; this.driveCmd = 0;
     this.contact = false; this.c = 0; this.cdot = 0; this.strutN = 0; this.N = 0; this.fx = 0; this.fy = 0; this.D = 0;
-    this.driveTorque = 0; this.brakeTorque = 0; this.vx = 0; this.vy = 0; this.bumpStopN = 0;
+    this.driveTorque = 0; this.brakeTorque = 0; this.vx = 0; this.vy = 0; this.bumpStopN = 0; this.stopHitMs = 0;
     this.surface = 'asphalt'; this.prof = SURFACES.asphalt;
     this.sink = 0; this.zLoad = 0; this.zSlip = 0; this.nSoil = 0; this.rSoil = 0; this.dust = 0;
   }
@@ -84,10 +88,21 @@ export function hydraulicStopForce(c: number, cdot: number): number {
   return XS.hydroStopNsPerM * k * cdot;
 }
 
-/** Progressive bump stop force at compression c. */
-export function bumpStopForce(c: number): number {
-  const d = c - (SUSP.travelM - XS.bumpStopLengthM);
-  return d > 0 ? SUSP.bumpStopNPerM * d * (1 + d / XS.bumpProgM) : 0;
+/**
+ * Progressive bump stop force at compression c (m) and compression rate cdot (m/s, + = compressing).
+ * Past the end of travel the stop no longer stiffens (wheel at full bump, the rim and the body take over: the body
+ * collider meets the ground). On rebound the stop gives back only part of its energy: elastomer jounce bumpers
+ * have a large hysteresis, and a bottomed tyre, rim and chassis deform rather than spring back. Without that a hard
+ * landing returned ≈ 80 % of the impact speed (R17 finding: "bounced up like a rubber ball").
+ */
+export function bumpStopForce(c: number, cdot = 0, hitMs = 0): number {
+  const d = Math.min(c - (SUSP.travelM - XS.bumpStopLengthM), XS.bumpStopLengthM + XS.bottomOutM);
+  if (d <= 0) return 0;
+  const rebound = clamp(-cdot / XS.bumpReboundBlendMs, 0, 1);
+  // hysteresis after an impact only (hitMs: compression speed with which the stop was struck): resting on the stop,
+  // slow crawling over a pyramid's arris or the pitch of a car ramming an obstacle keep the elastic stop
+  const impact = clamp((hitMs - XS.bumpImpactMs[0]) / (XS.bumpImpactMs[1] - XS.bumpImpactMs[0]), 0, 1);
+  return SUSP.bumpStopNPerM * d * (1 + d / XS.bumpProgM) * (1 - XS.bumpHysteresis * rebound * impact);
 }
 
 export class ChassisModule implements ForceModule {
@@ -193,7 +208,10 @@ export class ChassisModule implements ForceModule {
       if (w.sink > 0 && w.c <= 0) { w.contact = false; w.c = 0; w.cdot = 0; continue; }
       w.contact = true;
       const vp = sim.pointVelocity(w.p, this.tmp2);
-      w.cdot = -v3dot(vp, w.n) / Math.max(ny, 0.3);
+      // strut rate and load from the contact along the body axis: 1/ny grows without bound as the car tilts against
+      // the ground; past ≈ 50° the tyre sidewall, not the strut, takes the load (and 1/ny² stiffening made the step unstable)
+      w.ny = Math.max(ny, XS.minStrutCos);
+      w.cdot = -v3dot(vp, w.n) / w.ny;
       // contact frame: ex = wheel heading projected into the ground plane, ey = n x ex (left)
       const head = qrot(q, { x: Math.sin(w.steer), y: 0, z: Math.cos(w.steer) });
       const hn = v3dot(head, w.n);
@@ -213,9 +231,18 @@ export class ChassisModule implements ForceModule {
     for (let i = 0; i < 4; i++) {
       const w = this.wheels[i];
       if (!w.contact) { w.strutN = 0; w.N = 0; w.D = 0; w.bumpStopN = 0; continue; }
-      w.bumpStopN = bumpStopForce(w.c);
-      w.strutN = Math.max(0, SUSP.springNPerM * w.c + damperForce(w.cdot) + hydraulicStopForce(w.c, w.cdot) + w.bumpStopN + arb[i]);
-      w.N = w.strutN / Math.max(v3dot(w.n, yb), 0.3);
+      // highest compression speed of the current engagement of the end stop
+      w.stopHitMs = w.c > SUSP.travelM - XS.bumpStopLengthM ? Math.max(w.stopHitMs, w.cdot) : 0;
+      w.bumpStopN = bumpStopForce(w.c, w.cdot, w.stopHitMs);
+      // Dampers (60 kNs/m in the hydraulic stop) and the stiff end stop act for a whole step: at a hard landing they
+      // may at most cancel the corner's closing speed within it, not throw the corner back (corner mass = car mass
+      // shared by the wheels in contact). Only at an impact: a corner resting on the stop, or crawling over an arris,
+      // keeps its full stop force (the limit is zero at zero closing speed).
+      const mc = (m / nContact) / dt;
+      let stop = damperForce(w.cdot) + hydraulicStopForce(w.c, w.cdot) + w.bumpStopN;
+      if (w.cdot > XS.bumpImpactMs[0]) stop = Math.min(stop, mc * w.cdot);
+      w.strutN = Math.max(0, SUSP.springNPerM * w.c + stop + arb[i]);
+      w.N = w.strutN / w.ny;
       w.D = w.prof.tire.peak(w.N, w.spec.width * (FOOTPRINT_M + Math.sqrt(2 * w.r * w.sink))) * dmg.gripScale[i];
     }
     this.updateSoil(sim, dt, vFwd);

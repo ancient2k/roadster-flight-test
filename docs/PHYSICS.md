@@ -63,6 +63,22 @@ upside down on the wall ramp as in the stream; on a skid pad it lifts lateral gr
   Janosi–Hanamoto shear traction. The rut depth of the tyre tracks in the graphics is the same Bekker sinkage.
 - **Suspension and chassis** (`chassis.ts`): ray-cast wheels with spring/damper, chassis collision hull,
   landing / impact detection (`integrity.ts`).
+- **Hard landings** (R17): when a landing bottoms the suspension, the struts' end stops cancel the sink speed and
+  the hull's ground contact, solved by Rapier as if the struts were not there, cancels it once more: a 10 m drop
+  left the ground again at 83 % of the impact speed and rose 5 m; off a ramp the rear hit first, the nose slammed
+  down and the car flew 3.7 m up for 1.8 s, with STABILIZED firing the jets against the tumble.
+  `RoadsterSim.limitContactRebound` takes back whatever a static-world contact adds along its normal beyond
+  cancelling the approach left after our own forces (+ 15 % restitution), but only in steps in which those forces
+  already braked hard against it (> 1 m/s). In the chassis, after an impact (stop struck at > 1.5 m/s) the end stop
+  gives back only 20 % of its force on rebound (elastomer bumper, bottomed tyre and rim), dampers and stop may then
+  at most cancel the corner's closing speed within one step, the stop no longer stiffens past full travel, and strut
+  rate and load use the contact angle only up to ≈ 53° (a tilted touchdown had gained energy). Resting on the stop,
+  crawling over an arris or ramming an obstacle keep the elastic stop. Now: rebound coefficient < 0.4 (flat) / < 0.5
+  (tilted), the jump landing stays down with no jets (`tests/sim/vehicle/landingBounce.test.ts`).
+- **Crash against movable objects:** CCD resolves a hard hit inside the step and the manifold reports only a
+  fraction of its impulse (ramming a lander leg at 13 m/s: 5.7 m/s lost in one step, 0.6 m/s in impulses). The
+  measure is therefore also the car's velocity change by contacts over the break window once a prop was touched in
+  it. (The old test passed only because the car bounced on its end stops afterwards and hit the ground.)
 - **Aero** (`aero.ts`): drag and downforce for the low-drag and high-downforce modes, rear wing pitch.
 
 ## Damage

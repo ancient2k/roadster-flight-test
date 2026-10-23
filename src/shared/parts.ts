@@ -219,11 +219,29 @@ const deck = (w: number, t = DECK_T): [number, number][] => [[-w / 2, -t], [w / 
 const curbL = (w: number): [number, number][] => [[-w / 2 - 0.4, -0.2], [-w / 2, -0.2], [-w / 2, 0.45], [-w / 2 - 0.4, 0.45]];
 const curbR = (w: number): [number, number][] => [[w / 2, -0.2], [w / 2 + 0.4, -0.2], [w / 2 + 0.4, 0.45], [w / 2, 0.45]];
 
+/** Deck height from which curbs line a road: below it they would be a 45 cm wall to whoever drives on from the
+ *  side (R17 finding: "you get stuck on track pieces when driving from the ground onto the track"). */
+export const CURB_MIN_Y = 0.5;
+/** The frames whose height(f) is at least CURB_MIN_Y (first to last such frame); default height: the road centre. */
+function raised(fr: Frame[], height = (f: Frame) => f.p[1]): Frame[] {
+  const a = fr.findIndex((f) => height(f) >= CURB_MIN_Y);
+  if (a < 0) return [];
+  let b = fr.length - 1;
+  while (height(fr[b]) < CURB_MIN_Y) b--;
+  return fr.slice(a, b + 1);
+}
+/** Curbs on both edges of the raised part of a road. */
+function curbs(B: Builder, mat: MatKey, fr: Frame[], w: number): void {
+  const r = raised(fr);
+  if (r.length < 2) return;
+  sweep(B.solid(mat), r, curbL(w));
+  sweep(B.solid(mat), r, curbR(w));
+}
+
 /** Deck with curbs and pillars every ~10 m down to the ground. */
 function elevatedDeck(B: Builder, fr: Frame[], w = ROAD_W, pillars = true): void {
   sweep(B.solid('concrete'), fr, deck(w));
-  sweep(B.solid('curb'), fr, curbL(w));
-  sweep(B.solid('curb'), fr, curbR(w));
+  curbs(B, 'curb', fr, w);
   if (!pillars) return;
   let s = 5, acc = 0;
   for (let k = 0; k + 1 < fr.length; k++) {
@@ -279,14 +297,15 @@ const BUILD: Record<PartType, (B: Builder, opt?: number) => void> = {
       return norm(add(mul([0, 1, 0], Math.cos(b)), mul(inward, Math.sin(b))));
     });
     sweep(B.solid('concrete'), fr, [[-w / 2, -1.5], [w / 2, -1.5], [w / 2, 0], [-w / 2, 0]]);
-    sweep(B.solid('curb'), fr, curbL(w));     // outer edge (the inner one is on the ground)
+    // outer edge only where it is raised (its height is twice the centre's: the inner edge stays on the ground)
+    const outer = raised(fr, (f) => 2 * f.p[1]);
+    if (outer.length > 1) sweep(B.solid('curb'), outer, curbL(w));
   },
   kicker(B) {
     // jump ramp: y = 3 (z/T)² -> lip 3 m high at ≈ 17°, open towards +z
     const fr = frames((s) => [H, 3 * s * s, T * s], 24, (s, t) => norm(cross(t, cross([0, 1, 0], t))));
     sweep(B.solid('concrete'), fr, [[-ROAD_W / 2, -4], [ROAD_W / 2, -4], [ROAD_W / 2, 0], [-ROAD_W / 2, 0]]);
-    sweep(B.solid('red'), frames((s) => [H, 3 * s * s, T * s], 24, (s, t) => norm(cross(t, cross([0, 1, 0], t)))), curbL(ROAD_W));
-    sweep(B.solid('red'), frames((s) => [H, 3 * s * s, T * s], 24, (s, t) => norm(cross(t, cross([0, 1, 0], t)))), curbR(ROAD_W));
+    curbs(B, 'red', fr, ROAD_W);
   },
   landing(B) {
     // long landing slope from 4 m down to the ground towards +z (land on it coming from -z)
@@ -301,8 +320,7 @@ const BUILD: Record<PartType, (B: Builder, opt?: number) => void> = {
     const pos = (s: number): V => { const a = s * Math.PI * 2; return [xa + (xb - xa) * sstep(s * 1.1 - 0.05), R - R * Math.cos(a), zc - 1.5 + 3 * s + R * Math.sin(a)]; };
     const fr = frames(pos, 96, (s) => { const a = s * Math.PI * 2; return [0, Math.cos(a), -Math.sin(a)]; });
     sweep(B.solid('concrete'), fr, deck(w, 0.5));
-    sweep(B.solid('curb'), fr, curbL(w));
-    sweep(B.solid('curb'), fr, curbR(w));
+    curbs(B, 'curb', fr, w);
     // A-frame supports at the top of the loop
     box(B.solid('steel'), [xa - 6, 0, zc - 0.4], [xa - 5.2, 2 * R, zc + 0.4]);
     box(B.solid('steel'), [xb + 5.2, 0, zc - 0.4], [xb + 6, 2 * R, zc + 0.4]);
@@ -340,8 +358,7 @@ const BUILD: Record<PartType, (B: Builder, opt?: number) => void> = {
       return [0, Math.cos(a), -Math.sin(a)];
     });
     sweep(B.solid('concrete'), fr, deck(w, 0.6));
-    sweep(B.solid('red'), fr, curbL(w));
-    sweep(B.solid('red'), fr, curbR(w));
+    curbs(B, 'red', fr, w);
     // back truss: vertical frame behind the ramp
     box(B.solid('steel'), [H - w / 2 - 0.8, 0, run + R + 0.8], [H - w / 2, 2 * R + 2, run + R + 1.6]);
     box(B.solid('steel'), [H + w / 2, 0, run + R + 0.8], [H + w / 2 + 0.8, 2 * R + 2, run + R + 1.6]);

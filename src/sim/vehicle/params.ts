@@ -20,6 +20,16 @@ export const VEH_EXT = {
     /** Bump-stop engagement before the end of travel; progressive F = k d (1 + d / bumpProgM). */
     bumpStopLengthM: 0.025,
     bumpProgM: 0.01,
+    /** Past the end of travel the stop force stays at its value this far in (rim/body take over). */
+    bottomOutM: 0.015,
+    /** Share of the stop force missing on rebound (elastomer bumper + bottomed tyre/rim hysteresis), blended in over
+     *  the first bumpReboundBlendMs of rebound speed so that small oscillations at the stop do not chatter. */
+    bumpHysteresis: 0.8,
+    bumpReboundBlendMs: 0.15,
+    /** The hysteresis applies after an impact: it fades in between these compression speeds at the stop (m/s). */
+    bumpImpactMs: [1.5, 3.5] as [number, number],
+    /** Lowest cosine between the contact normal and the strut axis used for the strut rate and load (≈ 53°). */
+    minStrutCos: 0.6,
     /** Hydraulic (position-sensitive) bump stop as on landing/off-road dampers: compression damping
      *  rises linearly to hydroStopNsPerM over the last hydroStopLengthM of travel. */
     hydroStopLengthM: 0.04,

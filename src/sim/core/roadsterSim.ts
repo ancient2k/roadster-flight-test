@@ -115,6 +115,11 @@ const makeState = (): VehicleState => ({
   speedMs: 0, motorPowerW: 0, brakeInput: 0, groundContact: false, bodyContact: false, heightAboveGroundM: 0, crashed: false,
 });
 
+/** limitContactRebound: restitution allowed to a contact on top of cancelling the approach, and a slack (m/s). */
+const CONTACT_REBOUND_E = 0.15, CONTACT_REBOUND_SLACK_MS = 0.3;
+/** ... and the braking by our own forces within the step above which a contact counts as a second stop (m/s). */
+const CONTACT_REBOUND_MIN_BRAKE_MS = 1;
+
 export class RoadsterSim implements VehicleSim {
   readonly world: RAPIER.World;
   readonly body: RAPIER.RigidBody;
@@ -173,6 +178,9 @@ export class RoadsterSim implements VehicleSim {
   /** Mass of the parts torn off the car (kg, damage model); see setDetachedMass. */
   detachedMassKg = 0;
   private propRing: Float64Array;
+  /** Car velocity change by contacts per step and whether it touched a prop, same window as propRing. */
+  private propDvRing: Float64Array;
+  private propTouchRing: Uint8Array;
   private propRingK = 0;
 
   /** Use RoadsterSim.create() (async Rapier init). */
@@ -219,6 +227,8 @@ export class RoadsterSim implements VehicleSim {
       })
       : null;
     this.propRing = new Float64Array(Math.max(1, Math.round(BREAK_WINDOW_S / this.dt)) * 3);
+    this.propDvRing = new Float64Array(this.propRing.length);
+    this.propTouchRing = new Uint8Array(this.propRing.length / 3);
     this.modules = opts.modules ?? [];
     if (opts.valves) this.propulsion = new Propulsion(undefined, { ...ROADSTER.valves, ...opts.valves });
     this.massScale = opts.massScale ?? 1;
@@ -244,7 +254,7 @@ export class RoadsterSim implements VehicleSim {
   reset(spawn: SpawnPose, opts: { airMassKg?: number } = {}): void {
     this.propulsion.reset(opts.airMassKg ?? ROADSTER.tank.fullMassKg);
     this.props?.reset();
-    this.propRing.fill(0); this.propImpactDv = 0;
+    this.propRing.fill(0); this.propDvRing.fill(0); this.propTouchRing.fill(0); this.contactDv.x = this.contactDv.y = this.contactDv.z = 0; this.propImpactDv = 0;
     const up = qrot(spawn.quat, { x: 0, y: ROADSTER.restCogHeightM, z: 0 });
     const p = v3add(spawn.pos, up);
     this.body.setTranslation(p, true);
@@ -357,8 +367,13 @@ export class RoadsterSim implements VehicleSim {
     for (const m of this.modules) m.apply(ctx);
     this.body.addForce(this.acc.force, true);
     this.body.addTorque(this.acc.torque, true);
+    const v0 = this.body.linvel(), m0 = this.body.mass();
+    const f = this.acc.force, g = this.gravity;
+    // velocity at the end of the step from gravity and our forces alone (struts, tyres, jets, fans, aero)
+    const vfx = v0.x + (f.x / m0 + g.x) * dt, vfy = v0.y + (f.y / m0 + g.y) * dt, vfz = v0.z + (f.z / m0 + g.z) * dt;
     // 6. integrate
     this.world.step();
+    if (m0 > 0) this.limitContactRebound(v0, vfx, vfy, vfz);   // mass properties exist from the first world step on
     this.rescueBelowGround();
     this.props?.afterStep();
     // 7. derive state
@@ -371,6 +386,55 @@ export class RoadsterSim implements VehicleSim {
    * hull can end up below it in one step despite CCD, and nothing pushes it back. If the centre of gravity lies
    * clearly under the ground, put the car back on top (horizontal speed halved, no vertical speed).
    */
+  /** Steps in which a contact threw the car back harder than its approach (see limitContactRebound). */
+  contactReboundClamps = 0;
+  /** Velocity change of the car by contacts (not by its own forces or gravity) in the last step (m/s, world). */
+  private readonly contactDv = v3();
+
+  /**
+   * A hard landing that bottoms the suspension stops the car twice in the same step: the struts' end stops cancel
+   * the sink speed and the hull's ground contact, solved by Rapier as if the struts were not there, cancels it once
+   * more. The car left the ground at almost its impact speed (10 m drop: −10.9 → +8.2 m/s in one step; R17 finding
+   * "bounced up like a rubber ball"). Contacts may only remove what is left of the approach after our own forces,
+   * plus a little restitution; anything beyond that is taken back. Only when our forces already braked hard
+   * against the contact in this step (the double stop); ordinary contacts (walls, props, a pyramid's arris) are left
+   * to Rapier. v0: velocity before the step, (vfx, vfy, vfz): end-of-step velocity without contacts.
+   */
+  private limitContactRebound(v0: { x: number; y: number; z: number }, vfx: number, vfy: number, vfz: number): void {
+    const v = this.body.linvel();
+    const d = this.contactDv;
+    d.x = v.x - vfx; d.y = v.y - vfy; d.z = v.z - vfz;           // change by contacts (normal push and friction)
+    if (Math.hypot(d.x, d.y, d.z) < CONTACT_REBOUND_SLACK_MS) return;
+    // contact normal on the car, averaged over the static-world contacts weighted by their impulses (friction on a
+    // hull sliding over the ground is in d too and must not count as a push). A hit resolved by CCD inside the step
+    // can report zero impulses: then every manifold with contact points counts the same.
+    let nx = 0, ny = 0, nz = 0;
+    this.world.contactPairsWith(this.chassis, (other) => {
+      if (this.props?.isProp(other.handle)) return;
+      this.world.contactPair(this.chassis, other, (man, flipped) => {
+        const nc = man.numContacts();
+        if (nc === 0) return;
+        let J = 0;
+        for (let i = 0; i < nc; i++) J += man.contactImpulse(i);
+        const n = man.normal(), w = J > 1e-6 ? J : 1e-6, sg = flipped ? w : -w;
+        nx += n.x * sg; ny += n.y * sg; nz += n.z * sg;
+      });
+    });
+    const nl = Math.hypot(nx, ny, nz);
+    if (nl < 1e-12) return;
+    nx /= nl; ny /= nl; nz /= nl;
+    const push = d.x * nx + d.y * ny + d.z * nz;                  // contact change along the normal
+    const braked = (vfx - v0.x) * nx + (vfy - v0.y) * ny + (vfz - v0.z) * nz;   // our forces along it
+    if (braked < CONTACT_REBOUND_MIN_BRAKE_MS) return;
+    const approach = Math.max(0, -(vfx * nx + vfy * ny + vfz * nz));   // closing speed left after our forces
+    const allowed = approach * (1 + CONTACT_REBOUND_E) + CONTACT_REBOUND_SLACK_MS;
+    if (push <= allowed) return;
+    const k = push - allowed;
+    this.body.setLinvel({ x: v.x - nx * k, y: v.y - ny * k, z: v.z - nz * k }, true);
+    d.x -= nx * k; d.y -= ny * k; d.z -= nz * k;
+    this.contactReboundClamps++;
+  }
+
   private rescueBelowGround(): void {
     const t = this.terrainH;
     if (!t) return;
@@ -411,7 +475,7 @@ export class RoadsterSim implements VehicleSim {
     this.contacts.length = 0;
     const com = this.comWorld();
     // impulses exchanged with movable landmarks (a light object is pushed away, it is no wall)
-    let pjx = 0, pjy = 0, pjz = 0;
+    let pjx = 0, pjy = 0, pjz = 0, propTouch = false;
     const rec = this.recordBodyContacts && dt > 0;
     this.bodyContacts.length = 0;
     if (!this.skipContacts) this.world.contactPairsWith(this.chassis, (other) => {
@@ -431,6 +495,7 @@ export class RoadsterSim implements VehicleSim {
           // the normal points from the manifold's first shape to the second: impulse on the chassis
           const sg = flipped ? J : -J;
           pjx += n.x * sg; pjy += n.y * sg; pjz += n.z * sg;
+          if (touching) propTouch = true;
           return;
         }
         for (let i = 0; i < nc; i++) {
@@ -460,10 +525,18 @@ export class RoadsterSim implements VehicleSim {
     if (dt > 0) {
       const r = this.propRing, k = this.propRingK * 3;
       r[k] = pjx; r[k + 1] = pjy; r[k + 2] = pjz;
+      // The reported contact impulses miss most of a hard hit: CCD resolves it inside the step, the manifold shows the
+      // touch only from the next step on, with a fraction of the impulse (ramming a lander leg at 13 m/s: the car
+      // loses 5.7 m/s in one step, the impulses add up to 0.6 m/s). So the car's velocity change by contacts counts
+      // too, summed over the window, once a prop was touched within it.
+      const cr = this.propDvRing, d = this.contactDv;
+      cr[k] = d.x; cr[k + 1] = d.y; cr[k + 2] = d.z;
+      this.propTouchRing[this.propRingK] = propTouch ? 1 : 0;
       this.propRingK = (this.propRingK + 1) % (r.length / 3);
-      let jx = 0, jy = 0, jz = 0;
-      for (let i = 0; i < r.length; i += 3) { jx += r[i]; jy += r[i + 1]; jz += r[i + 2]; }
-      this.propImpactDv = Math.hypot(jx, jy, jz) / s.massKg;
+      let jx = 0, jy = 0, jz = 0, ux = 0, uy = 0, uz = 0, touched = false;
+      for (let i = 0; i < r.length; i += 3) { jx += r[i]; jy += r[i + 1]; jz += r[i + 2]; ux += cr[i]; uy += cr[i + 1]; uz += cr[i + 2]; }
+      for (const t of this.propTouchRing) if (t) { touched = true; break; }
+      this.propImpactDv = Math.max(Math.hypot(jx, jy, jz) / s.massKg, touched ? Math.hypot(ux, uy, uz) : 0);
     }
     if (contact && !s.bodyContact) this.bodyContactSpeed = impact;
     s.bodyContact = contact;

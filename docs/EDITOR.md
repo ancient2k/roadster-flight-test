@@ -42,6 +42,8 @@ button or Shift + drag to pan, Ctrl+Z / Ctrl+Y undo/redo, Ctrl+S save. In the te
   flush. Decoration (cones, light masts, barriers) can be placed freely.
 - Pieces are generated from profiles like the McGregor ramps (`src/shared/track.ts`): the same triangles are the
   physics collider (static trimesh) and the rendered mesh.
+- Curbs (45 cm) line a road only where it lies at least 0.5 m above the ground (`CURB_MIN_Y`): stretches at ground
+  level (foot of the ramp, start of kicker and loop, run-up of the wall ramp) can be driven onto from the side.
 - Classic pieces: straight, curve, banked curve, slalom, chicane, ramp, jump with gap, bridge and elevated road on
   pillars, loop, corkscrew, tube, half pipe.
 - Pieces for this car: wall ramp (as in the stream), ceiling track (fan suction, upside down), vertical wall, rings to
