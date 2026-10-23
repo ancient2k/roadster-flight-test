@@ -7,6 +7,9 @@ import type { InputManager } from '../input/InputManager';
 import { ATTITUDE_STICK, DRIVE_STICK, type StickMap } from '../input/touch';
 import type { ControlId } from '../input/types';
 import { onLocaleChange, t, type MsgKey } from '../i18n';
+import { GyroInput } from '../input/gyroSensor';
+import { switchGyro } from './gyroSwitch';
+import type { SettingsStore } from './settings';
 import './touch.css';
 
 /** Edge actions are held at least this long so a quick tap spans a rendered frame. */
@@ -66,9 +69,12 @@ export class TouchControls {
   private rotateDismissed = false;
   private raf = 0;
   private labelled: Array<[HTMLElement, ButtonSpec]> = [];
+  private gyroBtn: HTMLButtonElement | null = null;
+  private recenterBtn: HTMLButtonElement | null = null;
   private disposers: Array<() => void> = [];
 
-  constructor(private host: HTMLElement, private input: InputManager, opts: { force?: boolean } = {}) {
+  /** `settings`: enables the TILT quick switch (tilt steering, stored like the Settings -> Controls toggle). */
+  constructor(private host: HTMLElement, private input: InputManager, private opts: { force?: boolean; settings?: SettingsStore } = {}) {
     this.root = el('div', 'rft-touch');
     this.root.setAttribute('data-touch-ui', '');
     this.root.hidden = true;
@@ -90,6 +96,8 @@ export class TouchControls {
       b.setAttribute('aria-label', t(`control.${s.id}` as MsgKey));
     }
     this.root.querySelector('.rft-touch-more')?.setAttribute('aria-label', t('touch.more'));
+    if (this.gyroBtn) { this.gyroBtn.textContent = t('touch.gyro'); this.gyroBtn.setAttribute('aria-label', t('settings.gyro')); }
+    this.recenterBtn?.setAttribute('aria-label', t('settings.gyroRecenter'));
     this.root.querySelector('.rft-touch-stick.drive .rft-touch-hint')!.textContent = t('touch.drive');
     this.root.querySelector('.rft-touch-stick.att .rft-touch-hint')!.textContent = t('touch.attitude');
     this.rotate.querySelector('p')!.textContent = t('mobile.rotate');
@@ -118,6 +126,7 @@ export class TouchControls {
     more.type = 'button'; more.textContent = '⋯';
     more.addEventListener('click', () => { this.tray.hidden = !this.tray.hidden; more.classList.toggle('on', !this.tray.hidden); });
     for (const s of TOP_BUTTONS) this.button(top, s, 'tap');
+    if (this.opts.settings && GyroInput.supported()) this.gyroButtons(top, this.opts.settings);
     this.tray = el('div', 'rft-touch-tray', this.root);
     this.tray.hidden = true;
     for (const s of TRAY_BUTTONS) this.button(this.tray, s, 'tap');
@@ -158,6 +167,25 @@ export class TouchControls {
     b.addEventListener('pointercancel', up);
     b.addEventListener('lostpointercapture', up);
     b.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  /** TILT quick switch (tilt steering on/off) and, while on, the recenter button. */
+  private gyroButtons(top: HTMLElement, settings: SettingsStore): void {
+    const gyro = this.input.gyro;
+    const rc = el('button', 'rft-touch-btn rft-touch-recenter', top);
+    rc.type = 'button'; rc.textContent = '⊙'; rc.hidden = true;
+    rc.addEventListener('click', () => gyro.recenter());
+    const b = el('button', 'rft-touch-btn rft-touch-gyro', top);
+    b.type = 'button';
+    b.setAttribute('role', 'switch');
+    let busy = false;
+    b.addEventListener('click', () => {
+      if (busy) return;
+      busy = true;
+      void switchGyro(gyro, settings, !gyro.enabled).finally(() => { busy = false; this.sync(); });
+    });
+    top.insertBefore(rc, top.firstChild); top.insertBefore(b, top.firstChild);
+    this.gyroBtn = b; this.recenterBtn = rc;
   }
 
   /** Floating stick: the base appears under the finger, deflection is relative to the touch-down point. */
@@ -209,6 +237,12 @@ export class TouchControls {
     if (this.root.hidden === show) {
       this.root.hidden = !show;
       if (!show) { this.tray.hidden = true; this.root.querySelector('.rft-touch-more')?.classList.remove('on'); }
+    }
+    if (this.gyroBtn) {
+      const on = this.input.gyro.enabled;
+      this.gyroBtn.classList.toggle('on', on);
+      this.gyroBtn.setAttribute('aria-checked', String(on));
+      this.recenterBtn!.hidden = !on;
     }
     const portrait = window.innerHeight > window.innerWidth;
     this.rotate.hidden = !(touchUi && portrait && !this.rotateDismissed);

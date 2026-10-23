@@ -90,6 +90,9 @@
 }
 .rft-touch-tray[hidden] { display: none; }
 .rft-touch-more.on { border-color: #fff; }
+/* tilt steering quick switch; recenter only while it is on */
+.rft-touch-top .rft-touch-btn[hidden] { display: none; }
+.rft-touch-recenter { font-size: 1.25em !important; }
 
 /* portrait: ask for landscape (dismissable) */
 .rft-rotate {

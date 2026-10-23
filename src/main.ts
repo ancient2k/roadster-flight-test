@@ -85,7 +85,7 @@ async function boot(): Promise<void> {
   await Promise.race([app.init({ quality: q ?? undefined, forceWebGL: params.has('webgl'), skipMenu: params.has('nomenu') }), lost]);
   const stunt = params.get('stunt') as StuntId | null;
   if (stunt && STUNTS.includes(stunt)) { app.menu.hide(); app.startStunt(stunt); }
-  const touch = new TouchControls(root, app.input, { force: params.has('touch') || hasTouch() });
+  const touch = new TouchControls(root, app.input, { force: params.has('touch') || hasTouch(), settings: app.settings });
   window.__rft.touch = touch;
   window.__rft.ready = true;
   window.__rft.openEditor = () => app.openEditor();

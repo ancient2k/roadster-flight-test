@@ -31,6 +31,7 @@ export const en = {
   'touch.slowMo': 'SLOW',
   'touch.photo': 'PHOTO',
   'touch.more': 'More controls',
+  'touch.gyro': 'TILT',
 
   // ---------------------------------------------------------------- title screen
   'menu.main': 'Main menu',
@@ -196,6 +197,14 @@ export const en = {
   'settings.mouseSensitivity': 'Mouse sensitivity',
   'settings.stickDeadzone': 'Stick dead zone',
   'settings.triggerDeadzone': 'Trigger dead zone',
+  'settings.gyro': 'Tilt steering (motion sensor)',
+  'settings.gyroNote': 'Tilt the phone forward/back for pitch, left/right for roll. The way you hold it when switching on, at the start and on Recenter is the centre.',
+  'settings.gyroSensitivity': 'Tilt sensitivity',
+  'settings.gyroRecenter': 'Recenter',
+  'settings.gyroRecenterNote': 'Hold the phone the way you want to play, then tap.',
+  'gyro.on': 'Tilt steering on – this position is the centre',
+  'gyro.denied': 'Motion sensor access denied – tilt steering stays off.',
+  'gyro.unsupported': 'No motion sensor found – tilt steering stays off.',
   'settings.compressor': 'Compressor',
   'compressor.game': 'Fun (20 s)',
   'compressor.realistic': 'Realistic (6–7 h)',

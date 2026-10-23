@@ -42,6 +42,24 @@ endless boot screen (the UI language is not loaded at that point).
   The overlay writes analog values per control id into `InputManager.touch`; the mapper treats
   them like a gamepad, so every action of `src/input/bindings.ts` is reachable and keyboard or
   gamepad rebinding has no effect on the touch layout. Menus are plain buttons and work by tap.
+- **Tilt steering** (optional, off by default; `src/input/gyro.ts` pure mapping, `src/input/gyroSensor.ts`
+  sensor side, `src/ui/gyroSwitch.ts`). The **TILT** button at the left of the top-right bar (or Settings →
+  Controls → *Tilt steering*) switches it on; **⊙** next to it recenters while it is on.
+  - Switching on calls `DeviceOrientationEvent.requestPermission()` inside the tap (iOS 13+), then waits up to
+    1.5 s for a first `deviceorientation` event with real angles. Denied permission or no sensor: hint in the HUD
+    and under the settings toggle, the option stays off. A stored "on" is resumed at the next start without a
+    prompt (Android); on iOS the permission is asked again on the first tap anywhere.
+  - Mapping: `beta`/`gamma` give the "up" vector in device coordinates, rotated by `screen.orientation.angle`
+    (fallback `window.orientation`) into screen coordinates, so landscape left (90°) and right (270°) and
+    upside-down behave the same on screen. Pitch = forward/back lean of that vector (`atan2(y, z)`), roll =
+    sideways lean (`asin(-x)`), both relative to the zero pose: leaning back = nose up, right edge down = roll
+    right. Dead zone 3° (rescaled, no jump), full deflection at 3° + 25° / sensitivity (Settings: 0.3–3),
+    low-pass 80 ms.
+  - Zero pose: the pose when switching on, at every run start / restart (`App.startSession`), on **⊙** or
+    *Recenter* in the settings, and the first pose after the screen rotates.
+  - The tilt values are added to the touch attitude (`mergeAttitude`: signed sum per axis, clamped) and go
+    through the same mapper path as the right stick, including *Invert pitch*. Yaw, steering, throttle and the
+    other buttons are unchanged; menus ignore the tilt.
 - **HUD with touch controls** (`src/ui/hud/Hud.ts`). While the touch overlay is shown, the HUD
   measures the visible buttons, the stick rests and the stick hints and lays itself out around them:
   - the gauge row (G-force, attitude sphere, top view, altitude) moves from the screen corners into the
@@ -77,7 +95,9 @@ endless boot screen (the UI language is not loaded at that point).
 - A WebGPU device loss *after* the start is not handled here.
 - Menu footers and the help screen still show keyboard hints (the input device is never `touch`).
 - The **⋯** tray covers the top-right HUD readouts while it is open (it has its own dark panel).
-- No gyro steering, no haptics, no on-screen rebinding for the touch layout.
+- No haptics, no on-screen rebinding for the touch layout.
+- Tilt steering was tested with simulated sensor events only; the sign of `screen.orientation.angle`
+  (90 = device top to the left) follows the spec and Chrome/Safari, not a real-device check.
 - The gauge ring labels (G-FORCE, ALTITUDE, …) stay English like the stream graphics.
 - Safe-area insets are emulated in the tests (`--rft-safe-<side>`), not measured on a real notch.
 
@@ -128,8 +148,14 @@ speed and Safari's per-tab memory limit are **not** reproduced.
   geometrically that no HUD group (`Hud.layoutBoxes()`) overlaps another one or a touch control, that
   stick rests and hints do not run into the buttons, that nothing leaves the screen and that no button
   label is clipped. Screenshots go to `$RFT_SHOTS` (`hud-<project>-<view>.png`).
+- `tests/e2e/mobile-gyro.spec.ts` (“tilt steering”): fakes the sensor with `dispatchEvent(new
+  DeviceOrientationEvent(…))` at ~30 Hz for the current screen angle; checks off by default, switching on with
+  TILT (zero pose), pitch and roll signs on `manual.axes` and on the commanded lift-nozzle duties (`session.lastOutput`, RAW assist: front > rear for nose up, left > right for roll right), dead zone,
+  recenter (⊙ and restart), the settings rows and switching off there; a denied `requestPermission` and a
+  silent sensor leave the option off with the hint.
 - Unit tests: `tests/ui/touch.test.ts` (stick mapping, touch → mapper, every control reachable,
-  device classification, mobile caps).
+  device classification, mobile caps); `tests/ui/gyro.test.ts` (tilt → stick: screen angles 0/90/180/270,
+  calibration, ±180° wrap, dead zone, sensitivity, smoothing, merge with the touch values).
 
 Debug switches: `?touch` forces the touch UI on desktop, `?q=low`, `?webgl` force quality and
 renderer, `?bootslow=<s>` shortens the stall hint thresholds, `?nosw` removes the service worker and

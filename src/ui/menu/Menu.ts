@@ -15,6 +15,7 @@ import { loadFonts } from '../fonts';
 import { ASSIST_DESC, ASSIST_LABEL, REFERENCE_LABEL, STUNTS, reasonText, stuntInfo } from '../labels';
 import type { Settings, SettingsStore } from '../settings';
 import type { Units } from '../units';
+import { gyroFailText, switchGyro } from '../gyroSwitch';
 import { SERIES, SPEED_SERIES, bestOffset, grade, refSeries, seriesToPlot, simSeries } from '../results/chartMath';
 import { drawChart, type ChartPanel } from '../results/chart';
 import { ASSIST_ICONS, BODY_ICONS, STUNT_ICONS, WORLD_ICONS } from './icons';
@@ -98,6 +99,8 @@ export class Menu extends Emitter<MenuEvents> {
   private best = new Map<StuntId, string>();
   private chartCleanup: (() => void) | null = null;
   private capturing = false;
+  /** Hint after a failed tilt-steering switch-on (shown under the toggle until the next attempt). */
+  private gyroMsg: MsgKey | null = null;
   private disposers: Array<() => void> = [];
 
   constructor(root: HTMLElement, private opts: MenuOptions) {
@@ -416,6 +419,7 @@ export class Menu extends Emitter<MenuEvents> {
           this.rangeRow(t('settings.mouseSensitivity'), s.controls.mouseSensitivity, 0.1, 5, 0.1, (v) => fmtNum(v, 1), (v) => upd((d) => { d.controls.mouseSensitivity = v; }, 'controls.mouseSensitivity')),
           this.rangeRow(t('settings.stickDeadzone'), s.controls.stickDeadzone, 0, 0.6, 0.01, pct, (v) => upd((d) => { d.controls.stickDeadzone = v; }, 'controls.stickDeadzone')),
           this.rangeRow(t('settings.triggerDeadzone'), s.controls.triggerDeadzone, 0, 0.5, 0.01, pct, (v) => upd((d) => { d.controls.triggerDeadzone = v; }, 'controls.triggerDeadzone')),
+          ...this.gyroRows(s, upd),
           this.bindingsTable(),
         );
         break;
@@ -437,6 +441,29 @@ export class Menu extends Emitter<MenuEvents> {
       this.header(t('settings.title'), t('settings.sub')),
       tabBar, panel,
       h('div', { class: 'rft-actions' }, h('button', { class: 'rft-ghost', onclick: () => { st.reset(); this.opts.input?.resetBindings(); applyLanguageSetting(st.get().language); this.emit('settingsChanged', st.get()); this.render(); } }, t('settings.resetAll'))));
+  }
+
+  /** Tilt steering (touch devices, or wherever it is switched on): toggle, sensitivity, recenter. */
+  private gyroRows(s: Readonly<Settings>, upd: (fn: (d: Settings) => void, key: string) => void): HTMLElement[] {
+    const input = this.opts.input;
+    if (!input || !(s.controls.gyro || document.documentElement.classList.contains('rft-has-touch'))) return [];
+    const st = this.opts.settings;
+    const toggle = this.toggleRow(t('settings.gyro'), s.controls.gyro, (v) => {
+      this.gyroMsg = null;
+      void switchGyro(input.gyro, st, v).then((r) => {
+        this.gyroMsg = gyroFailText(r);
+        this.emit('settingsChanged', st.get());
+        if (this.screen === 'settings' && this.settingsTab === 'steuerung') this.render();
+      });
+    }, t(this.gyroMsg ?? 'settings.gyroNote'));
+    toggle.dataset.gyro = '';
+    if (this.gyroMsg) toggle.classList.add('warn');
+    const rows = [toggle];
+    if (s.controls.gyro) {
+      rows.push(this.rangeRow(t('settings.gyroSensitivity'), s.controls.gyroSensitivity, 0.3, 3, 0.1, (v) => fmtNum(v, 1), (v) => upd((d) => { d.controls.gyroSensitivity = v; }, 'controls.gyroSensitivity')));
+      rows.push(this.row(t('settings.gyroRecenter'), h('button', { class: 'rft-ghost', 'data-gyro-recenter': '', onclick: () => { this.emit('uiSound', 'select'); input.gyro.recenter(); } }, t('settings.gyroRecenter')), t('settings.gyroRecenterNote')));
+    }
+    return rows;
   }
 
   private row(label: string, control: HTMLElement, note?: string): HTMLElement {
