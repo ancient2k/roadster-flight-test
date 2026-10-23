@@ -5,7 +5,8 @@
     alt="In-game screenshot: the Roadster in front of the Starbase launch tower with the Starship stack, Boca Chica"></a>
 </p>
 <p align="center">
-  <a href="https://roadster.ageco-labs.de"><img src="docs/media/play-now.png" width="220" alt="▶ Play now"></a><br>
+  <a href="https://roadster.ageco-labs.de"><img src="docs/media/play-now.png" width="600"
+    alt="▶ Play now – in-game shot: the Roadster upside down in the kickflip, all thrusters firing"></a><br>
   <sub><a href="https://roadster.ageco-labs.de">roadster.ageco-labs.de</a> · also on
   <a href="https://ancient2k.github.io/roadster-flight-test/">GitHub Pages</a> · runs in the browser, no install
   needed (desktop with WebGPU recommended)</sub>
