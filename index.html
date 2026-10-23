@@ -14,8 +14,20 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Roadster Flight Test</title>
-    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
-    <link rel="icon" href="./icons/icon-192.png" sizes="192x192" type="image/png" />
+    <!-- tab icon: bold variant for 16-32 px (tools/make-icons.mjs); the app icons stay in the manifest -->
+    <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="./icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="./favicon.ico" sizes="16x16 32x32 48x48" />
+    <!-- link previews (chat apps, social networks): image from the README banner -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Roadster Flight Test" />
+    <meta property="og:description" content="Unofficial fan simulation of the Tesla Roadster Gen 2 prototype in the browser: cold-gas thrusters, fan suction, stunts and ten worlds." />
+    <meta property="og:url" content="https://roadster.ageco-labs.de/" />
+    <meta property="og:image" content="https://roadster.ageco-labs.de/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="In-game screenshot: the Roadster in front of the Starbase launch tower" />
+    <meta name="twitter:card" content="summary_large_image" />
     <style>html,body{margin:0;height:100%;background:#000;overflow:hidden;overscroll-behavior:none}#app{position:fixed;inset:0}</style>
     <style>
       #boot{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#000;color:#ddd;font:600 13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.32em;transition:opacity .4s}

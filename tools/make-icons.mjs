@@ -24,6 +24,14 @@ function svg({ k = 1, round = true } = {}) {
 </svg>`;
 }
 
+function faviconSvg() {
+  // One broad thrust chevron; the light rim separates the tile from dark tab bars.
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect x=".5" y=".5" width="31" height="31" rx="7" fill="#000" stroke="#94979c" stroke-width="1"/>
+  <path d="M 7 24 L 16 8 L 25 24" fill="none" stroke="#e8261c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+}
+
 const png = (s, size, file) => sharp(Buffer.from(s)).resize(size, size).png({ compressionLevel: 9 }).toFile(`${OUT}/${file}`);
 
 writeFileSync(`${OUT}/icon.svg`, svg());
@@ -33,4 +41,28 @@ await png(svg(), 512, 'icon-512.png');
 await png(svg({ k: 0.95, round: false }), 512, 'icon-maskable-512.png');
 // iOS draws its own rounded corners and ignores transparency
 await png(svg({ k: 0.9, round: false }), 180, 'apple-touch-icon.png');
+
+const favicon = faviconSvg();
+writeFileSync(`${OUT}/favicon.svg`, favicon);
+const sizes = [16, 32, 48];
+const images = await Promise.all(sizes.map((size) => sharp(Buffer.from(favicon)).resize(size, size).png({ compressionLevel: 9 }).toBuffer()));
+writeFileSync(`${OUT}/favicon-16.png`, images[0]);
+writeFileSync(`${OUT}/favicon-32.png`, images[1]);
+
+// ICO directory followed by PNG payloads, with offsets from the start of the file.
+const directory = Buffer.alloc(6 + sizes.length * 16);
+directory.writeUInt16LE(1, 2);
+directory.writeUInt16LE(sizes.length, 4);
+let offset = directory.length;
+sizes.forEach((size, i) => {
+  const entry = 6 + i * 16;
+  directory[entry] = size;
+  directory[entry + 1] = size;
+  directory.writeUInt16LE(1, entry + 4);
+  directory.writeUInt16LE(32, entry + 6);
+  directory.writeUInt32LE(images[i].length, entry + 8);
+  directory.writeUInt32LE(offset, entry + 12);
+  offset += images[i].length;
+});
+writeFileSync('public/favicon.ico', Buffer.concat([directory, ...images]));
 console.log('icons written to', OUT);

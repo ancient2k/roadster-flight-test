@@ -1,10 +1,6 @@
 # Roadster Flight Test
 
 <p align="center">
-  <a href="https://roadster.ageco-labs.de"><img src="docs/media/banner.jpg" width="100%"
-    alt="In-game screenshot: the Roadster in front of the Starbase launch tower with the Starship stack, Boca Chica"></a>
-</p>
-<p align="center">
   <a href="https://roadster.ageco-labs.de"><img src="docs/media/play-now.png" width="600"
     alt="▶ Play now – in-game shot: the Roadster upside down in the kickflip, all thrusters firing"></a><br>
   <sub><a href="https://roadster.ageco-labs.de">roadster.ageco-labs.de</a> · also on
