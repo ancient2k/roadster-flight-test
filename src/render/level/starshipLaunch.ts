@@ -3,7 +3,7 @@
 // steam/dust cloud of the liftoff, opens and closes the catch arms of both towers, and marks the exclusion zone and a
 // viewpoint on the ground. Built only when a launch is armed (no load cost); everything it moved goes back on dispose().
 import * as THREE from 'three/webgpu';
-import { abs, dot, float, mix, mx_noise_float, normalView, normalize, positionView, positionLocal, pow, smoothstep, uniform, uv, vec3, length, sin } from 'three/tsl';
+import { abs, cameraPosition, dot, float, mix, mx_noise_float, normalView, normalize, positionView, positionLocal, pow, smoothstep, uniform, uv, vec2, vec3, length, sin } from 'three/tsl';
 import { ParticleSystem, PKind } from '../fx/particles';
 import type { QualityLevel } from '../quality';
 import type { UFloat } from '../tslTypes';
@@ -106,8 +106,11 @@ class StagePlume {
 }
 
 // ------------------------------------------------------------------ ground marks
-/** Glowing curtain on the ground along a circle (follows the terrain). */
-function ringCurtain(cx: number, cz: number, r: number, height: number, color: THREE.ColorRepresentation, heightAt: (x: number, z: number) => number, gainV = 3): THREE.Mesh {
+/**
+ * Glowing curtain on the ground along a circle (follows the terrain). fadeNear > 0: fades out when the camera comes
+ * closer to the centre than fadeNear·r (a marker for orientation from afar; up close its dashes would litter the view).
+ */
+function ringCurtain(cx: number, cz: number, r: number, height: number, color: THREE.ColorRepresentation, heightAt: (x: number, z: number) => number, gainV = 3, fadeNear = 0): THREE.Mesh {
   const n = Math.max(48, Math.round(r * 0.6));
   const pos: number[] = [], uvs: number[] = [], idx: number[] = [];
   for (let i = 0; i <= n; i++) {
@@ -126,7 +129,8 @@ function ringCurtain(cx: number, cz: number, r: number, height: number, color: T
   const c = new THREE.Color(color);
   // dashes along the ring, bright at the foot, fading upwards
   const dash = smoothstep(float(0.35), float(0.5), sin(uv().x.mul(n * 0.5 * Math.PI * 2 / 8)).mul(0.5).add(0.5)).mul(0.6).add(0.4);
-  m.colorNode = vec3(c.r, c.g, c.b).mul(gainV).mul(pow(float(1).sub(uv().y), float(1.8))).mul(dash);
+  const glow = vec3(c.r, c.g, c.b).mul(gainV).mul(pow(float(1).sub(uv().y), float(1.8))).mul(dash);
+  m.colorNode = fadeNear > 0 ? glow.mul(smoothstep(float(fadeNear * r), float(fadeNear * r * 2), length(cameraPosition.xz.sub(vec2(cx, cz))))) : glow;
   const mesh = new THREE.Mesh(geo, m);
   mesh.frustumCulled = false;
   mesh.renderOrder = 5;
@@ -190,7 +194,7 @@ export class StarshipLaunchVisuals {
     this.steam.sprite.name = 'LaunchCloud';
     this.zone = ringCurtain(this.padA.x, this.padA.z, BLAST_RADIUS_M, 4, 0xff1208, heightAt, 4);
     this.zone.name = 'ExclusionZone';
-    this.view = ringCurtain(viewpoint.x, viewpoint.z, 14, 5, 0x30ff70, heightAt, 3);
+    this.view = ringCurtain(viewpoint.x, viewpoint.z, 14, 5, 0x30ff70, heightAt, 3, 3);
     this.view.name = 'Viewpoint';
     this.root.add(this.booster, this.ship, this.steam.sprite, this.zone, this.view);
     world.add(this.root);

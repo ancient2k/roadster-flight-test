@@ -37,13 +37,14 @@ const CSS = `
 .rftl-fd canvas{display:block;width:100%;height:96px;margin-top:2px}
 .rftl-mark{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;font-size:11px;letter-spacing:.14em;text-shadow:0 1px 2px #000}
 .rftl-mark svg{width:34px;height:34px}
-.rftl-alert{position:absolute;left:50%;top:30%;transform:translateX(-50%);padding:.7em 1.6em;white-space:nowrap;font:700 clamp(16px,2.4vh,34px)/1.1 var(--rft-display);letter-spacing:.16em;color:#ffd7d3;
+/* below the ticker (4 rows of up to 2 lines from 96 px) so the two never overlap */
+.rftl-alert{position:absolute;left:50%;top:max(30%,252px);transform:translateX(-50%);padding:.7em 1.6em;white-space:nowrap;font:700 clamp(16px,2.4vh,34px)/1.1 var(--rft-display);letter-spacing:.16em;color:#ffd7d3;
   background:linear-gradient(90deg,transparent,rgba(90,0,0,.7) 15%,rgba(90,0,0,.7) 85%,transparent);border-top:1px solid #e8261c;border-bottom:1px solid #e8261c;text-shadow:0 0 18px rgba(232,38,28,.6);animation:rftlblink 0.7s steps(2) 6}
 @media (max-width:760px),(max-height:480px){
   .rftl-top{top:40px}.rftl-tick{top:auto;bottom:34%;width:46vw}.rftl-tick div{font-size:10px;padding:2px 8px}.rftl-tick div:nth-child(n+3){display:none}
   .rftl-fd{top:92px;left:50%;right:auto;transform:translateX(-50%);width:auto;display:flex;gap:14px;padding:3px 8px}
   .rftl-fd canvas{display:none}.rftl-st{margin:0;font-size:9px;min-width:120px}.rftl-st b,.rftl-st .n,.rftl-st .s{font-size:10px}
-  .rftl-count{font-size:44px}.rftl-clock{font-size:16px}
+  .rftl-count{font-size:44px}.rftl-clock{font-size:16px}.rftl-alert{top:30%}
 }
 `;
 
