@@ -34,6 +34,8 @@ import type { SiteDef } from '@shared/worlds';
 import { et } from '../editor/i18n';
 import { LevelRun } from './levelRun';
 import { RaceHud, fmtTime } from '../editor/raceHud';
+import { LaunchShow } from './launchShow';
+import { gameAt } from '@shared/starshipFlight';
 
 /** Air station refill rate (kg/s): the 250 kg tank in about 15 s. */
 const AIR_STATION_KG_S = 17;
@@ -258,6 +260,8 @@ export class App {
 
   private levelRun: LevelRun | null = null;
   private raceHud: RaceHud | null = null;
+  /** Starship launch of the level (from the moment it is armed). */
+  private launch: LaunchShow | null = null;
 
   /** Time trial and special pieces of the driven level (src/game/levelRun.ts). */
   private updateLevelRun(dt: number): void {
@@ -274,10 +278,42 @@ export class App {
       else if (e.kind === 'offTrack') this.hud.flash(upper(et('race.offTrack')), 'warn', 1500);
       else if (e.kind === 'skipped') this.hud.flash(et('race.missed', { n: e.n }), 'warn', 2500);
       else if (e.kind === 'finish') this.hud.flash(et('race.finish', { time: fmtTime(e.timeS + e.penaltyS) }) + (e.best ? ' ★' : ''), 'info', 6000);
-      else if (e.kind === 'launch') this.hud.flash('STARSHIP: LIFTOFF', 'info', 5000);
+      else if (e.kind === 'launchArmed') this.hud.flash(upper(et('special.launch', { s: e.countdownS })), 'warn', 4000);
     }
     if (evs.some((e) => e.kind === 'refill')) this.hud.flash(et('special.refill'), 'info', 600);
     this.raceHud?.update(run);
+    if (run.launchIn !== null) {
+      this.launch ??= new LaunchShow(this.renderer, this.root, this.audio);
+      this.launch.update(run, dt, s.pos, this.settings.get().units, {
+        push: (x, y, z) => this.sim.body.applyImpulse({ x: x * s.massKg, y: y * s.massKg, z: z * s.massKg }, true),
+        flash: (text, kind, ms) => this.hud.flash(text, kind, ms),
+        stackSolid: (on) => this.setStackSolid(on),
+      });
+    }
+  }
+
+  /** The box collider of the Starbase stack on mount A (off while the stack is in the air). */
+  private setStackSolid(on: boolean): void {
+    for (const [h, info] of this.sim.colliderInfo) if (info.id.startsWith('starship_stack')) this.sim.world.getCollider(h)?.setEnabled(on);
+  }
+
+  private endLaunch(): void {
+    if (!this.launch) return;
+    this.launch.dispose();
+    this.launch = null;
+    this.setStackSolid(true);
+  }
+
+  /** Test hook: move the launch clock on by `seconds` of game time (the countdown stops a frame before zero), or set
+   *  it to mission time `met` (negative = countdown). Returns the mission time. */
+  launchWarp(seconds: number, met?: number): number | null {
+    const r = this.levelRun;
+    if (!r || r.launchIn === null) return null;
+    if (met !== undefined) {
+      if (met < 0) { r.launchIn = -met; r.launchFired = false; r.launchT = 0; } else { r.launchIn = 0; r.launchFired = true; r.launchT = gameAt(met); }
+    } else if (!r.launchFired) r.launchIn = Math.max(0.001, r.launchIn - seconds);
+    else r.launchT += seconds;
+    return LaunchShow.met(r);
   }
 
   private backToEditor(): void {
@@ -288,6 +324,7 @@ export class App {
 
   /** Removes the track-editor level from the world (next physics build without its colliders). */
   private clearLevel(): void {
+    this.endLaunch();
     this.levelRun = null;
     this.raceHud?.dispose();
     this.raceHud = null;
@@ -451,6 +488,7 @@ export class App {
   }
   restart(): void {
     this.startSession(this.session.mode, this.attract, this.manual?.assist);
+    this.endLaunch();                                   // one launch per run: a restart puts the stack back
     this.levelRun = this.levelRun?.fresh() ?? null;     // a restart of a level starts a new lap
   }
 

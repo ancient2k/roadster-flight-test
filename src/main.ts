@@ -68,6 +68,8 @@ async function boot(): Promise<void> {
     startWorld: (id: string) => { app.menu.hide(); return app.startWorld(id as never); },
     /** Test hook: drive a track-editor level (src/shared/level.ts). */
     playLevel: (level: unknown) => { app.menu.hide(); return app.playLevel(level as never); },
+    /** Test hook: Starship launch clock of the driven level (App.launchWarp). */
+    launchWarp: (seconds: number, met?: number) => app.launchWarp(seconds, met),
     /** Test hook: advance the simulation synchronously by `seconds` (rendering continues normally). */
     fastForward: (seconds: number) => {
       const n = Math.round(seconds / app.sim.dt);
