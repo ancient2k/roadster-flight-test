@@ -33,6 +33,9 @@ export interface LandmarkDef {
   bake?: boolean;
   /** movable, breakable objects inside this GLB (src/shared/props.ts); their triangles leave the static collider. */
   dynamic?: import('../../shared/props').PropObjectDef[];
+  /** roads and slabs painted into the terrain (src/render/worlds/pavedGround.ts); the GLB's own low paved
+   *  geometry (Asphalt, flat Concrete below 12 cm) is dropped on load. */
+  ground?: string;
 }
 
 export interface WorldAssets {

@@ -18,6 +18,7 @@ import { buildGizaExtras } from './giza';
 import { buildVisitorPath } from './stonehenge';
 import { GrassField } from './grass';
 import { applyPropPoses, loadLandmarks, splitDynamicLandmarks, worldTriangles } from './landmarks';
+import { loadPavedGround } from './pavedGround';
 import type { PropPlacement, PropPose } from '../../shared/props';
 import { buildTalusMesh } from './talus';
 import { fitPyramid, pyramidHeightAt, pyramidHullMesh, pyramidTalus } from '../../shared/pyramid';
@@ -251,6 +252,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   // landmarks and the boulder GLB load alongside the textures (the shadow bake waits for the landmarks)
   const lmP = loadLandmarks(dir, assets.landmarks, (x, z) => field.height(x, z));
   const rockSetP = loadRockSet(assets.rocksUrl);
+  const pavedP = Promise.all(assets.landmarks.map((d) => loadPavedGround(dir, d))).then((l) => l.find((p) => p) ?? null);
   const fpFile = site.body === 'moon' ? await loadFootprintFile(dir) : null;
   const [albedo, splat, fine, rock, trampled] = await Promise.all([
     loadTex(assets.albedoUrl, { srgb: true, flipY: false, anisotropy: aniso }),
@@ -301,8 +303,9 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   const visNear0 = new Uint8Array(q.bakeRes * q.bakeRes), visFar0 = field.far ? new Uint8Array(512 * 512) : null;
   let bakeMs = 0, litPct = 0;
   const occTris = occTriArr.length / 9;
+  const paved = await pavedP;
   const textures: TerrainTextures = {
-    albedo, splat, fine, rock,
+    albedo, splat, fine, rock, paved,
     shadowNear: visibilityTexture(visNear0, q.bakeRes), shadowFar: visFar0 ? visibilityTexture(visFar0, 512) : null,
     // grassland: grass_chalk (Poly Haven grass_ground) – detail and some of its hue on top of the macro albedo
     ...(site.body === 'earth' && site.id !== 'earth_giza' ? { fineStrength: 0.85, fineChroma: 0.35 } : {}),
@@ -379,7 +382,10 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   // grass on Earth grassland (Stonehenge)
   let grass: GrassField | null = null;
   if (site.body === 'earth' && site.id !== 'earth_giza') {
-    grass = new GrassField(field, { radius: q.grassRadius, spacing: 0.3, maxInstances: q.grassMax, exclude: scatterExcluded(assets, field) });
+    // no grass on the painted roads and slabs either
+    const ex = scatterExcluded(assets, field);
+    const exclude = ex && paved ? (x: number, z: number) => paved.covered(x, z) || ex(x, z) : ex ?? (paved ? (x: number, z: number) => paved.covered(x, z) : undefined);
+    grass = new GrassField(field, { radius: q.grassRadius, spacing: 0.3, maxInstances: q.grassMax, exclude });
     if (await grass.load(`${base}assets/env-models/grass_clump.glb`)) {
       group.add(grass.group);
       grass.sunDir.value.copy(sunDirection);
@@ -409,10 +415,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
       const id = `${it.def.file.replace(/\.glb$/, '')}#${i}`;
       const pyr = pyramids[i];
       if (pyr) return [{ id, kind: 'mesh' as const, data: pyramidHullMesh(pyr.fit), outward: true }, { id: `${id}_talus`, kind: 'mesh' as const, data: pyr.talus }];
-      if (it.def.collider === 'box') {
-        const b = new THREE.Box3().setFromObject(it.object);
-        return [{ id, kind: 'mesh' as const, data: boxTris([b.min.x, b.min.y, b.min.z], [b.max.x, b.max.y, b.max.z]), outward: true }];
-      }
+      if (it.def.collider === 'box') return [{ id, kind: 'mesh' as const, data: fixedBoxTris(it.object), outward: true }];
       return [{ id, kind: 'mesh' as const, data: worldTriangles(it.object, 250_000) }];
     }),
     marks: marks ?? undefined,
@@ -466,7 +469,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
     },
     stats: () => ({
       format: assets!.format, nodes: terrain.stats.nodes, terrainTris: terrain.stats.triangles, built: terrain.stats.built,
-      prints: footprints?.mesh.count ?? 0, pebbles: pebbles?.count ?? 0, mastabas: giza?.mastabas ?? 0, buildings: giza?.buildings ?? 0, rocks: rocks?.instances.length ?? 0, grass: grass?.count ?? 0, rockGlb: rockSet ? 1 : 0, landmarks: lm.items.length, missingLandmarks: lm.missing.join(',') || '-',
+      prints: footprints?.mesh.count ?? 0, pebbles: pebbles?.count ?? 0, mastabas: giza?.mastabas ?? 0, buildings: giza?.buildings ?? 0, rocks: rocks?.instances.length ?? 0, grass: grass?.count ?? 0, rockGlb: rockSet ? 1 : 0, landmarks: lm.items.length, paved: paved ? 1 : 0, missingLandmarks: lm.missing.join(',') || '-',
       bakeMs: Math.round(bakeMs), litPct, occTris, albedo: albedo ? 1 : 0, detail: (fine ? 1 : 0) + (rock ? 1 : 0),
     }),
     dispose() {
@@ -479,6 +482,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
       rocks?.dispose();
       pebbles?.dispose();
       giza?.dispose();
+      paved?.tex.dispose();
       if (talusMesh) { talusMesh.geometry.dispose(); (talusMesh.material as THREE.Material).dispose(); }
       if (visitorPath) { visitorPath.geometry.dispose(); (visitorPath.material as THREE.Material).dispose(); }
       for (const g of pebbleGeoms ?? []) g.dispose();
@@ -500,4 +504,31 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   try { performance.measure(`r5:loadWorld:${site.id}`, { start: tLoad0, end: performance.now() }); } catch { /* old browsers */ }
   progress('done');
   return handle;
+}
+
+/** Moving parts of the tower GLBs (catch arms, quick-disconnect arm): not part of the static box collider. */
+const MOVING_NODES = new Set(['Carriage', 'QD_Arm']);
+/**
+ * Box collider of a dense lattice (Starbase towers, stack): the bounds of its fixed meshes in the object's own frame,
+ * placed with the object's pose. A world-axis box of the whole object included the 40 m catch arms, an invisible
+ * block from the ground to the tower top between tower and mount.
+ */
+function fixedBoxTris(root: THREE.Object3D): Float32Array {
+  root.updateMatrixWorld(true);
+  const inv = root.matrixWorld.clone().invert(), box = new THREE.Box3(), b = new THREE.Box3(), m4 = new THREE.Matrix4();
+  const walk = (o: THREE.Object3D) => {
+    if (MOVING_NODES.has(o.name)) return;
+    const mesh = o as THREE.Mesh;
+    if (mesh.isMesh) {
+      mesh.geometry.computeBoundingBox();
+      box.union(b.copy(mesh.geometry.boundingBox!).applyMatrix4(m4.multiplyMatrices(inv, mesh.matrixWorld)));
+    }
+    for (const c of o.children) walk(c);
+  };
+  walk(root);
+  if (box.isEmpty()) box.setFromObject(root).applyMatrix4(inv);
+  const t = boxTris([box.min.x, box.min.y, box.min.z], [box.max.x, box.max.y, box.max.z]);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < t.length; i += 3) { v.set(t[i], t[i + 1], t[i + 2]).applyMatrix4(root.matrixWorld); t[i] = v.x; t[i + 1] = v.y; t[i + 2] = v.z; }
+  return t;
 }

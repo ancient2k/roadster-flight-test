@@ -79,6 +79,7 @@ export async function loadLandmarks(dir: string, defs: LandmarkDef[], heightAt: 
         m.material = Array.isArray(m.material) ? m.material.map(foilAA) : foilAA(m.material);
         for (const mt of Array.isArray(m.material) ? m.material : [m.material]) groundBias(mt);
       });
+      if (def.ground) dropPavedGeometry(obj);
       group.add(obj);
       items.push({ def, object: obj });
     } catch (e) {
@@ -226,7 +227,30 @@ export function applyPropPoses(v: PropVisuals, poses: readonly PropPose[]): void
 
 /** Roads, pads and aprons lie within centimetres of the terrain: pull them towards the camera in the depth test so
  *  they do not flicker against the ground (the sign is handled for the reversed depth buffer in GameRenderer). */
+const PAVED = /asphalt|concrete|road|pad|apron/i;
 function groundBias(mt: THREE.Material): void {
-  if (!/asphalt|concrete|road|pad|apron/i.test(mt.name)) return;
+  if (!PAVED.test(mt.name)) return;
   mt.polygonOffset = true; mt.polygonOffsetFactor = -1; mt.polygonOffsetUnits = -2;
+}
+
+/** Removes the roads and slabs a landmark carries as geometry when they are painted into the terrain instead
+ *  (LandmarkDef.ground): all Asphalt, and Concrete triangles lying entirely below 12 cm in the model frame. */
+function dropPavedGeometry(root: THREE.Object3D): void {
+  const drop: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || Array.isArray(m.material)) return;
+    const name = m.material.name.toLowerCase();
+    if (name.includes('asphalt')) { drop.push(m); return; }
+    if (!name.includes('concrete')) return;
+    const g = m.geometry, p = g.getAttribute('position') as THREE.BufferAttribute, idx = g.getIndex();
+    const n = idx ? idx.count : p.count, keep: number[] = [];
+    const y = (k: number) => p.getY(idx ? idx.getX(k) : k);
+    for (let t = 0; t + 2 < n; t += 3) {
+      if (Math.max(y(t), y(t + 1), y(t + 2)) < 0.12) continue;
+      for (let k = 0; k < 3; k++) keep.push(idx ? idx.getX(t + k) : t + k);
+    }
+    if (keep.length !== n) { g.setIndex(keep); g.computeBoundingSphere(); }
+  });
+  for (const m of drop) m.removeFromParent();
 }

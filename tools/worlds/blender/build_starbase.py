@@ -196,10 +196,11 @@ def launch_mount(q,mount):
             m.girder((p.x,p.y,7),(pp.x,pp.y,17.8),.45,.65)
             m.pipe((p.x,p.y,1),(p.x,p.y,17.5),.2,0,20)
         # Segmented water-cooled steel plate, feed headers and visible cooling ribs.
-        for x in range(-9,10,2):m.box((x,0,.20),(1.96,20,.28),0)
+        # flush with the ground (top at +4 cm): the car can drive onto the table from the open sides
+        for x in range(-9,10,2):m.box((x,0,-.10),(1.96,20,.28),0)
         for y in [-9.5,9.5]:
             m.pipe((-10,y,.55),(10,y,.55),.22,0,24)
-            for x in range(-8,9,2):m.pipe((x,y,.55),(x,y*.8,.25),.09,0,12)
+            for x in range(-8,9,2):m.pipe((x,y,.55),(x,y*.8,.10),.09,0,12)
     else:
         # Concrete launch deck with a circular aperture, over a three-sided trench.
         # Y=-24 is the open mouth; side walls carry the deck, no fourth closing wall.
@@ -272,11 +273,10 @@ def build_site(features):
         elif t.get('man_made')=='gantry':
             kind='gantry'
             for a,b in zip(p,p[1:]):q.girder((*a,8),(*b,8),.4,.6);q.girder((*a,0),(*a,8),.35,.5)
-        elif 'highway' in t:
-            kind='road';w=9 if t['highway'] in ['tertiary','unclassified'] else 5 if t['highway']=='service' else 2.5
-            for a,b in zip(p,p[1:]):q.beam((*a,.035),(*b,.035),w,4 if t.get('surface')=='asphalt' else 3,.07)
-        elif f['closed'] and ('surface' in t or t.get('aeroway')=='apron' or t.get('industrial')=='depot'):
-            kind='slab';q.prism(p,-.08,.1,3)
+        elif 'highway' in t or (f['closed'] and ('surface' in t or t.get('aeroway')=='apron' or t.get('industrial')=='depot')):
+            # roads and paved slabs are painted into the terrain (tools/worlds/starbase_ground.py): as boxes on
+            # the ungraded ground they were steps, jagged joints and flickering plates
+            counts['painted_ground']=counts.get('painted_ground',0)+1;continue
         if kind:counts[kind]=counts.get(kind,0)+1
     for mount in LAYOUT['mounts']:launch_mount(q,mount)
     # Inferred area lighting: explicit generated locations, not asserted OSM positions.

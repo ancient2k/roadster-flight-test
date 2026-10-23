@@ -48,6 +48,8 @@ export interface TerrainTextures {
   albedoTint?: [number, number, number];
   /** sedimentary layering on slopes (Mars: Mount Sharp, Valles walls, delta scarps). */
   strata?: boolean;
+  /** roads and paved slabs painted into the ground (src/render/worlds/pavedGround.ts). */
+  paved?: import('./pavedGround').PavedGround | null;
 }
 
 /**
@@ -387,7 +389,7 @@ export class TerrainRenderer {
     if (T.fine || T.rock) {
       // WebGPU allows 16 sampled textures per stage: with the crater tile / trampled map the ARM maps
       // (roughness ≥ 0,72 anyway, faint AO) give way
-      const lean = !!(T.craters || T.trampled);
+      const lean = !!(T.craters || T.trampled || T.paved);
       const fine = T.fine ? planar(lean ? { ...T.fine, arm: null } : T.fine) : null;
       const rock = T.rock ? triplanar(lean ? { ...T.rock, arm: null } : T.rock) : null;
       const cF = fine ? fine.c : vec3(1, 1, 1), cR = rock ? rock.c : cF;
@@ -457,6 +459,18 @@ export class TerrainRenderer {
       const g = acos(clamp(dot(L, V), -1, 1));
       const surge = float(look.oppositionB0).div(float(1).add(tan(g.mul(0.5)).div(look.oppositionH)));
       albedo = albedo.mul(ls.mul(surge.add(1))).mul(0.62) as N3;
+    }
+    if (T.paved) {
+      // concrete (R) and asphalt (G) from the mask; a little of the ground detail as wear, flat and a bit smoother
+      const pv = T.paved;
+      const uvP = wxz.sub(vec2(pv.x0, pv.z0)).div(vec2(pv.sizeX, pv.sizeZ));
+      const mk = texture(pv.tex, uvP);
+      const wC = smoothstep(float(0.35), float(0.65), mk.x), wA = smoothstep(float(0.35), float(0.65), mk.y);
+      const wear = mix(vec3(1, 1, 1), colorMod, 0.35).mul(n3.sub(0.5).mul(0.1).add(1));
+      albedo = mix(mix(albedo, vec3(...pv.concrete).mul(wear), wC), vec3(...pv.asphalt).mul(wear), wA) as N3;
+      const wP = max(wC, wA);
+      rough = mix(rough, mix(float(0.82), float(0.9), wA), wP) as unknown as NF;
+      nDetail = normalize(mix(nDetail, nMacro, wP)) as N3;
     }
     m.colorNode = mix(albedo, macroAlb, U.debugFlat);
     this.surfaceColor = m.colorNode as N3;

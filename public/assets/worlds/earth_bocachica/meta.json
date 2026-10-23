@@ -152,7 +152,8 @@
       "z": 250.0,
       "headingDeg": 0.0,
       "bake": false,
-      "note": "launch site structures, model origin = REF point"
+      "note": "launch site structures, model origin = REF point",
+      "ground": "starbase_ground.json"
     },
     {
       "file": "tower_a_lod1.glb",

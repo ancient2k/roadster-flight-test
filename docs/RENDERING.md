@@ -17,7 +17,12 @@
 
 ## Temporal stability (ghosting, flicker)
 
-- **Ground-level surfaces** (roads, pads, slabs of the editor tracks and the Starbase model, tyre marks): pulled
+- **Painted ground** (`worlds/pavedGround.ts`): the Starbase roads and paved slabs are a concrete/asphalt mask in the
+  terrain shader (from OpenStreetMap, `tools/worlds/starbase_ground.py`, `LandmarkDef.ground`), not geometry. As boxes
+  on the ungraded terrain they were steps the car caught on, jagged at the segment joints, and they flickered or
+  vanished against the coarser terrain LODs; painted, they follow the ground at every distance and the car drives
+  on the terrain. No grass grows on them.
+- **Ground-level surfaces** (roads and pads of the editor tracks, tyre marks): pulled
   towards the camera with `polygonOffset`. The worlds render with a reversed depth buffer, for which three.js does
   not flip the offset; `flipDepthBias()` in `GameRenderer.ts` negates the depth bias of every pipeline (WebGL
   fallback: every `gl.polygonOffset`), otherwise these surfaces lost against the terrain (flicker, roads hidden

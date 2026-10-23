@@ -241,3 +241,12 @@ The underside previews remove the temporary ground, and the ship view temporaril
 booster subtree. Visibility is restored before LOD export. No preview lights/camera/ground
 are selected for GLB export. Commit and native rerender are delegated to Claude by the user;
 the requested commit trailer remains `Co-Authored-By: Codex (GPT-6-Astra) <noreply@openai.com>`.
+
+## Roads, slabs, launch table (Oct 2026)
+
+Roads and paved slabs are no longer modelled: they are painted into the terrain from
+`starbase_ground.json` (`tools/worlds/starbase_ground.py`, `src/render/worlds/pavedGround.ts`). The
+water-cooled steel table of mount A lies flush with the ground (top at +4 cm). Rebuild only the site
+model with `build_site()` (towers unchanged), then `node tools/compress-assets.mjs
+public/assets/worlds/earth_bocachica/starbase.glb`. The towers' box colliders cover only the fixed
+structure (`fixedBoxTris` in `src/render/worlds/index.ts`), not the catch and QD arms.
