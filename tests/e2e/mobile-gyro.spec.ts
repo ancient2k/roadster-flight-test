@@ -17,11 +17,22 @@ async function installSensor(page: Page, opts: { permission?: 'granted' | 'denie
     if (permission) (window as any).DeviceOrientationEvent.requestPermission = () => { w.__permissionAsked++; return Promise.resolve(permission); };
     if (silent) return;
     setInterval(() => {
-      const a = ((screen.orientation?.angle ?? 0) % 360 + 360) % 360;
-      const p = hold + w.__tilt.pitch, r = w.__tilt.roll;
-      // portrait: beta = top edge up, gamma = right edge down; landscape 90: screen top = device right edge
-      const [beta, gamma] = a === 90 ? [r, -p] : a === 270 ? [-r, p] : a === 180 ? [-p, -r] : [p, r];
-      window.dispatchEvent(new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta, gamma, absolute: false }));
+      const d2r = Math.PI / 180;
+      const a = ((screen.orientation?.angle ?? 0) % 360 + 360) % 360 * d2r;
+      const p = (hold + w.__tilt.pitch) * d2r, r = w.__tilt.roll * d2r;
+      // exact inverse of src/input/gyro.ts: wanted "up" in screen coordinates (roll, then pitch) ...
+      const sx = -Math.sin(r), sy = Math.cos(r) * Math.sin(p), sz = Math.cos(r) * Math.cos(p);
+      // ... rotated back into device coordinates, then beta/gamma from up = (-sin g cos b, sin b, cos g cos b)
+      const dx = Math.cos(a) * sx + Math.sin(a) * sy, dy = -Math.sin(a) * sx + Math.cos(a) * sy;
+      const beta = Math.asin(dy) / d2r, gamma = Math.atan2(-dx, sz) / d2r;
+      const init = { alpha: 0, beta, gamma, absolute: false };
+      let ev: Event;
+      // WebKit (Playwright's macOS build) has the interface but no constructor
+      try { ev = new DeviceOrientationEvent('deviceorientation', init); } catch {
+        ev = new Event('deviceorientation');
+        for (const [k, v] of Object.entries(init)) Object.defineProperty(ev, k, { value: v });
+      }
+      window.dispatchEvent(ev);
     }, 33);
   }, { hold: HOLD, permission: opts.permission, silent: !!opts.silent });
 }

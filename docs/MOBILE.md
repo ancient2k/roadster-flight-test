@@ -149,7 +149,8 @@ speed and Safari's per-tab memory limit are **not** reproduced.
   stick rests and hints do not run into the buttons, that nothing leaves the screen and that no button
   label is clipped. Screenshots go to `$RFT_SHOTS` (`hud-<project>-<view>.png`).
 - `tests/e2e/mobile-gyro.spec.ts` (“tilt steering”): fakes the sensor with `dispatchEvent(new
-  DeviceOrientationEvent(…))` at ~30 Hz for the current screen angle; checks off by default, switching on with
+  DeviceOrientationEvent(…))` at ~30 Hz for the current screen angle (exact inverse of the mapping; Playwright's
+  WebKit has no constructor, so there it dispatches a plain `Event` carrying the angles); checks off by default, switching on with
   TILT (zero pose), pitch and roll signs on `manual.axes` and on the commanded lift-nozzle duties (`session.lastOutput`, RAW assist: front > rear for nose up, left > right for roll right), dead zone,
   recenter (⊙ and restart), the settings rows and switching off there; a denied `requestPermission` and a
   silent sensor leave the option off with the hint.
