@@ -75,6 +75,13 @@ upside down on the wall ramp as in the stream; on a skid pad it lifts lateral gr
   rate and load use the contact angle only up to ≈ 53° (a tilted touchdown had gained energy). Resting on the stop,
   crawling over an arris or ramming an obstacle keep the elastic stop. Now: rebound coefficient < 0.4 (flat) / < 0.5
   (tilted), the jump landing stays down with no jets (`tests/sim/vehicle/landingBounce.test.ts`).
+- **Driving physics setting** (`src/shared/handling.ts`, `RoadsterSim.handling`): 'realistic' is the plain model.
+  'fun' (default in free play; never in the auto stunts or the demo) adds three helpers after `world.step`: a wall
+  contact (normal within 60° of horizontal) gives back the speed along the wall that hull friction took and the yaw
+  it put on the car, and for 0.4 s yaws the car parallel to the wall (pointing into it, the tyres would scrub and
+  brake it all the same); for 1.5 s after a hull impact above 3 m/s the spin is damped (2.5 /s); contacts give no
+  rebound beyond stopping the car (0 instead of 15 %). Glancing a wall at 20 m/s and 30°: 11.7 m/s left and the
+  car crosswise (realistic) vs 14.6 m/s along the wall (fun), `tests/sim/vehicle/handling.test.ts`.
 - **Crash against movable objects:** CCD resolves a hard hit inside the step and the manifold reports only a
   fraction of its impulse (ramming a lander leg at 13 m/s: 5.7 m/s lost in one step, 0.6 m/s in impulses). The
   measure is therefore also the car's velocity change by contacts over the break window once a prop was touched in

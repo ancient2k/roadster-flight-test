@@ -15,6 +15,7 @@ import {
 import { Propulsion } from './propulsion';
 import { EARTH, type Environment, type SurfaceKind } from '@shared/environment';
 import { PropSystem, BREAK_WINDOW_S, rotTerm } from './props';
+import type { HandlingMode } from '@shared/handling';
 import { sampleHeight } from '@shared/heightmap';
 import type { PropPlacement } from '@shared/props';
 import { GROUP_CAR, GROUP_PROP, GROUP_WORLD, buildLandmarkColliders, buildTerrainColliders, buildTrackColliders, groups, type LandmarkShape, type WorldColliderInfo } from './world';
@@ -119,6 +120,12 @@ const makeState = (): VehicleState => ({
 const CONTACT_REBOUND_E = 0.15, CONTACT_REBOUND_SLACK_MS = 0.3;
 /** ... and the braking by our own forces within the step above which a contact counts as a second stop (m/s). */
 const CONTACT_REBOUND_MIN_BRAKE_MS = 1;
+/** 'fun' handling: share of the along-wall speed a scraped wall gives back; spin damping after a hull impact above
+ *  FUN_SPIN_IMPACT_MS (m/s): rate (1/s) for FUN_SPIN_S (s), while the spin exceeds FUN_SPIN_MIN_RADS (rad/s). */
+const FUN_WALL_GUIDE = 1, FUN_SPIN_IMPACT_MS = 3, FUN_SPIN_S = 1.5, FUN_SPIN_RATE = 2.5, FUN_SPIN_MIN_RADS = 1;
+/** 'fun' handling: after a wall guided the car, yaw it parallel to the wall for FUN_ALIGN_S (s) with time constant
+ *  FUN_ALIGN_TAU_S (s), at most FUN_ALIGN_MAX_RADS (rad/s). */
+const FUN_ALIGN_S = 0.4, FUN_ALIGN_TAU_S = 0.12, FUN_ALIGN_MAX_RADS = 3;
 
 export class RoadsterSim implements VehicleSim {
   readonly world: RAPIER.World;
@@ -367,13 +374,15 @@ export class RoadsterSim implements VehicleSim {
     for (const m of this.modules) m.apply(ctx);
     this.body.addForce(this.acc.force, true);
     this.body.addTorque(this.acc.torque, true);
-    const v0 = this.body.linvel(), m0 = this.body.mass();
+    const v0 = this.body.linvel(), m0 = this.body.mass(), w0 = this.body.angvel();
     const f = this.acc.force, g = this.gravity;
     // velocity at the end of the step from gravity and our forces alone (struts, tyres, jets, fans, aero)
     const vfx = v0.x + (f.x / m0 + g.x) * dt, vfy = v0.y + (f.y / m0 + g.y) * dt, vfz = v0.z + (f.z / m0 + g.z) * dt;
     // 6. integrate
     this.world.step();
-    if (m0 > 0) this.limitContactRebound(v0, vfx, vfy, vfz);   // mass properties exist from the first world step on
+    if (m0 > 0) this.limitContactRebound(v0, w0, vfx, vfy, vfz);   // mass properties exist from the first world step on
+    this.dampCrashSpin(dt);
+    this.alignToWall(dt);
     this.rescueBelowGround();
     this.props?.afterStep();
     // 7. derive state
@@ -388,6 +397,13 @@ export class RoadsterSim implements VehicleSim {
    */
   /** Steps in which a contact threw the car back harder than its approach (see limitContactRebound). */
   contactReboundClamps = 0;
+  /** Driving physics (src/shared/handling.ts): set per session by the app; the plain model unless told otherwise. */
+  handling: HandlingMode = 'realistic';
+  /** 'fun' helpers at work: steps a wall guided the car along, seconds of crash-spin damping left. */
+  funWallGuides = 0;
+  private crashSpinT = 0;
+  private wallAlignT = 0;
+  private readonly wallDir = { x: 0, z: 1 };
   /** Velocity change of the car by contacts (not by its own forces or gravity) in the last step (m/s, world). */
   private readonly contactDv = v3();
 
@@ -400,15 +416,16 @@ export class RoadsterSim implements VehicleSim {
    * against the contact in this step (the double stop); ordinary contacts (walls, props, a pyramid's arris) are left
    * to Rapier. v0: velocity before the step, (vfx, vfy, vfz): end-of-step velocity without contacts.
    */
-  private limitContactRebound(v0: { x: number; y: number; z: number }, vfx: number, vfy: number, vfz: number): void {
+  private limitContactRebound(v0: { x: number; y: number; z: number }, w0: { x: number; y: number; z: number }, vfx: number, vfy: number, vfz: number): void {
     const v = this.body.linvel();
     const d = this.contactDv;
     d.x = v.x - vfx; d.y = v.y - vfy; d.z = v.z - vfz;           // change by contacts (normal push and friction)
     if (Math.hypot(d.x, d.y, d.z) < CONTACT_REBOUND_SLACK_MS) return;
     // contact normal on the car, averaged over the static-world contacts weighted by their impulses (friction on a
     // hull sliding over the ground is in d too and must not count as a push). A hit resolved by CCD inside the step
-    // can report zero impulses: then every manifold with contact points counts the same.
-    let nx = 0, ny = 0, nz = 0;
+    // can report zero impulses: then every manifold with contact points counts the same. Walls (normal within 60°
+    // of horizontal) are summed apart for the 'fun' handling.
+    let nx = 0, ny = 0, nz = 0, wx = 0, wz = 0;
     this.world.contactPairsWith(this.chassis, (other) => {
       if (this.props?.isProp(other.handle)) return;
       this.world.contactPair(this.chassis, other, (man, flipped) => {
@@ -418,8 +435,11 @@ export class RoadsterSim implements VehicleSim {
         for (let i = 0; i < nc; i++) J += man.contactImpulse(i);
         const n = man.normal(), w = J > 1e-6 ? J : 1e-6, sg = flipped ? w : -w;
         nx += n.x * sg; ny += n.y * sg; nz += n.z * sg;
+        if (Math.abs(n.y) < 0.5) { wx += n.x * sg; wz += n.z * sg; }
       });
     });
+    const fun = this.handling === 'fun';
+    if (fun) this.guideAlongWall(wx, wz, vfx, vfz, w0.y);
     const nl = Math.hypot(nx, ny, nz);
     if (nl < 1e-12) return;
     nx /= nl; ny /= nl; nz /= nl;
@@ -427,12 +447,66 @@ export class RoadsterSim implements VehicleSim {
     const braked = (vfx - v0.x) * nx + (vfy - v0.y) * ny + (vfz - v0.z) * nz;   // our forces along it
     if (braked < CONTACT_REBOUND_MIN_BRAKE_MS) return;
     const approach = Math.max(0, -(vfx * nx + vfy * ny + vfz * nz));   // closing speed left after our forces
-    const allowed = approach * (1 + CONTACT_REBOUND_E) + CONTACT_REBOUND_SLACK_MS;
+    const allowed = approach * (1 + (fun ? 0 : CONTACT_REBOUND_E)) + CONTACT_REBOUND_SLACK_MS;
     if (push <= allowed) return;
     const k = push - allowed;
-    this.body.setLinvel({ x: v.x - nx * k, y: v.y - ny * k, z: v.z - nz * k }, true);
+    const vv = this.body.linvel();
+    this.body.setLinvel({ x: vv.x - nx * k, y: vv.y - ny * k, z: vv.z - nz * k }, true);
     d.x -= nx * k; d.y -= ny * k; d.z -= nz * k;
     this.contactReboundClamps++;
+  }
+
+  /**
+   * 'fun' handling: a wall the hull scrapes along takes the speed across it but not the speed along it (in sim-arcade
+   * games walls guide a glancing car on; the plain model brakes it hard with hull friction and spins it). (wx, wz):
+   * horizontal wall normal sum on the car; (vfx, vfz): horizontal end-of-step velocity without contacts; yaw0: yaw
+   * rate before the step (the yaw the wall puts on the car is taken back as well: it turned a glancing car into the
+   * wall and wedged it there).
+   */
+  private guideAlongWall(wx: number, wz: number, vfx: number, vfz: number, yaw0: number): void {
+    const l = Math.hypot(wx, wz);
+    if (l < 1e-12) return;
+    const w = this.body.angvel();
+    this.body.setAngvel({ x: w.x, y: yaw0, z: w.z }, true);
+    const ux = wx / l, uz = wz / l, tx = -uz, tz = ux;            // wall normal and tangent (horizontal)
+    const v = this.body.linvel();
+    const along0 = vfx * tx + vfz * tz, along = v.x * tx + v.z * tz;
+    // only give back what the contact took along the wall (never add speed, never reverse)
+    if (Math.abs(along) >= Math.abs(along0) || Math.sign(along) !== Math.sign(along0) && along !== 0) return;
+    const k = (along0 - along) * FUN_WALL_GUIDE;
+    this.body.setLinvel({ x: v.x + tx * k, y: v.y, z: v.z + tz * k }, true);
+    this.funWallGuides++;
+    // and turn the car parallel to the wall for a moment (towards the direction it slides): pointing into it, the
+    // tyres would scrub sideways and brake it all the same
+    const sg = Math.sign(along0) || 1;
+    this.wallDir.x = tx * sg; this.wallDir.z = tz * sg; this.wallAlignT = FUN_ALIGN_S;
+  }
+
+  /** 'fun' handling: yaw the car towards the wall it was guided along (wallDir) while wallAlignT runs. */
+  private alignToWall(dt: number): void {
+    if (this.wallAlignT <= 0) return;
+    this.wallAlignT -= dt;
+    if (this.handling !== 'fun' || !this.state.groundContact) return;
+    const q = this.body.rotation() as Quat;
+    const f = qrot(q, { x: 0, y: 0, z: 1 });
+    let err = Math.atan2(this.wallDir.x, this.wallDir.z) - Math.atan2(f.x, f.z);
+    err = Math.atan2(Math.sin(err), Math.cos(err));
+    if (Math.abs(err) > Math.PI / 2) return;                     // sliding backwards along it: leave it
+    const w = this.body.angvel();
+    const target = Math.max(-FUN_ALIGN_MAX_RADS, Math.min(FUN_ALIGN_MAX_RADS, err / FUN_ALIGN_TAU_S));
+    this.body.setAngvel({ x: w.x, y: w.y + (target - w.y) * Math.min(1, dt / FUN_ALIGN_TAU_S), z: w.z }, true);
+  }
+
+  /** 'fun' handling: damp the spin for a moment after a hard hull impact, so the car settles instead of tumbling on. */
+  private dampCrashSpin(dt: number): void {
+    if (this.handling !== 'fun') { this.crashSpinT = 0; return; }
+    if (this.state.bodyContact && this.impactSpeed > FUN_SPIN_IMPACT_MS) this.crashSpinT = FUN_SPIN_S;
+    if (this.crashSpinT <= 0) return;
+    this.crashSpinT -= dt;
+    const w = this.body.angvel();
+    if (Math.hypot(w.x, w.y, w.z) < FUN_SPIN_MIN_RADS) return;
+    const f = Math.exp(-FUN_SPIN_RATE * dt);
+    this.body.setAngvel({ x: w.x * f, y: w.y * f, z: w.z * f }, true);
   }
 
   private rescueBelowGround(): void {

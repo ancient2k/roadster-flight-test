@@ -428,6 +428,7 @@ export class Menu extends Emitter<MenuEvents> {
           this.toggleRow(t('settings.valveDelays'), s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), t('settings.valveDelaysNote')),
           this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
           this.toggleRow(t('settings.wind'), s.realism.wind, (v) => upd((d) => { d.realism.wind = v; }, 'realism.wind'), t('settings.windNote')),
+          this.segRow(t('handling.setting'), [['fun', t('handling.fun')], ['realistic', t('handling.realistic')]], s.realism.handling, (v) => upd((d) => { d.realism.handling = v as Settings['realism']['handling']; }, 'realism.handling'), t('handling.settingNote')),
           this.segRow(t('damage.setting'), [['off', t('damage.off')], ['visual', t('damage.visual')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'), t('damage.settingNote')),
         );
         break;

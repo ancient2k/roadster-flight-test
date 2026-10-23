@@ -35,6 +35,9 @@ at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, sho
 - **Vehicle damage** (Settings → Simulation, Off / Visual / Full): crashes dent the body and tear off the wing,
   doors, bumpers, diffuser, nozzle covers and wheels, which fly as real parts of the model. With "Full" the
   missing parts change how the car drives, and a heavy crash destroys it – reset (Backspace) to repair.
+- **Driving physics** (Settings → Simulation, Fun / Realistic): *Fun* (default) adds the helpers sim-arcade games
+  use – a wall guides a car that glances off it along and lines it up, the spin after a hard crash is damped for a
+  moment, landings give no rebound. *Realistic* is the plain model; the auto stunts always run realistic.
 - **Track editor** in the spirit of the classic DOS racers: build your own course on a 960 × 720 m field next to
   Starbase (Boca Chica, Texas) from 17 pieces – loops, jumps, banked curves, elevated roads, half-pipe, the
   stream's wall ramp, fly-through rings, boost pads, air stations and a launch clearance – then test-drive it at

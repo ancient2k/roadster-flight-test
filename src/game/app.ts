@@ -178,6 +178,7 @@ export class App {
     this.manual = null;
     // the demo and the auto stunts never take damage
     setDamageMode(this.sim, attract || mode.kind === 'auto' ? 'off' : this.settings.get().realism.damage);
+    this.sim.handling = attract || mode.kind === 'auto' ? 'realistic' : this.settings.get().realism.handling;
     this.session = new SimSession(this.sim, mode, this.makeController);
     if (assist && this.manual) (this.manual as ManualController).assist = assist;
     this.session.infiniteAir = this.settings.get().realism.infiniteAir;
@@ -521,6 +522,7 @@ export class App {
     if (this.renderer.getStats().quality !== s.graphics.quality) this.renderer.setQuality(s.graphics.quality);
     this.sim?.propulsion.setCompressor(s.refillRate); // 'game' = Fun: 20 s on every world, 'realistic': 6–7 h, Earth only
     if (this.session) this.session.infiniteAir = s.realism.infiniteAir;
+    if (this.sim && this.manual) this.sim.handling = s.realism.handling;   // free play: at once
   }
 
   // ---------------------------------------------------------------- loop

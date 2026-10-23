@@ -5,6 +5,7 @@ import type { AssistLevel } from '../shared/types';
 import type { Units } from './units';
 import { LOCALE_CODES, type LanguageSetting } from '../i18n';
 import { DAMAGE_MODES, type DamageMode } from '../shared/damage';
+import { HANDLING_MODES, type HandlingMode } from '../shared/handling';
 
 export type GraphicsQuality = 'low' | 'medium' | 'high' | 'ultra';
 export type RefillRate = 'realistic' | 'game';
@@ -24,6 +25,8 @@ export interface Settings {
     wind: boolean;            // gusts over the pad
     /** Vehicle damage: 'off' = a hard body impact is a collision (previous behaviour), 'realistic' = damage model. */
     damage: DamageMode;
+    /** Driving physics in free play: 'fun' (default) adds game helpers on crashes, 'realistic' is the plain model. */
+    handling: HandlingMode;
   };
   assistDefault: AssistLevel;
   controls: { invertPitch: boolean; mouseAttitude: boolean; mouseSensitivity: number; stickDeadzone: number; triggerDeadzone: number };
@@ -40,7 +43,7 @@ export function defaultSettings(): Settings {
     language: 'auto',
     audio: { master: 0.8, effects: 1, crowd: 0.7, muted: false },
     refillRate: 'game',
-    realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, damage: 'off' },
+    realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, damage: 'off', handling: 'fun' },
     assistDefault: 'ASSIST',
     controls: { invertPitch: false, mouseAttitude: false, mouseSensitivity: 1, stickDeadzone: 0.15, triggerDeadzone: 0.05 },
     hud: { visible: true, scale: 1, showExtras: true },
@@ -90,6 +93,7 @@ const ENUMS: Record<string, readonly string[]> = {
   refillRate: ['realistic', 'game'],
   assistDefault: ['ASSIST', 'STABILIZED', 'RAW'],
   'realism.damage': DAMAGE_MODES,
+  'realism.handling': HANDLING_MODES,
 };
 
 const RANGES: Array<[string[], number, number]> = [
