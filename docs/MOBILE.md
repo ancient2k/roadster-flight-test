@@ -33,7 +33,9 @@ endless boot screen (the UI language is not loaded at that point).
   created; any later start failure with WebGPU is retried once with `?webgl` (Low on phones).
   A lost WebGL context during the start counts as a failure.
 - **Touch controls** (`src/ui/touchControls.ts`, `src/input/touch.ts`), visible only on touch
-  devices and only while driving:
+  devices (coarse pointer without hover, `hasTouch()`) and only while driving. A desktop browser that merely
+  reports touch support (touch-screen laptop, touch emulation) shows them after the first touch and hides them
+  again on mouse or keyboard use:
   - left: floating drive stick (steer; push = throttle, pull = brake) and **Handbrake**;
   - right: floating attitude stick (yaw; pull = nose up, as on a gamepad) and a three-row button
     block: the two roll buttons on top, **Boost** and **Down** on the left, a tall **Lift** at the thumb;

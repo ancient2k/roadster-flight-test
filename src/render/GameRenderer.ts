@@ -185,6 +185,7 @@ export class GameRenderer {
     const T: Record<string, number> = {};
     const lap = (k: string) => { const n = performance.now(); T[k] = Math.round(n - tm); tm = n; bootStep(k); };
     await renderer.init();
+    if ((renderer as unknown as { reversedDepthBuffer?: boolean }).reversedDepthBuffer) flipDepthBias(renderer);
     lap('init');
     const gr = new GameRenderer(renderer, opts);
     gr.timings = T;
@@ -891,4 +892,29 @@ const _carPos = new THREE.Vector3(), _tmpV = new THREE.Vector3(), _tmpV2 = new T
 
 function ema(prev: number, x: number, a: number): number {
   return prev === 0 ? x : prev + (x - prev) * a;
+}
+
+/**
+ * three.js passes material.polygonOffset straight through as the WebGPU depth bias, which assumes the standard depth
+ * direction. With the reversed depth buffer of the worlds a negative offset pushes a surface away from the camera, so
+ * roads, pads and marks lying on the ground lost against the terrain (flicker, or hidden from above). The bias of
+ * every render pipeline (WebGL fallback: every gl.polygonOffset call) is negated here instead of at each material.
+ */
+function flipDepthBias(renderer: THREE.WebGPURenderer): void {
+  const be = renderer.backend as unknown as { device?: GPUDevice; gl?: WebGL2RenderingContext };
+  if (be.gl) {
+    const gl = be.gl, po = gl.polygonOffset.bind(gl);
+    gl.polygonOffset = (factor, units) => po(-factor, -units);
+    return;
+  }
+  const dev = be.device;
+  if (!dev) return;
+  const fix = (d: GPURenderPipelineDescriptor): GPURenderPipelineDescriptor => {
+    const ds = d.depthStencil;
+    if (!ds || (!ds.depthBias && !ds.depthBiasSlopeScale)) return d;
+    return { ...d, depthStencil: { ...ds, depthBias: -(ds.depthBias ?? 0), depthBiasSlopeScale: -(ds.depthBiasSlopeScale ?? 0) } };
+  };
+  const sync = dev.createRenderPipeline.bind(dev), async = dev.createRenderPipelineAsync.bind(dev);
+  dev.createRenderPipeline = (d) => sync(fix(d));
+  dev.createRenderPipelineAsync = (d) => async(fix(d));
 }

@@ -17,6 +17,11 @@
 
 ## Temporal stability (ghosting, flicker)
 
+- **Ground-level surfaces** (roads, pads, slabs of the editor tracks and the Starbase model, tyre marks): pulled
+  towards the camera with `polygonOffset`. The worlds render with a reversed depth buffer, for which three.js does
+  not flip the offset; `flipDepthBias()` in `GameRenderer.ts` negates the depth bias of every pipeline (WebGL
+  fallback: every `gl.polygonOffset`), otherwise these surfaces lost against the terrain (flicker, roads hidden
+  from above).
 - **Camera cuts** (`post.ts`): three keeps the previous view matrix per camera object, so the velocity
   buffer of the first frame after a broadcast cut still holds the motion from the old shot. TRAA then
   reprojected the re-seeded history by a whole-screen offset and the motion blur smeared the cut frame

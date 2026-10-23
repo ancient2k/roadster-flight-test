@@ -77,6 +77,7 @@ export async function loadLandmarks(dir: string, defs: LandmarkDef[], heightAt: 
         };
         m.material = Array.isArray(m.material) ? m.material.map(plain) : plain(m.material);
         m.material = Array.isArray(m.material) ? m.material.map(foilAA) : foilAA(m.material);
+        for (const mt of Array.isArray(m.material) ? m.material : [m.material]) groundBias(mt);
       });
       group.add(obj);
       items.push({ def, object: obj });
@@ -221,4 +222,11 @@ export function applyPropPoses(v: PropVisuals, poses: readonly PropPose[]): void
     o.matrix.compose(_p.set(e.pos.x, e.pos.y, e.pos.z), _q.set(e.quat.x, e.quat.y, e.quat.z, e.quat.w), _s.setScalar(v.scales[i]));
     o.matrixWorldNeedsUpdate = true;
   }
+}
+
+/** Roads, pads and aprons lie within centimetres of the terrain: pull them towards the camera in the depth test so
+ *  they do not flicker against the ground (the sign is handled for the reversed depth buffer in GameRenderer). */
+function groundBias(mt: THREE.Material): void {
+  if (!/asphalt|concrete|road|pad|apron/i.test(mt.name)) return;
+  mt.polygonOffset = true; mt.polygonOffsetFactor = -1; mt.polygonOffsetUnits = -2;
 }

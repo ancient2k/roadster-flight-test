@@ -101,6 +101,8 @@ export class CarRig {
   private ledMaterial(key: string, src: THREE.Material): THREE.Material {
     const m = new THREE.MeshBasicNodeMaterial();
     m.name = key;
+    // the mirrored half of the head lamps is exported with flipped winding; LEDs are thin emitters, so both sides render
+    m.side = THREE.DoubleSide;
     const base = (src as THREE.MeshBasicMaterial).color?.clone() ?? new THREE.Color(1, 1, 1);
     const tint = key === 'LED_Front' ? new THREE.Color(1, 1, 1) : new THREE.Color(1, 0.04, 0.02);
     void base;

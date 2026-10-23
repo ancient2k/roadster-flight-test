@@ -168,6 +168,7 @@
 
 /* pause */
 .rft-pause { position: absolute; left: 0; top: 0; bottom: 0; width: min(30em, 92vw); padding: 12vh 4vw; background: linear-gradient(90deg, rgba(0,0,0,.85), rgba(0,0,0,.6) 80%, transparent); }
+.rft-pause-quick { margin-top: 1.6em; max-width: 24em; }
 .rft-pause-title { margin: 0 0 1.4em; font: 800 2.6em/1 var(--rft-display); letter-spacing: .3em; text-transform: uppercase; }
 .rft-list { display: flex; flex-direction: column; gap: .5em; }
 .rft-listbtn { text-align: left; background: transparent; border: 0; border-left: 2px solid rgba(255,255,255,.2); padding: .9em 1.2em; font-size: 1.05em !important; }

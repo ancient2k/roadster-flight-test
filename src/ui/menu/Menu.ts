@@ -360,6 +360,7 @@ export class Menu extends Emitter<MenuEvents> {
   }
 
   private pauseView(): HTMLElement {
+    const st = this.opts.settings;
     const b = (label: string, fn: () => void, auto = false) => h('button', { class: 'rft-listbtn', onclick: () => { this.emit('uiSound', 'select'); fn(); }, 'data-autofocus': auto || null }, label);
     return h('section', { class: 'rft-pause', 'data-title': t('pause.title') },
       h('h2', { class: 'rft-pause-title', text: t('pause.title') }),
@@ -369,7 +370,12 @@ export class Menu extends Emitter<MenuEvents> {
         b(t('menu.settings'), () => this.show('settings')),
         b(t('menu.help'), () => this.show('help')),
         b(t('menu.main'), () => { this.emit('quitToTitle', undefined); this.show('title'); }),
-      ));
+      ),
+      // quick switch for the most wanted gameplay aid (also in Settings -> Simulation)
+      h('div', { class: 'rft-pause-quick' },
+        this.toggleRow(t('settings.infiniteAir'), st.get().realism.infiniteAir, (v) => {
+          this.emit('settingsChanged', st.update((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'));
+        })));
   }
 
   // ------------------------------------------------------------------ settings

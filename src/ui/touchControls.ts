@@ -51,10 +51,11 @@ export const TOUCH_CONTROL_IDS: readonly ControlId[] = [
   ...[...RIGHT_BUTTONS, ...LEFT_BUTTONS, ...TOP_BUTTONS, ...TRAY_BUTTONS].map((b) => b.id),
 ] as ControlId[];
 
-/** Touch-first device (coarse pointer or touch points). Desktop touch screens with a mouse also qualify. */
+/** Touch-first device: the primary pointer is coarse and cannot hover (phones, tablets). Desktop browsers that merely
+ *  report touch support (touch-screen laptops, touch emulation) do not qualify; they get the overlay on the first touch. */
 export function hasTouch(): boolean {
   try {
-    return (navigator.maxTouchPoints ?? 0) > 0 || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+    return matchMedia('(pointer: coarse)').matches && matchMedia('(hover: none)').matches;
   } catch { return false; }
 }
 
@@ -78,7 +79,24 @@ export class TouchControls {
     this.root = el('div', 'rft-touch');
     this.root.setAttribute('data-touch-ui', '');
     this.root.hidden = true;
-    if (opts.force || hasTouch()) document.documentElement.classList.add('rft-has-touch');
+    const html = document.documentElement, pinned = !!opts.force || hasTouch();
+    if (pinned) html.classList.add('rft-has-touch');
+    else {
+      // hybrid devices: touching the screen shows the overlay, mouse or keyboard use hides it again
+      const onPointer = (e: PointerEvent) => {
+        if (e.pointerType === 'touch') html.classList.add('rft-has-touch');
+        else if (e.pointerType === 'mouse' && (e.movementX || e.movementY || e.type === 'pointerdown')) html.classList.remove('rft-has-touch');
+      };
+      const onKey = () => html.classList.remove('rft-has-touch');
+      window.addEventListener('pointerdown', onPointer, true);
+      window.addEventListener('pointermove', onPointer, true);
+      window.addEventListener('keydown', onKey, true);
+      this.disposers.push(() => {
+        window.removeEventListener('pointerdown', onPointer, true);
+        window.removeEventListener('pointermove', onPointer, true);
+        window.removeEventListener('keydown', onKey, true);
+      });
+    }
     this.build();
     host.appendChild(this.root);
     const tick = () => { this.sync(); this.raf = requestAnimationFrame(tick); };

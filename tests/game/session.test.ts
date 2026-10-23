@@ -15,6 +15,22 @@ describe('SimSession', () => {
     expect(s.state().t).toBe(0);
     sim.dispose();
   });
+  it('infinite air keeps the tank full under continuous lift', async () => {
+    const run = async (inf: boolean) => {
+      const sim = await RoadsterSim.create();
+      let mc: ManualController | null = null;
+      const s = new SimSession(sim, { kind: 'manual', stunt: 'ground_flip' }, (sm) => (mc = new ManualController(sm, null)));
+      s.infiniteAir = inf;
+      const m0 = sim.propulsion.tank.m;
+      mc!.axes.lift = 1;
+      for (let i = 0; i < 240 * 8; i++) s.step();
+      const used = m0 - sim.propulsion.tank.m;
+      sim.dispose();
+      return used / m0;
+    };
+    expect(await run(false)).toBeGreaterThan(0.2);
+    expect(await run(true)).toBeLessThan(0.03);
+  });
   it('raw group mapping signs', () => {
     const c = rawGroups({ lift: 0.5, boost: 0, pitch: 0.5, roll: 0, yaw: 1 });
     expect(c.duty[4]).toBeGreaterThan(c.duty[6]); // nose up -> front lift > rear

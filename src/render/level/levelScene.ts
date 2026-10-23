@@ -11,7 +11,7 @@ export interface LevelArea { minX: number; minZ: number; tileM: number; nx: numb
 const MATS: Record<MatKey, () => THREE.Material> = {
   asphalt: () => new THREE.MeshStandardMaterial({ color: 0x2b2c2e, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
   paint: () => new THREE.MeshStandardMaterial({ color: 0xe8e6df, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
-  concrete: () => new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.85 }),
+  concrete: () => new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
   curb: () => new THREE.MeshStandardMaterial({ color: 0xc8312c, roughness: 0.6 }),
   steel: () => new THREE.MeshStandardMaterial({ color: 0x55595e, roughness: 0.45, metalness: 0.8 }),
   red: () => new THREE.MeshStandardMaterial({ color: 0xd8262d, roughness: 0.5 }),
