@@ -140,6 +140,7 @@
 .rft-row { display: flex; align-items: center; justify-content: space-between; gap: 2em; padding: .95em 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .rft-row-label { display: grid; gap: .25em; }
 .rft-row-label small { color: #8d8d8d; font-size: .8em; max-width: 36em; }
+.rft-row.warn .rft-row-label small { color: #ffb020; }
 .rft-toggle { flex: none; position: relative; width: 3.2em; height: 1.75em; border-radius: 99em; cursor: pointer; background: #2b2c30; border: 1px solid #4a4b50; transition: background .15s; }
 .rft-toggle .knob { position: absolute; top: .17em; left: .2em; width: 1.3em; height: 1.3em; border-radius: 50%; background: #bbb; transition: transform .18s ease, background .15s; }
 .rft-toggle[aria-checked="true"] { background: var(--rft-red); border-color: #ff5a4c; }

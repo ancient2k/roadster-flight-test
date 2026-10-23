@@ -26,7 +26,11 @@ export interface Settings {
     damage: DamageMode;
   };
   assistDefault: AssistLevel;
-  controls: { invertPitch: boolean; mouseAttitude: boolean; mouseSensitivity: number; stickDeadzone: number; triggerDeadzone: number };
+  controls: {
+    invertPitch: boolean; mouseAttitude: boolean; mouseSensitivity: number; stickDeadzone: number; triggerDeadzone: number;
+    /** Tilt steering with the motion sensor (phones): pitch/roll of the attitude stick. Off by default. */
+    gyro: boolean; gyroSensitivity: number;
+  };
   hud: { visible: boolean; scale: number; showExtras: boolean };
 }
 
@@ -42,7 +46,7 @@ export function defaultSettings(): Settings {
     refillRate: 'game',
     realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, damage: 'off' },
     assistDefault: 'ASSIST',
-    controls: { invertPitch: false, mouseAttitude: false, mouseSensitivity: 1, stickDeadzone: 0.15, triggerDeadzone: 0.05 },
+    controls: { invertPitch: false, mouseAttitude: false, mouseSensitivity: 1, stickDeadzone: 0.15, triggerDeadzone: 0.05, gyro: false, gyroSensitivity: 1 },
     hud: { visible: true, scale: 1, showExtras: true },
   };
 }
@@ -95,7 +99,7 @@ const ENUMS: Record<string, readonly string[]> = {
 const RANGES: Array<[string[], number, number]> = [
   [['audio', 'master'], 0, 1], [['audio', 'effects'], 0, 1], [['audio', 'crowd'], 0, 1],
   [['controls', 'mouseSensitivity'], 0.1, 5], [['controls', 'stickDeadzone'], 0, 0.6],
-  [['controls', 'triggerDeadzone'], 0, 0.5], [['hud', 'scale'], 0.5, 2],
+  [['controls', 'triggerDeadzone'], 0, 0.5], [['controls', 'gyroSensitivity'], 0.3, 3], [['hud', 'scale'], 0.5, 2],
 ];
 
 /** Validate arbitrary (parsed) data into a complete Settings object. */

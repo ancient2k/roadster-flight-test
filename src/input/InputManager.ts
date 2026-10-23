@@ -3,6 +3,8 @@
 import { browserStorage, type KeyValueStorage } from '../ui/settings';
 import { assignKey, assignPad, defaultBindings, keyLabel, loadBindings, padLabel, saveBindings } from './bindings';
 import { DEFAULT_MAPPER_OPTIONS, InputMapper, type MapperOptions } from './mapping';
+import { mergeAttitude } from './gyro';
+import { GyroInput } from './gyroSensor';
 import { TouchState } from './touch';
 import type { Bindings, ControlId, PadBinding, PlayerInput, RawInput } from './types';
 
@@ -27,6 +29,8 @@ export class InputManager {
   readonly mapper: InputMapper;
   /** Written by the on-screen touch controls (src/ui/touchControls.ts). */
   readonly touch = new TouchState();
+  /** Optional tilt steering (phones): adds pitch/roll to the touch attitude while driving. */
+  readonly gyro = new GyroInput();
   private keys = new Set<string>();
   private mouse = { dx: 0, dy: 0, rightHeld: false };
   private context: InputContext = 'menu';
@@ -53,7 +57,9 @@ export class InputManager {
   setOptions(o: Partial<MapperOptions>): void { Object.assign(this.mapper.opts, o); }
 
   poll(dt: number): PlayerInput {
-    const raw: RawInput = { keys: this.keys, mouse: this.mouse, pad: this.readPad(), touch: this.touch.values };
+    const tilt = this.gyro.output(dt);
+    const touch = this.context === 'game' ? mergeAttitude(this.touch.values, tilt) : this.touch.values;
+    const raw: RawInput = { keys: this.keys, mouse: this.mouse, pad: this.readPad(), touch };
     const out = this.mapper.map(raw, dt);
     this.mouse.dx = 0; this.mouse.dy = 0;
     return out;
@@ -123,7 +129,7 @@ export class InputManager {
     } catch { /* ignore */ }
   }
 
-  dispose(): void { for (const d of this.disposers) d(); this.disposers = []; this.listeners.clear(); }
+  dispose(): void { for (const d of this.disposers) d(); this.disposers = []; this.listeners.clear(); this.gyro.dispose(); }
 
   /**
    * Release everything held (focus loss, tab hidden, page hide): a key whose keyup never arrives would

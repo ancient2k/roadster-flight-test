@@ -147,6 +147,12 @@ export class App {
     await Promise.all([this.renderer.loadCar().catch(() => null), this.renderer.loadProps().catch(() => null)]);
     this.sim = await createRoadsterSim();
     this.input = new InputManager(this.root, s.controls);
+    // tilt steering: confirm a switch-on, or turn the stored option off when the sensor fails
+    this.input.gyro.onStatus((r) => {
+      if (r === 'ok') { this.hud?.flash(t('gyro.on'), 'info', 2600); return; }
+      this.settings.update((d) => { d.controls.gyro = false; }, 'controls.gyro');
+      this.hud?.flash(t(r === 'denied' ? 'gyro.denied' : 'gyro.unsupported'), 'warn', 4500);
+    });
     this.hud = new Hud(this.root);
     this.menu = new Menu(this.root, { settings: this.settings, input: this.input, backdrop: 'scene', worlds: true });
     this.audio.unlockOn(window);
@@ -181,6 +187,7 @@ export class App {
     this.session = new SimSession(this.sim, mode, this.makeController);
     if (assist && this.manual) (this.manual as ManualController).assist = assist;
     this.session.infiniteAir = this.settings.get().realism.infiniteAir;
+    this.input?.gyro.recenter(); // the pose at start/restart is the tilt zero
     this.prev = cloneState(this.sim.getState());
     this.cur = cloneState(this.sim.getState());
     this.view = cloneState(this.sim.getState());
@@ -515,6 +522,8 @@ export class App {
 
   private applySettings(s: Readonly<Settings>): void {
     this.input.setOptions(s.controls);
+    this.input.gyro.mapper.tuning.sensitivity = s.controls.gyroSensitivity;
+    if (!s.controls.gyro) this.input.gyro.disable(); else this.input.gyro.resume();
     cameraInput.rightButton = !s.controls.mouseAttitude; // the right button turns the chase camera unless it steers
     this.audio.setVolume(s.audio);
     this.hud.setVisible(s.hud.visible);

@@ -98,6 +98,15 @@ Default bindings; they can be changed in the game under Settings → Controls.
 | Pause · restart · menu · help | P · Backspace · Esc · F1 | Menu · View |
 | Start the Sun dive / time warp | Enter / PageUp, PageDown | – |
 
+**Phones and tablets** get on-screen touch controls (see [docs/MOBILE.md](docs/MOBILE.md#what-happens-on-a-phone)).
+Optional **tilt steering** (off by default): switch it on with the **TILT** button in the touch HUD or under
+Settings → Controls → *Tilt steering*. Leaning the phone back / forward is pitch (nose up / down), lowering the
+right / left edge is roll; the attitude stick and the roll buttons still work and add up with it, steering and
+throttle stay on the left stick. The way you hold the phone when switching on, at every start/restart and on
+**⊙** (Recenter) is the centre; dead zone ≈ 3°, full deflection ≈ 25° at sensitivity 1 (adjustable 0.3–3).
+iOS asks for motion-sensor access on the first tap; if access is denied or there is no sensor, the option stays off
+with a hint.
+
 The compressor (R) refills the tank. With Settings → Simulation → Compressor on **Fun** (default) a full tank
 takes 20 s on every world (off Earth from an on-board supply, a simplification); **Realistic** takes 6–7 h and only
 works on Earth, since there is no air to draw in on the Moon or in space and Mars is far too thin.
@@ -129,7 +138,7 @@ Settings → Display → Language; `?lang=<code>` overrides both. Numbers and da
 npm run typecheck
 npm test             # Vitest: physics, tank/thrusters/valves, GNC, stunts incl. Monte Carlo and step-size convergence, worlds, UI logic, locales
 npm run test:e2e     # Playwright against the production build: menu, 5 stunts in real time, free play, WebGL2, all worlds, load times, all 14 languages, installable app + offline start
-npx playwright test tests/e2e/mobile --project=phone-small --project=pixel7   # phone emulation: touch controls, HUD layout
+npx playwright test tests/e2e/mobile --project=phone-small --project=pixel7   # phone emulation: touch controls, HUD layout, tilt steering
 ```
 
 The E2E tests need a browser with a GPU (Playwright starts Chromium with WebGPU); CI therefore runs only the
