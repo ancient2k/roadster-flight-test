@@ -44,7 +44,8 @@ endless boot screen (the UI language is not loaded at that point).
   gamepad rebinding has no effect on the touch layout. Menus are plain buttons and work by tap.
 - **Tilt steering** (optional, off by default; `src/input/gyro.ts` pure mapping, `src/input/gyroSensor.ts`
   sensor side, `src/ui/gyroSwitch.ts`). The **TILT** button at the left of the top-right bar (or Settings →
-  Controls → *Tilt steering*) switches it on; **⊙** next to it recenters while it is on.
+  Controls → *Tilt steering*) switches it on; **⊙** next to it recenters while it is on. In portrait both sit at the
+  front of the **⋯** tray instead (the top bar would reach under the HUD top left).
   - Switching on calls `DeviceOrientationEvent.requestPermission()` inside the tap (iOS 13+), then waits up to
     1.5 s for a first `deviceorientation` event with real angles. Denied permission or no sensor: hint in the HUD
     and under the settings toggle, the option stays off. A stored "on" is resumed at the next start without a

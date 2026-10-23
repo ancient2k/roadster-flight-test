@@ -169,7 +169,7 @@ export class TouchControls {
     b.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  /** TILT quick switch (tilt steering on/off) and, while on, the recenter button. */
+  /** TILT quick switch (tilt steering on/off) and, while on, the recenter button (top bar; ⋯ tray in portrait, see sync()). */
   private gyroButtons(top: HTMLElement, settings: SettingsStore): void {
     const gyro = this.input.gyro;
     const rc = el('button', 'rft-touch-btn rft-touch-recenter', top);
@@ -238,13 +238,16 @@ export class TouchControls {
       this.root.hidden = !show;
       if (!show) { this.tray.hidden = true; this.root.querySelector('.rft-touch-more')?.classList.remove('on'); }
     }
+    const portrait = window.innerHeight > window.innerWidth;
     if (this.gyroBtn) {
       const on = this.input.gyro.enabled;
       this.gyroBtn.classList.toggle('on', on);
       this.gyroBtn.setAttribute('aria-checked', String(on));
       this.recenterBtn!.hidden = !on;
+      // portrait: the top bar has no room next to the HUD top left; TILT and ⊙ go to the front of the ⋯ tray
+      const home = portrait ? this.tray : this.root.querySelector<HTMLElement>('.rft-touch-top');
+      if (home && this.gyroBtn.parentElement !== home) home.prepend(this.gyroBtn, this.recenterBtn!);
     }
-    const portrait = window.innerHeight > window.innerWidth;
     this.rotate.hidden = !(touchUi && portrait && !this.rotateDismissed);
   }
 }
