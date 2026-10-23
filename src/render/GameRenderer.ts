@@ -528,6 +528,9 @@ export class GameRenderer {
     this.stats.effects = this.post.effects;
   }
 
+  /** Effects added to the world later (Starship launch): their transparent materials join the fx coverage and layer. */
+  tagEffects(): void { this.tagTransparent(); }
+
   /** Transparent node materials write the fx coverage MRT and live on the FX layer (new world materials too). */
   private tagTransparent(force = false): void {
     const fx = this.fxMRT;

@@ -114,6 +114,7 @@ export class AudioEngine {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     for (const j of this.jets) j.out.gain.setTargetAtTime(0, t, 0.02);
+    if (this.rocket) { this.rocket.low.gain.setTargetAtTime(0, t, 0.05); this.rocket.crack.gain.setTargetAtTime(0, t, 0.05); }
   }
 
   dispose(): void { const c = this.ctx as AudioContext | null; if (c && 'close' in c) c.close(); this.ctx = null; }
@@ -267,6 +268,26 @@ export class AudioEngine {
       }
       g2.connect(this.sfxIn()); w.start(now); w.stop(now + 0.7);
     }
+  }
+
+  private rocket: { low: GainNode; crack: GainNode } | null = null;
+  /** Starship Raptors heard from the ground: loudness 0..1 (distance and sound delay are up to the caller), share of
+   *  the crackle of the supersonic exhaust 0..1. The voice is built on first use (no cost in other worlds). */
+  rocketSound(level: number, crackle: number): void {
+    const ctx = this.ctx; if (!ctx) return;
+    if (!this.rocket) {
+      if (level <= 0) return;
+      const low = ctx.createGain(), crack = ctx.createGain();
+      low.gain.value = 0; crack.gain.value = 0;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 140;
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+      this.noise(this.buf.brown).connect(lp).connect(low).connect(this.sfxIn());
+      this.noise(this.buf.crackle).connect(hp).connect(crack).connect(this.sfxIn());
+      this.rocket = { low, crack };
+    }
+    const now = ctx.currentTime, l = Math.max(0, Math.min(1, level));
+    this.rocket.low.gain.setTargetAtTime(l * 1.4, now, 0.25);
+    this.rocket.crack.gain.setTargetAtTime(l * Math.max(0, Math.min(1, crackle)) * 0.5, now, 0.15);
   }
 
   playUi(kind: UiSound): void {

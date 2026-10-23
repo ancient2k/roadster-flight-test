@@ -79,6 +79,8 @@ export class ParticleSystem {
   readonly grainSky = uniform(0.02);
   /** smallest / largest grain diameter (m) of the size distribution. */
   readonly grainD = uniform(new THREE.Vector2(0.004, 0.03));
+  /** extra diffuse daylight (sun + sky, multiple scattering) on puffs; 0 = only the modelled lights (launch cloud: > 0). */
+  readonly fill = uniform(new THREE.Vector3(0, 0, 0));
   private A: THREE.InstancedBufferAttribute; // pos.xyz, t0
   private B: THREE.InstancedBufferAttribute; // vel.xyz, life
   private C: THREE.InstancedBufferAttribute; // size0, size1, drag, buoyancy
@@ -208,7 +210,7 @@ export class ParticleSystem {
     const diffr = exp(float(Math.PI).sub(alpha).div(-0.35)).mul(0.08);
     const grainLit = varying((fxLight.colour as unknown as Node<'vec3'>).mul(sunV.w.mul(phi.mul(surge).mul(2 / (3 * Math.PI)).add(diffr).add(this.grainSky)))
       .add(fxLight.ambient as unknown as Node<'vec3'>));
-    const lit = mix(select(isSteam, steamLight, lightV.add(fillV).mul(shade).add(redV.mul(mix(float(0.6), float(1.0), thick)).mul(select(kind.equal(4), float(2.4), float(1))))), grainLit, grainF);
+    const lit = mix(select(isSteam, steamLight, lightV.add(fillV).add(this.fill).mul(shade).add(redV.mul(mix(float(0.6), float(1.0), thick)).mul(select(kind.equal(4), float(2.4), float(1))))), grainLit, grainF);
     // the jet blast cloud is dense, freshly condensed vapour: it scatters noticeably more than the
     // thin stage haze or tyre smoke (stream: brilliant white billows next to dark asphalt)
     mat.colorNode = base.mul(lit).mul(select(kind.equal(4), float(2.6), float(1)));

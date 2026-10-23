@@ -1,5 +1,5 @@
-// Time-trial display of a track-editor level: clock, penalty, sections and best time at the top, the Starship
-// launch countdown below it. Plain DOM over the canvas; texts from src/editor/i18n.ts.
+// Time-trial display of a track-editor level: clock, penalty, sections and best time at the top (the Starship launch
+// countdown below it is src/editor/launchHud.ts). Plain DOM over the canvas; texts from src/editor/i18n.ts.
 import { et } from './i18n';
 import type { LevelRun } from '../game/levelRun';
 
@@ -9,8 +9,7 @@ const CSS = `
 .rfth-row{display:flex;gap:16px;padding:4px 12px;background:rgba(0,0,40,.55);border:1px solid rgba(255,255,255,.25)}
 .rfth-row b{color:#ffff55;font-weight:700}
 .rfth-pen{color:#ff7a6a}
-.rfth-launch{padding:6px 14px;background:rgba(120,0,0,.6);border:1px solid #ff5555;font-size:18px;letter-spacing:.06em}
-.rfth-launch.hidden,.rfth-row.hidden{display:none}
+.rfth-row.hidden{display:none}
 `;
 
 export const fmtTime = (s: number): string => {
@@ -21,7 +20,6 @@ export const fmtTime = (s: number): string => {
 export class RaceHud {
   private el: HTMLDivElement;
   private row: HTMLDivElement;
-  private launch: HTMLDivElement;
 
   constructor(root: HTMLElement) {
     this.el = document.createElement('div');
@@ -30,9 +28,7 @@ export class RaceHud {
     st.textContent = CSS;
     this.row = document.createElement('div');
     this.row.className = 'rfth-row';
-    this.launch = document.createElement('div');
-    this.launch.className = 'rfth-launch hidden';
-    this.el.append(st, this.row, this.launch);
+    this.el.append(st, this.row);
     root.appendChild(this.el);
   }
 
@@ -53,10 +49,6 @@ export class RaceHud {
       add('', `${Math.min(run.progress + 1, run.sections)}/${run.sections}`);
       if (best) add(et('race.best'), fmtTime(best));
     } else this.row.classList.add('hidden');
-    if (run.launchIn !== null && !run.launchFired) {
-      this.launch.classList.remove('hidden');
-      this.launch.textContent = et('special.launch', { s: Math.ceil(run.launchIn) });
-    } else this.launch.classList.add('hidden');
   }
 
   dispose(): void { this.el.remove(); }

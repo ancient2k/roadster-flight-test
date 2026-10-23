@@ -40,6 +40,11 @@ at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, sho
   stream's wall ramp, fly-through rings, boost pads, air stations and a launch clearance – then test-drive it at
   once against the clock. Tracks are saved in the browser, as files and as share links (see
   [docs/EDITOR.md](docs/EDITOR.md)).
+- **Starship launch:** the launch clearance piece (or the finish line) starts a countdown at Starbase – water deluge,
+  33 Raptors, a cloud of steam and sand, a pressure wave that shoves cars inside the exclusion ring, the ascent over
+  the Gulf and hot staging. Super Heavy flies back and is caught by the tower arms after ≈ 7 minutes; Starship
+  returns after one orbit (time lapse) and is caught by the second tower. Stream-style ticker messages, a flight
+  display with altitude, speed and trajectory, and an arrow to the returning stage tell you when to be back at the pad.
 - **14 UI languages** (see [Languages](#languages)).
 
 ## Getting started

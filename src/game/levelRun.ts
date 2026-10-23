@@ -35,6 +35,8 @@ export class LevelRun {
   /** Seconds until the Starship launch once armed; null = not armed; fired after it reached 0. */
   launchIn: number | null = null;
   launchFired = false;
+  /** Game seconds since liftoff (the flight runs on it, src/shared/starshipFlight.ts metAt). */
+  launchT = 0;
   private tiles: { set: Set<number>; elevated: boolean }[] = [];
   private courseTiles = new Set<number>();
   private specials: { kind: 'boost' | 'air_station' | 'launch'; tiles: Set<number>; dir: [number, number]; opt: number }[] = [];
@@ -96,7 +98,8 @@ export class LevelRun {
         this.launchIn = s.opt; ev.push({ kind: 'launchArmed', countdownS: s.opt });
       }
     }
-    if (this.launchIn !== null && !this.launchFired) {
+    if (this.launchFired) this.launchT += dt;
+    else if (this.launchIn !== null) {
       this.launchIn = Math.max(0, this.launchIn - dt);
       if (this.launchIn === 0) { this.launchFired = true; ev.push({ kind: 'launch' }); }
     }

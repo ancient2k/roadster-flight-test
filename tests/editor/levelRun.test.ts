@@ -59,4 +59,19 @@ describe('level run', () => {
     for (let k = 0; k < 700; k++) run.update(0.1, car(-100, -100), fx());
     expect(run.launchFired).toBe(true);
   });
+
+  it('one launch per run: the clock runs on after liftoff, passing the piece again does not re-arm, a restart resets it', () => {
+    const run = new LevelRun(level, AREA);
+    const li = level.parts.findIndex((p) => p.type === 'launch');
+    const l = centre(li);
+    run.update(0.1, car(l.x, l.z), fx());
+    const evs = [];
+    for (let k = 0; k < 2000 && !run.launchFired; k++) evs.push(...run.update(0.1, car(-100, -100), fx()));
+    expect(evs.filter((e) => e.kind === 'launch')).toHaveLength(1);
+    for (let k = 0; k < 50; k++) run.update(0.1, car(-100, -100), fx());
+    expect(run.launchT).toBeCloseTo(5, 6);
+    expect(run.update(0.1, car(l.x, l.z), fx()).some((e) => e.kind === 'launchArmed')).toBe(false);
+    const again = run.fresh();
+    expect(again.launchIn).toBeNull(); expect(again.launchFired).toBe(false); expect(again.launchT).toBe(0);
+  });
 });
