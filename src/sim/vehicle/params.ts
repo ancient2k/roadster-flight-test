@@ -28,6 +28,9 @@ export const VEH_EXT = {
     bumpReboundBlendMs: 0.15,
     /** The hysteresis applies after an impact: it fades in between these compression speeds at the stop (m/s). */
     bumpImpactMs: [1.5, 3.5] as [number, number],
+    /** A wheel cast that finds something above full bump while the ground under the hub lies at least this much
+     *  lower hit an obstacle beside the wheel, not the ground (m). */
+    sideHitM: 0.05,
     /** Lowest cosine between the contact normal and the strut axis used for the strut rate and load (≈ 53°). */
     minStrutCos: 0.6,
     /** Hydraulic (position-sensitive) bump stop as on landing/off-road dampers: compression damping

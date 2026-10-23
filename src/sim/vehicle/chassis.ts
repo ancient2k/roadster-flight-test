@@ -116,6 +116,8 @@ export class ChassisModule implements ForceModule {
   escYawDemand = 0;
   /** Diagnostics: wheel contacts found by shape cast vs. ray fallback. */
   castHits = 0; rayFallbacks = 0; normalFixes = 0;
+  /** Wheel casts that hit an obstacle beside the wheel and were replaced by the ground under the hub. */
+  sideHits = 0;
   private readonly bus: VehicleBus;
   private tmp = v3(); private tmp2 = v3(); private F = v3();
 
@@ -178,6 +180,23 @@ export class ChassisModule implements ForceModule {
         const along = wx * axis.x + wy * axis.y + wz * axis.z;
         v3set(w.p, hit.witness1.x - along * axis.x, hit.witness1.y - along * axis.y, hit.witness1.z - along * axis.z);
         this.castHits++;
+        // A hit beyond full bump means the cast started inside something beside the wheel (a wall, the face of a
+        // curb or step the tyre rubs along): that is no support from below. Taken as compression it put the end stop
+        // at ≈ 500 kN straight up, step after step, and a glancing hit on a wall threw the car 10–100 m into the air
+        // (R17 finding: "drove against an edge and got flung away"). If the ground under the hub lies clearly lower,
+        // the wheel stands on that; the side contact is the hull's.
+        if (travel + margin - toi > travel) {
+          const ray = sim.castRay(start, dirDown, travel + margin + w.r + 0.3);
+          const rToi = ray ? ray.dist - w.r : Infinity;
+          if (rToi > toi + XS.sideHitM) {
+            this.sideHits++;
+            if (!ray || rToi > travel + margin) { w.contact = false; w.c = 0; w.cdot = 0; w.sink = 0; w.zLoad = 0; w.zSlip = 0; w.nSoil = 0; continue; }
+            kind = ray.info?.kind;
+            toi = rToi;
+            v3set(w.n, ray.normal.x, ray.normal.y, ray.normal.z);
+            v3set(w.p, ray.point.x, ray.point.y, ray.point.z);
+          }
+        }
       } else {
         // Fallback: GJK shape casts are unreliable against very large colliders (f32); ray from the hub.
         const ray = sim.castRay(start, dirDown, travel + margin + w.r);
