@@ -81,6 +81,13 @@ export class Tank {
     const inn = Math.max(0, Math.min(mdotIn * dt, c.fullMassKg * (this.isothermalFill ? 1 : 1.02) - this.m));
     this.U += Qwall * dt + inn * hIn - out * hOut;
     this.m += inn - out;
+    // Gameplay compressor: it also brings cold gas back to ambient temperature (same 20 s scale as a full refill), so a
+    // tank that is full by mass but chilled by hovering recovers its rated pressure instead of staying in the red.
+    if (this.isothermalFill && mdotIn > 0) {
+      const k = Math.min(1, (mdotIn / c.fullMassKg) * dt);
+      this.U += (this.m * c.cv * c.ambientTempK - this.U) * k;
+      this.Tw += (c.ambientTempK - this.Tw) * k;
+    }
     const Qamb = c.wallToAmbientWPerK * (c.ambientTempK - this.Tw);
     this.Tw += ((-Qwall + Qamb) * dt) / (c.wallMassKg * c.wallCp);
     // Guard against numerical extremes at near-empty states.

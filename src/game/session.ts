@@ -125,9 +125,9 @@ export class SimSession {
     this.lastOutput = out;
     if (out.phase) this.sim.setPhaseLabel(out.phase);
     this.sim.step(out.drive, out.systems, out.thrust);
-    if (this.infiniteAir && this.sim.propulsion.tank.m < ROADSTER.tank.fullMassKg * 0.98) {
-      this.sim.propulsion.tank.fill(ROADSTER.tank.fullMassKg, this.sim.propulsion.tank.T);
-    }
+    // infinite air: a full tank at ambient temperature every step. Refilling the mass at the current gas temperature
+    // let the expansion cooling run down to the 60 K floor, which left a "full" 250 kg tank at about 2,000 psi.
+    if (this.infiniteAir) this.sim.propulsion.tank.fill(ROADSTER.tank.fullMassKg, ROADSTER.tank.ambientTempK);
     this.tel = this.sim.telemetry();
     this.recorder.push(this.sim.getState(), this.tel);
     if (this.outcome.status === 'running') {

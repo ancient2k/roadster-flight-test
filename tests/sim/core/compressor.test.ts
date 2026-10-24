@@ -69,4 +69,15 @@ describe('compressor setting', () => {
     expect(tk.pressurePa / ROADSTER.tank.fullPressurePa).toBeLessThan(1.03);
     sim.dispose();
   });
+
+  it('Fun brings a full but chilled tank back to its rated pressure on the ground (it stayed in the red)', async () => {
+    const sim = await RoadsterSim.create();
+    sim.propulsion.setCompressor('game');
+    sim.reset(spawnPose({ x: 0, y: 0.5, z: 0 }, 0));
+    sim.propulsion.tank.fill(ROADSTER.tank.fullMassKg, 60); // after a long hover with infinite air: 250 kg at 60 K
+    const sys = { ...neutralSystems(), refill: true };
+    for (let i = 0; i < 240 * 60; i++) sim.step(neutralDrive(), sys, zeroThrust());
+    expect(sim.propulsion.tank.pressure).toBeGreaterThan(650e5);
+    sim.dispose();
+  });
 });
