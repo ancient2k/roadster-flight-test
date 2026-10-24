@@ -819,6 +819,14 @@ export class GameRenderer {
     this.applyPixelRatio();
   }
 
+  /** Frame capture (tools/trailer): full resolution, no dynamic scaling from the (slow, offline) frame times. */
+  setFixedResolution(on: boolean): void {
+    this.baseFixedRes = on;
+    this.applySitePolicy();
+    this.dynRes.reset(this.q.resolutionSteps);
+    this.applyPixelRatio();
+  }
+
   setQuality(level: QualityLevel): void {
     if (level === this.level) return;
     this.level = level;

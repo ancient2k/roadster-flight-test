@@ -70,6 +70,12 @@ async function boot(): Promise<void> {
     playLevel: (level: unknown) => { app.menu.hide(); return app.playLevel(level as never); },
     /** Test hook: Starship launch clock of the driven level (App.launchWarp). */
     launchWarp: (seconds: number, met?: number) => app.launchWarp(seconds, met),
+    /** Frame capture (tools/trailer): stop the real-time loop and hold the full resolution; frames are then
+     *  produced one by one with captureFrame(dt) (simulation + render on a fixed clock, independent of wall time). */
+    captureBegin: () => { app.loop.stop(); app.renderer.setFixedResolution(true); },
+    captureFrame: (dt: number) => { app.loop.advance(dt); },
+    /** Hard camera cut: clears the temporal history (TRAA, motion blur) for the next frame. */
+    captureCut: () => { app.renderer.rig.onCut?.(); },
     /** Test hook: advance the simulation synchronously by `seconds` (rendering continues normally). */
     fastForward: (seconds: number) => {
       const n = Math.round(seconds / app.sim.dt);

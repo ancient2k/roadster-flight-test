@@ -11,3 +11,4 @@ __pycache__/
 tools/blender/out/
 tools/worlds/downloads/
 .claude/
+trailer-out/
