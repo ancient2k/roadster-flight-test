@@ -192,7 +192,10 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
   let mb: AnyNode = aa;
   if (postEnabled && q.motionBlur) {
     const velTex = scenePass.getTextureNode('velocity');
-    const vel = velTex.sample(screenUV).xy.mul(motionAmount).mul(float(1).sub(fresh));
+    // (the velocity buffer holds NDC motion, y up; screen UV runs y down – without the flip the gather ran along
+    // the mirrored direction for any vertical motion, and diagonal streaks of bright lamps fell apart into copies)
+    const ndcToUv = vec2(1, -1);
+    const vel = velTex.sample(screenUV).xy.mul(ndcToUv).mul(motionAmount).mul(float(1).sub(fresh));
     type Tex = { sample(uvn: unknown): { rgb: AnyNode } };
     const src = (traaNode ? texOf(traaNode) : color) as unknown as Tex;
     // motion blur only where pixels actually move; CA is re-applied by mixing the AA result back.
@@ -206,7 +209,7 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
       const acc = vec3(0).toVar(), wsum = float(0).toVar();
       Loop({ start: int(0), end: int(n), type: 'int', condition: '<' } as never, (({ i }: { i: AnyNode }) => {
         const uvi = screenUV.add(vel.mul(float(i).add(0.5).div(n).sub(0.5)));
-        const vi = velTex.sample(uvi).xy.mul(motionAmount);
+        const vi = velTex.sample(uvi).xy.mul(ndcToUv).mul(motionAmount);
         const w = float(1).sub(vi.sub(vel).length().div(tol)).clamp(0, 1);
         acc.addAssign(src.sample(uvi).rgb.mul(w) as never);
         wsum.addAssign(w);

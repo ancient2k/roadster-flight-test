@@ -149,7 +149,8 @@ function worldQuality(q: QualityLevel, look: LookParams): WorldQ {
     rockDist: q === 'low' ? 250 : q === 'medium' ? 400 : 600,
     bakeRes: q === 'low' ? 512 : q === 'ultra' ? 1536 : 1024,
     skySteps: q === 'low' ? 8 : 12,
-    grassRadius: q === 'low' ? 16 : q === 'medium' ? 22 : q === 'high' ? 27 : 40,
+    // (a wider ring: at 27 m the turf ended just ahead of the chase camera)
+    grassRadius: q === 'low' ? 18 : q === 'medium' ? 30 : q === 'high' ? 45 : 60,
     grassMax: q === 'low' ? 8000 : q === 'medium' ? 16000 : q === 'high' ? 28000 : 48000,
   };
 }

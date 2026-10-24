@@ -126,16 +126,21 @@ export class GrassField {
       const x = (i + hash(i, j, 1)) * spacing, z = (j + hash(i, j, 2)) * spacing;
       const dx = x - cam.x, dz = z - cam.z, d = Math.hypot(dx, dz);
       if (d > radius) continue;
-      // thin out with distance (density ∝ 1/(1 + d/12))
-      if (hash(i, j, 3) > 1 / (1 + d / 9)) continue;
+      // thin out with distance (density ∝ 1/(1 + d/9)); a clump whose cell drops out of the density grows from / shrinks
+      // to nothing over the last share of its range instead of popping (it used to appear and vanish at full size as
+      // the camera moved, and at a quarter size at the edge of the radius – a ring of popping dots around the car)
+      const keepP = 1 / (1 + d / 9), h3 = hash(i, j, 3);
+      if (h3 > keepP) continue;
       if (this.opts.exclude?.(x, z)) continue;
       const nrm = this.field.normal(x, z);
       if (nrm.y < 0.85) continue;
       q.setFromAxisAngle(up, hash(i, j, 4) * Math.PI * 2);
-      // short chalk-grassland turf (≈ 15–35 cm), slightly larger far away to keep the coverage
-      // shrink toward the edge of the radius instead of popping
+      // short chalk-grassland turf (≈ 15–35 cm), slightly larger far away to keep the coverage; scaled to nothing at the
+      // edge of the radius and at the density threshold, so no clump appears or vanishes at a visible size
       const edge = Math.min(1, Math.max(0, (radius - d) / (radius * 0.3)));
-      const k = (0.11 + hash(i, j, 5) * 0.12 + Math.min(0.25, d / 90)) * (0.25 + 0.75 * edge * edge * (3 - 2 * edge));
+      const dens = Math.min(1, (keepP - h3) / 0.1);
+      const fade = edge * edge * (3 - 2 * edge) * dens * dens * (3 - 2 * dens);
+      const k = (0.11 + hash(i, j, 5) * 0.12 + Math.min(0.15, d / 150)) * fade;
       s.set(k, k * (0.8 + hash(i, j, 6) * 0.5), k);
       t.set(x, this.field.height(x, z) - 0.02, z);
       m.compose(t, q, s);

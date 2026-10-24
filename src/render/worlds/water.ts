@@ -2,7 +2,7 @@
 // The terrain below is a shallow basin (tools/worlds/bocachica.py), so the shoreline is where the terrain crosses the
 // plane. Drifting ripples in the normal; greener and lighter in the shallows (water depth from a coarse texture).
 import * as THREE from 'three/webgpu';
-import { float, mx_noise_float, positionWorld, time, vec2, vec3, normalize, transformNormalToView, clamp, mix, texture } from 'three/tsl';
+import { float, mx_noise_float, positionWorld, time, vec2, vec3, normalize, transformNormalToView, clamp, mix, texture, fwidth, smoothstep } from 'three/tsl';
 
 export interface WaterHandle {
   readonly mesh: THREE.Mesh;
@@ -25,8 +25,14 @@ export function buildWater(levelY: number, extentM: number, groundAt: (x: number
 
   const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.07, metalness: 0 });
   const p = positionWorld.xz;
-  const hgt = (q: typeof p) => mx_noise_float(q.mul(0.18).add(vec2(time.mul(0.05), time.mul(0.03)))).mul(0.6)
-    .add(mx_noise_float(q.mul(0.9).add(vec2(time.mul(-0.12), time.mul(0.09)))).mul(0.18));
+  // pixel footprint on the water (m): ripples finer than a few pixels fade out and turn into roughness instead –
+  // unfiltered they glittered and flickered over the whole sea, worst at a grazing view from the car
+  const fp = fwidth(p).length();
+  const fine = float(1).sub(smoothstep(float(0.12), float(0.45), fp));
+  const coarse = float(1).sub(smoothstep(float(0.6), float(2.4), fp));
+  const hgt = (q: typeof p) => mx_noise_float(q.mul(0.18).add(vec2(time.mul(0.05), time.mul(0.03)))).mul(coarse.mul(0.6))
+    .add(mx_noise_float(q.mul(0.9).add(vec2(time.mul(-0.12), time.mul(0.09)))).mul(fine.mul(0.18)));
+  mat.roughnessNode = mix(float(0.07), float(0.22), smoothstep(float(0.08), float(1.5), fp));
   const e = 0.6;
   const h0 = hgt(p), hx = hgt(p.add(vec2(e, 0))), hz = hgt(p.add(vec2(0, e)));
   mat.normalNode = transformNormalToView(normalize(vec3(h0.sub(hx).mul(0.9), float(1), h0.sub(hz).mul(0.9)))) as never;

@@ -20,7 +20,7 @@ await page.evaluate(() => { const st = document.createElement('style'); st.textC
 if (js) await page.evaluate(js);
 await page.waitForTimeout(2500);
 await page.mouse.click(640, 360);
-await page.keyboard.down('w');
+for (const k of (process.env.KEYS ?? 'w').split(',')) await page.keyboard.down(k);
 await page.waitForTimeout(Number(warm) * 1000);
 // consecutive presented frames via the CDP screencast (screenshots skip frames)
 const fs = await import('node:fs');
@@ -35,6 +35,6 @@ await new Promise((done) => {
   cdp.send('Page.startScreencast', { format: 'png', everyNthFrame: 1 });
 });
 await cdp.send('Page.stopScreencast');
-await page.keyboard.up('w');
+for (const k of (process.env.KEYS ?? 'w').split(',')) await page.keyboard.up(k);
 console.log(JSON.stringify(await page.evaluate(() => window.__rft.app.renderer.stats)), errs.join('\n') || 'ok');
 await browser.close();

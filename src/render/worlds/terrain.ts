@@ -159,7 +159,14 @@ export class TerrainRenderer {
   private cfg: LodConfig;
   private cache = new Map<string, { geom: THREE.BufferGeometry; used: number }>();
   private rangeCache = new Map<string, [number, number]>();
-  private pool: THREE.Mesh[] = [];
+  /**
+   * One mesh per LOD node, kept by its key. Three derives the motion vectors of a mesh from its own previous matrix:
+   * the old pool handed out meshes by selection index, so whenever the selection changed while driving a mesh moved
+   * to another chunk and its ground got the offset between the two chunk centres as a one-frame "velocity" – TRAA
+   * and motion blur smeared and flashed patches of ground. A node keeps its mesh; a new node gets a new mesh (its
+   * history starts at its own matrix).
+   */
+  private meshes = new Map<string, { mesh: THREE.Mesh; used: number }>();
   private frame = 0;
   private selected: LodNode[] = [];
   private leafRangeU = uniform(1);
@@ -273,23 +280,32 @@ export class TerrainRenderer {
     let tris = 0;
     for (let i = 0; i < this.selected.length; i++) {
       const n = this.selected[i];
-      let m = this.pool[i];
-      if (!m) {
-        m = new THREE.Mesh(undefined, this.material);
+      const key = nodeKey(n);
+      let e = this.meshes.get(key);
+      if (!e) {
+        const g = this.geometryFor(n);
+        const m = new THREE.Mesh(g, this.material);
         m.castShadow = true; m.receiveShadow = true;
         m.matrixAutoUpdate = false;
         m.name = 'TerrainChunk';
-        this.pool.push(m);
+        m.position.set(g.userData.cx, 0, g.userData.cz);
+        m.updateMatrix(); m.updateMatrixWorld();
         this.group.add(m);
+        e = { mesh: m, used: this.frame };
+        this.meshes.set(key, e);
+      } else {
+        this.geometryFor(n); // keeps the cached geometry alive
       }
-      const g = this.geometryFor(n);
-      m.geometry = g;
-      m.position.set(g.userData.cx, 0, g.userData.cz);
-      m.updateMatrix();
-      m.visible = true;
-      tris += (g.index!.count / 3);
+      e.used = this.frame;
+      e.mesh.visible = true;
+      tris += (e.mesh.geometry.index!.count / 3);
     }
-    for (let i = this.selected.length; i < this.pool.length; i++) this.pool[i].visible = false;
+    // nodes that left the selection: hidden, dropped after a while (their geometry may be evicted from the cache)
+    for (const [key, e] of this.meshes) {
+      if (e.used === this.frame) continue;
+      e.mesh.visible = false;
+      if (this.frame - e.used > 240 || !this.cache.has(key)) { e.mesh.removeFromParent(); this.meshes.delete(key); }
+    }
     this.stats.nodes = this.selected.length;
     this.stats.triangles = tris;
     this.evict();
@@ -498,6 +514,6 @@ export class TerrainRenderer {
     this.normalNear.dispose();
     this.normalFar?.dispose();
     this.craterTex?.dispose();
-    this.pool.length = 0;
+    this.meshes.clear();
   }
 }

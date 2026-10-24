@@ -23,17 +23,31 @@ export class CarRig {
   readonly uFront = uniform(18);
   readonly uTail = uniform(5);
   readonly uBrake = uniform(0);
-  private headlight: THREE.SpotLight;
+  /** Left and right head lamp (body +X = left): one spot per lamp, aimed slightly outwards. */
+  private headlights: THREE.SpotLight[];
   private brakeSmoothed = 0;
   /** Dents and torn-off parts (vehicle damage setting "Realistic"). */
   readonly damage = new CarDamageView();
 
   constructor() {
     this.root.name = 'Car';
-    this.headlight = new THREE.SpotLight(0xf2f5ff, 600, 120, 28 * DEG, 0.7, 1.6);
-    this.headlight.position.set(0, 0.0, 2.2);
-    this.headlight.target.position.set(0, -0.6, 14);
-    this.root.add(this.headlight, this.headlight.target);
+    // (was one spot on the centre line: a single cone in the middle of the road)
+    this.headlights = [1, -1].map((side) => {
+      const l = new THREE.SpotLight(0xf2f5ff, 450, 120, 24 * DEG, 0.7, 1.6);
+      l.name = side > 0 ? 'HeadlightL' : 'HeadlightR';
+      this.root.add(l, l.target);
+      return l;
+    });
+    this.placeHeadlights(0.72, 0.0, 2.2);
+  }
+
+  /** Spots at the lamps (|x|, y, z in the car frame), each aimed straight ahead and a little outwards. */
+  private placeHeadlights(x: number, y: number, z: number): void {
+    this.headlights.forEach((l, i) => {
+      const side = i === 0 ? 1 : -1;
+      l.position.set(side * x, y, z);
+      l.target.position.set(side * (x + 0.9), y - 0.6, z + 12);
+    });
   }
 
   async load(url: string): Promise<CarModelInfo> {
@@ -95,6 +109,27 @@ export class CarRig {
       mesh.material = Array.isArray(mesh.material) ? out : out[0];
       widenThinLamp(mesh);
     });
+    // the spots sit at the head lamps of this model: the centroids of the LED_Front vertices on the left and the right
+    // of the nose (one mirrored mesh spans both lamps; the plate lamps at the tail share the material)
+    const acc = [{ x: 0, y: 0, z: 0, n: 0 }, { x: 0, y: 0, z: 0, n: 0 }], v = new THREE.Vector3();
+    this.root.updateMatrixWorld(true);
+    const toRoot = this.root.matrixWorld.clone().invert();
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || !(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).some((m) => m.name === 'LED_Front')) return;
+      const pos = mesh.geometry.getAttribute('position');
+      const m = toRoot.clone().multiply(mesh.matrixWorld);
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(m);
+        if (v.z <= 0 || Math.abs(v.x) < 0.2) continue;
+        const a = acc[v.x > 0 ? 0 : 1];
+        a.x += Math.abs(v.x); a.y += v.y; a.z += v.z; a.n++;
+      }
+    });
+    if (acc[0].n && acc[1].n) {
+      const n = acc[0].n + acc[1].n;
+      this.placeHeadlights((acc[0].x + acc[1].x) / n, (acc[0].y + acc[1].y) / n, (acc[0].z + acc[1].z) / n);
+    }
     for (const k of ['LED_Front', 'LED_Tail', 'LED_Brake']) if (!seen.has(k)) missing.push(k);
     this.info.missing = missing;
     if (missing.length) console.warn('[render] Auto-Modell: fehlende Nodes/Materialien:', missing.join(', '));
@@ -137,7 +172,7 @@ export class CarRig {
     this.damage.update(s.damage, this.root, dt);
   }
 
-  get headlightLight(): THREE.SpotLight { return this.headlight; }
+  get headlightLights(): readonly THREE.SpotLight[] { return this.headlights; }
 
   /**
    * Heat glow of the body paint (re-entry / Sun scene): emissive colour (linear RGB, e.g. from
