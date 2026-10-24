@@ -9,7 +9,7 @@ import { canPlace, emptyLevel, levelToJson, validateLevel, type Level, type Leve
 const GRID = { nx: 48, nz: 36 };
 
 /** Lays pieces one after another: 'R'/'L' = 90° curve right/left (z down, so right turns clockwise on the map). */
-function turtle(name: string, i: number, j: number, dir: number, steps: (PartType | 'R' | 'L' | 'RW' | 'LW' | 'RB' | 'LB' | ['gap', number])[]): Level {
+export function turtle(name: string, i: number, j: number, dir: number, steps: (PartType | 'R' | 'L' | 'RW' | 'LW' | 'RB' | 'LB' | ['gap', number])[]): Level {
   const L = emptyLevel(name);
   // start piece whose exit points along dir
   const start = [0, 1, 2, 3].map((rot) => ({ type: 'start' as const, i, j, rot: rot as 0 | 1 | 2 | 3 }))
@@ -67,6 +67,23 @@ const SAMPLES: Record<string, () => Level> = {
     );
     return L;
   },
+  // every piece once in a closed lap (driven by tests/sim/vehicle/editorTracks.test.ts); the stunt stations (wall ramp,
+  // flight ring) stand inside the lap
+  showcase: () => {
+    const R = (n: number) => Array.from({ length: n }, () => 'road' as const);
+    const L = turtle('Showcase', 6, 28, 0, [
+      'road', 'boost', 'road', 'loop', 'road', 'road', 'RW',
+      'road', 'ramp_up', 'elevated', 'elevated', 'ramp_up', 'road', 'road', 'kicker', ['gap', 1], 'landing', 'road', 'RB',
+      'road', 'halfpipe', 'road', 'air_station', ...R(3), 'RW',
+      'road', 'road', 'launch', ...R(11), 'RW',
+    ]);
+    for (const p of [{ type: 'wallramp' as const, i: 14, j: 24, rot: 0 as const }, { type: 'ring' as const, i: 20, j: 25, rot: 0 as const }]) {
+      if (!canPlace(L, GRID, p)) throw new Error(`${p.type} overlaps`);
+      L.parts.push(p);
+    }
+    L.deco.push({ type: 'light_mast', x: 5.2, z: 28.5, rotDeg: 0 }, { type: 'light_mast', x: 7.8, z: 28.5, rotDeg: 0 });
+    return L;
+  },
 };
 
 describe('course', () => {
@@ -75,6 +92,9 @@ describe('course', () => {
     const c = buildCourse(L)!;
     expect(c.closed).toBe(true);
     expect(c.order.length).toBe(L.parts.length);
+    const S = SAMPLES.showcase(), cs = buildCourse(S)!;
+    expect(cs.closed).toBe(true);
+    expect(cs.order.length).toBe(S.parts.length - 2);                // all but the two stunt stations
   });
 
   it('an open course ends at the last piece', () => {

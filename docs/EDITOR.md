@@ -50,6 +50,22 @@ button or Shift + drag to pan, Ctrl+Z / Ctrl+Y undo/redo, Ctrl+S save. In the te
   fly through with the thrusters, landing platforms in the air, compressed-air station (refills the tank), boost pad.
 - Obstacles and decoration: barrels, crates and container walls that break apart with the damage model, the vehicles
   of the stream, light masts, LED barriers, cones, grandstand.
+- **Loop:** a clothoid loop 20 m high (path 72 m, curvature growing from the entry to the tight top), so the load
+  stays under ≈ 4 g; a circular loop of the same footprint pulled 8 g, the suspension bottomed out and the hull scraped
+  the speed away. Its lane moves 7.5 m sideways in the lower quarters (entry and exit pass each other) and runs
+  straight over the top. It works from ≈ 20 to 34 m/s entry speed, with or without the fans.
+- **Banked curve:** up to 26°, eased in and out over 42 % of the arc each (a short ease made the outer half a kick
+  ramp that launched the car off the curve).
+
+## Drivability tests
+
+`tests/sim/vehicle/editorTracks.test.ts` drives pieces and tracks with the full vehicle model: a course driver
+(`src/sim/gnc/courseDriver.ts`, pure pursuit along the lanes of `src/shared/lanes.ts`, speed from the curve limits and
+the run-up a loop or jump needs) gives only throttle, brake and steering, as a player would. Covered: every piece
+between run-up and run-out in all four directions, curves to both sides, the loop forwards, backwards, twice in a row
+and at entry speeds from 22 to 34 m/s with and without the fans, jumps over 1–3 tiles, up onto the elevated road and
+down again, and a clean lap (no skipped section) of both sample tracks. The wall ramp and the flight ring are stunt
+stations beside the course and are not driven.
 
 ## Game
 

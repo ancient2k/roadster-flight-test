@@ -52,7 +52,10 @@ export class LevelRun {
       for (const k of this.course.order) {
         const p = level.parts[k];
         const set = new Set(partTiles(p).map(([i, j]) => key(i, j)));
-        this.tiles.push({ set, elevated: (p.lv ?? 0) === 1 });
+        // on the elevated network: placed on level 1, or a piece whose road ends all lie up there (elevated road and
+        // curve carry their height in the piece itself; reading only p.lv cost 5 s per correctly driven deck piece)
+        const def = partDef(p.type);
+        this.tiles.push({ set, elevated: (p.lv ?? 0) === 1 || (def.conn.length > 0 && def.conn.every((c) => c.lv === 1)) });
         set.forEach((t) => this.courseTiles.add(t));
       }
     }

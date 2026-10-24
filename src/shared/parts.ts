@@ -259,6 +259,51 @@ const line = (x0: number, z0: number, x1: number, z1: number, y = 0) => (s: numb
 /** Quarter arc from (H, 0) heading +z to (cx, r) heading +x, centre (H + r, 0). */
 const arc = (r: number, y = 0, x0 = H) => (s: number): V => { const a = s * Math.PI / 2; return [x0 + r - r * Math.cos(a), y, r * Math.sin(a)]; };
 
+// ---------------------------------------------------------------- banked curve
+/** Largest bank angle of the banked curve (degrees) and how it eases in and out along the arc (s ∈ [0, 1]). */
+export const BANK_DEG = 26;
+export const bankEase = (s: number) => sstep(s / 0.42) * sstep((1 - s) / 0.42);
+
+// ---------------------------------------------------------------- the loop's centre line
+/** Clothoid loop: path length, curvature at the entry as a share of the top's, lateral lane shift, deck width. */
+export const LOOP = { length: 72, entryCurv: 0.15, shift: 7.5, deckW: 6 };
+export interface LoopLine { pts: V[]; theta: number[]; zIn: number; zOut: number; height: number }
+let loopCache: LoopLine | null = null;
+/** Centre line of the loop in the piece frame (entry lane at x = H − shift/2 and z = zIn, exit at H + shift/2, zOut),
+ *  sampled every ~0.2 m with the climb angle theta (0 → 2π). */
+export function loopLine(): LoopLine {
+  if (loopCache) return loopCache;
+  const S = LOOP.length, n = 360, ds = S / n, kf = LOOP.entryCurv;
+  const km = Math.PI / (kf * S / 2 + (1 - kf) * S / 4), k0 = kf * km;
+  const raw: V[] = [], theta: number[] = [];
+  let th = 0, z = 0, y = 0;
+  for (let i = 0; i <= n; i++) {
+    const s = i * ds, u = s <= S / 2 ? s / (S / 2) : (S - s) / (S / 2);
+    raw.push([0, y, z]); theta.push(th);
+    // midpoint rule along the step
+    const k = k0 + (km - k0) * u, thm = th + k * ds / 2;
+    z += Math.cos(thm) * ds; y += Math.sin(thm) * ds; th += k * ds;
+  }
+  const zEnd = raw[n][2], zIn = TILE_M - zEnd / 2;
+  // the lane moves sideways in the lower quarters (high load, the tyres steer) and runs straight over the top
+  const side = (u: number) => 0.5 * sstep((u - 0.08) / 0.27) + 0.5 * sstep((u - 0.65) / 0.27);
+  const pts = raw.map(([, py, pz], i): V => [TILE_M / 2 - LOOP.shift / 2 + LOOP.shift * side(i / n), Math.max(0, py), zIn + pz]);
+  pts[n][1] = 0;
+  loopCache = { pts, theta, zIn, zOut: zIn + zEnd, height: Math.max(...pts.map((p) => p[1])) };
+  return loopCache;
+}
+/** Point of the loop line at s ∈ [0, 1] (linear between samples). */
+function loopAt(L: LoopLine, s: number): V {
+  const f = s * (L.pts.length - 1), i = Math.min(L.pts.length - 2, Math.floor(f)), u = f - i;
+  const a = L.pts[i], b = L.pts[i + 1];
+  return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
+}
+/** Road surface normal of the loop at s: toward the inside of the loop. */
+function loopUp(L: LoopLine, s: number): V {
+  const f = s * (L.theta.length - 1), i = Math.min(L.theta.length - 1, Math.round(f)), th = L.theta[i];
+  return [0, Math.cos(th), -Math.sin(th)];
+}
+
 // ---------------------------------------------------------------- pieces
 const BUILD: Record<PartType, (B: Builder, opt?: number) => void> = {
   road(B) { groundRoad(B, frames(line(H, 0, H, T), 4)); },
@@ -288,9 +333,10 @@ const BUILD: Record<PartType, (B: Builder, opt?: number) => void> = {
   elevated(B) { elevatedDeck(B, frames(line(H, 0, H, T, ELEVATED_Y), 4)); },
   elevated_curve(B) { elevatedDeck(B, frames(arc(H, ELEVATED_Y), 16)); },
   banked(B) {
-    // wide curve banked up to 28°, inner edge on the ground; banking eases in and out over the first/last 20 %
-    const R = T + H, bank = 28 * Math.PI / 180, w = ROAD_W;
-    const k = (s: number) => sstep(s / 0.2) * sstep((1 - s) / 0.2);
+    // wide curve banked up to 26°, inner edge on the ground; the banking eases in and out over the first/last 42 % of
+    // the arc (over 20 % the outer half rose like a kick ramp and launched a car at 15 m/s off the curve)
+    const R = T + H, bank = BANK_DEG * Math.PI / 180, w = ROAD_W;
+    const k = bankEase;
     const pos = (s: number): V => { const a = s * Math.PI / 2, b = bank * k(s); return [H + R - R * Math.cos(a), Math.sin(b) * w / 2, R * Math.sin(a)]; };
     const fr = frames(pos, 48, (s, t) => {
       const a = s * Math.PI / 2, inward: V = [Math.cos(a), 0, -Math.sin(a)], b = bank * k(s);
@@ -313,18 +359,20 @@ const BUILD: Record<PartType, (B: Builder, opt?: number) => void> = {
     sweep(B.solid('concrete'), fr, [[-ROAD_W / 2 - 1, -5], [ROAD_W / 2 + 1, -5], [ROAD_W / 2 + 1, 0], [-ROAD_W / 2 - 1, 0]]);
   },
   loop(B) {
-    // vertical loop, radius 8 m, centred at z = T; the lane shifts 7 m sideways so that entry and exit pass
-    const R = 8, w = 6.5, zc = T, xa = H - 3.5, xb = H + 3.5;
-    groundRoad(B, frames((s) => [H + (xa - H) * sstep(s), 0, (zc - 1.5) * s], 12), w + 1);
-    groundRoad(B, frames((s) => [xb + (H - xb) * sstep(s), 0, zc + 1.5 + (2 * T - zc - 1.5) * s], 12), w + 1);
-    const pos = (s: number): V => { const a = s * Math.PI * 2; return [xa + (xb - xa) * sstep(s * 1.1 - 0.05), R - R * Math.cos(a), zc - 1.5 + 3 * s + R * Math.sin(a)]; };
-    const fr = frames(pos, 96, (s) => { const a = s * Math.PI * 2; return [0, Math.cos(a), -Math.sin(a)]; });
-    sweep(B.solid('concrete'), fr, deck(w, 0.5));
-    curbs(B, 'curb', fr, w);
-    // A-frame supports at the top of the loop
-    box(B.solid('steel'), [xa - 6, 0, zc - 0.4], [xa - 5.2, 2 * R, zc + 0.4]);
-    box(B.solid('steel'), [xb + 5.2, 0, zc - 0.4], [xb + 6, 2 * R, zc + 0.4]);
-    box(B.solid('steel'), [xa - 6, 2 * R, zc - 0.4], [xb + 6, 2 * R + 0.8, zc + 0.4]);
+    // clothoid loop (LOOP below): the curvature grows from a gentle entry to the tight top and back, so the load
+    // stays under ≈ 4 g where a circular loop of the same height pulls 8 g at the bottom (the suspension bottomed out,
+    // the hull scraped and ate the speed); the lane moves 7.5 m sideways over the loop so that entry and exit pass
+    const L = loopLine();
+    groundRoad(B, frames(line(H, 0, H, L.zIn + 2), 4));
+    groundRoad(B, frames(line(H, L.zOut - 2, H, 2 * T), 4));
+    const fr = frames((s) => loopAt(L, s), 120, (s) => loopUp(L, s));
+    sweep(B.solid('concrete'), fr, deck(LOOP.deckW, 0.5));
+    curbs(B, 'curb', fr, LOOP.deckW);
+    // A-frame supports beside the top of the loop, and the beam across
+    const xa = H - LOOP.shift / 2 - LOOP.deckW / 2 - 2.5, xb = H + LOOP.shift / 2 + LOOP.deckW / 2 + 2.5, top = L.height + 1;
+    box(B.solid('steel'), [xa - 0.8, 0, T - 0.4], [xa, top, T + 0.4]);
+    box(B.solid('steel'), [xb, 0, T - 0.4], [xb + 0.8, top, T + 0.4]);
+    box(B.solid('steel'), [xa - 0.8, top, T - 0.4], [xb + 0.8, top + 0.8, T + 0.4]);
   },
   halfpipe(B) {
     // road between two curved walls (radius 6 m, vertical to 7.5 m): ride up the sides with the fans on

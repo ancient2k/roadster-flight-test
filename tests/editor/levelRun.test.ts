@@ -75,3 +75,17 @@ describe('level run', () => {
     expect(again.launchIn).toBeNull(); expect(again.launchFired).toBe(false); expect(again.launchT).toBe(0);
   });
 });
+
+describe('level run on the elevated road', () => {
+  it('a deck piece counts when the car is up on it, not when it passes below', () => {
+    const L = validateLevel({ v: 1, name: 'deck', site: 'earth_bocachica', deco: [], parts: [
+      { type: 'start', i: 2, j: 10, rot: 1 }, { type: 'road', i: 3, j: 10, rot: 1 }, { type: 'ramp_up', i: 4, j: 10, rot: 1 },
+      { type: 'elevated', i: 6, j: 10, rot: 1 }, { type: 'elevated', i: 7, j: 10, rot: 1 },
+    ] }, { nx: 48, nz: 36 }).level;
+    const run = new LevelRun(L, AREA);
+    const f = fx();
+    const at = (i: number, y: number) => run.update(0.2, { x: (i + 0.5) * 20, y, z: 10.5 * 20, vx: 20, vz: 0, speedMs: 20, grounded: true }, f);
+    at(3, 0.5); at(4, 0.5); at(5, 6.5); at(6, 6.5); at(7, 6.5);
+    expect(run.missed).toBe(0);
+  });
+});

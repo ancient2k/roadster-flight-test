@@ -1,20 +1,285 @@
-{"v":1,"name":"Showcase","site":"earth_bocachica","parts":[
-{"type":"start","i":4,"j":10,"rot":0},
-{"type":"road","i":4,"j":11,"rot":0},
-{"type":"boost","i":4,"j":12,"rot":0},
-{"type":"loop","i":4,"j":13,"rot":0},
-{"type":"road","i":4,"j":15,"rot":0},
-{"type":"curve_wide","i":4,"j":16,"rot":0},
-{"type":"road","i":6,"j":17,"rot":1},
-{"type":"ramp_up","i":7,"j":17,"rot":1},
-{"type":"elevated","i":9,"j":17,"rot":1,"lv":1},
-{"type":"elevated","i":10,"j":17,"rot":1,"lv":1},
-{"type":"kicker","i":14,"j":17,"rot":1},
-{"type":"landing","i":16,"j":17,"rot":1},
-{"type":"halfpipe","i":20,"j":17,"rot":1},
-{"type":"banked","i":22,"j":16,"rot":3},
-{"type":"wallramp","i":8,"j":6,"rot":2},
-{"type":"ring","i":12,"j":12,"rot":0},
-{"type":"air_station","i":4,"j":9,"rot":0},
-{"type":"launch","i":4,"j":8,"rot":0,"opt":60}],
-"deco":[{"type":"cone","x":3.6,"z":12.2,"rotDeg":0},{"type":"cone","x":5.4,"z":12.2,"rotDeg":0},{"type":"barrel","x":3.3,"z":15.5,"rotDeg":0},{"type":"container","x":12,"z":20,"rotDeg":90},{"type":"light_mast","x":3,"z":10.5,"rotDeg":0},{"type":"barrier","x":6,"z":11,"rotDeg":0}]}
+{
+ "v": 1,
+ "name": "Showcase",
+ "site": "earth_bocachica",
+ "parts": [
+  {
+   "type": "start",
+   "i": 6,
+   "j": 28,
+   "rot": 2
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 27,
+   "rot": 0
+  },
+  {
+   "type": "boost",
+   "i": 6,
+   "j": 26,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 25,
+   "rot": 0
+  },
+  {
+   "type": "loop",
+   "i": 6,
+   "j": 23,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 22,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 6,
+   "j": 21,
+   "rot": 0
+  },
+  {
+   "type": "curve_wide",
+   "i": 6,
+   "j": 19,
+   "rot": 3
+  },
+  {
+   "type": "road",
+   "i": 8,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "ramp_up",
+   "i": 9,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "elevated",
+   "i": 11,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "elevated",
+   "i": 12,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "ramp_up",
+   "i": 13,
+   "j": 19,
+   "rot": 3
+  },
+  {
+   "type": "road",
+   "i": 15,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 16,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "kicker",
+   "i": 17,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "landing",
+   "i": 19,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 21,
+   "j": 19,
+   "rot": 1
+  },
+  {
+   "type": "banked",
+   "i": 22,
+   "j": 19,
+   "rot": 2
+  },
+  {
+   "type": "road",
+   "i": 23,
+   "j": 21,
+   "rot": 0
+  },
+  {
+   "type": "halfpipe",
+   "i": 23,
+   "j": 22,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 23,
+   "j": 24,
+   "rot": 0
+  },
+  {
+   "type": "air_station",
+   "i": 23,
+   "j": 25,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 23,
+   "j": 26,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 23,
+   "j": 27,
+   "rot": 0
+  },
+  {
+   "type": "road",
+   "i": 23,
+   "j": 28,
+   "rot": 0
+  },
+  {
+   "type": "curve_wide",
+   "i": 22,
+   "j": 29,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 21,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 20,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "launch",
+   "i": 19,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 18,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 17,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 16,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 15,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 14,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 13,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 12,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 11,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 10,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 9,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "road",
+   "i": 8,
+   "j": 30,
+   "rot": 1
+  },
+  {
+   "type": "curve_wide",
+   "i": 6,
+   "j": 29,
+   "rot": 0
+  },
+  {
+   "type": "wallramp",
+   "i": 14,
+   "j": 24,
+   "rot": 0
+  },
+  {
+   "type": "ring",
+   "i": 20,
+   "j": 25,
+   "rot": 0
+  }
+ ],
+ "deco": [
+  {
+   "type": "light_mast",
+   "x": 5.2,
+   "z": 28.5,
+   "rotDeg": 0
+  },
+  {
+   "type": "light_mast",
+   "x": 7.8,
+   "z": 28.5,
+   "rotDeg": 0
+  }
+ ]
+}
