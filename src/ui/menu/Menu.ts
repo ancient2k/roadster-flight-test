@@ -13,7 +13,7 @@ import { Emitter, h, svg } from '../dom';
 import { LOCALE_CODES, LOCALE_NAMES, applyLanguageSetting, fmtDate, fmtNum, fmtPct, getLocale, matchLocale, onLocaleChange, t, type LanguageSetting, type MsgKey } from '../../i18n';
 import { loadFonts } from '../fonts';
 import { ASSIST_DESC, ASSIST_LABEL, REFERENCE_LABEL, STUNTS, reasonText, stuntInfo } from '../labels';
-import type { Settings, SettingsStore } from '../settings';
+import { damageForSettings, type Settings, type SettingsStore } from '../settings';
 import type { Units } from '../units';
 import { gyroFailText, switchGyro } from '../gyroSwitch';
 import { SERIES, SPEED_SERIES, bestOffset, grade, refSeries, seriesToPlot, simSeries } from '../results/chartMath';
@@ -29,6 +29,8 @@ import { drawDamageView } from '../hud/damageView';
 const PART_LABEL: Partial<Record<DetachablePart, MsgKey>> = {
   Door_L: 'damage.part.doorL', Door_R: 'damage.part.doorR', Bumper_F: 'damage.part.bumperF', Bumper_R: 'damage.part.bumperR',
   Diffuser: 'damage.part.diffuser', NozzleCover_L: 'damage.part.nozzleCoverL', NozzleCover_R: 'damage.part.nozzleCoverR',
+  Hood: 'damage.part.hood', Deck: 'damage.part.deck', Roof: 'damage.part.roof', Fender_L: 'damage.part.fenderL',
+  Fender_R: 'damage.part.fenderR', Quarter_L: 'damage.part.quarterL', Quarter_R: 'damage.part.quarterR',
 };
 import '../ui.css';
 import './menu.css';
@@ -450,7 +452,8 @@ export class Menu extends Emitter<MenuEvents> {
           h('h3', { class: 'rft-subhead', text: t('settings.group.nextStart') }),
           this.segRow(t('settings.assistDefault'), (['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((a) => [a, ASSIST_LABEL[a]] as [string, string]), s.assistDefault, (v) => upd((d) => { d.assistDefault = v as AssistLevel; }, 'assistDefault'),
             t('settings.assistStartNote', { key: assistKey })),
-          this.segRow(t('damage.setting'), [['off', t('damage.off')], ['visual', t('damage.visual')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'), t('damage.settingNote')),
+          this.segRow(t('damage.setting'), [['auto', t('damage.auto')], ['off', t('damage.off')], ['visual', t('damage.visual')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'),
+            `${t('damage.autoNote', { quality: t(`quality.${s.graphics.quality}`), mode: t(`damage.${damageForSettings(s)}`) })} ${t('damage.settingNote')}`),
           this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
         );
         break;
@@ -653,6 +656,7 @@ export class Menu extends Emitter<MenuEvents> {
     const sk = d.skirts.filter((v) => v > 0.005).length;
     if (sk) rows.push([t('damage.skirts'), t('damage.damaged', { n: String(sk) })]);
     if (d.wingLost) rows.push([t('damage.wing'), t('damage.lost')]);
+    if (d.tank > 0.005) rows.push([t('damage.tanks'), t('damage.tankVent')]);
     const parts = d.lost.filter((p) => PART_LABEL[p]).map((p) => t(PART_LABEL[p]!));
     if (parts.length) rows.push([t('damage.parts'), parts.join(', ')]);
     const canvas = h('canvas', { class: 'rft-damage-view', 'aria-hidden': 'true', style: 'width:84px;height:170px;flex:none' }) as HTMLCanvasElement;

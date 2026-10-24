@@ -340,6 +340,21 @@ export class Emitters {
       }
     } else this.wreckT0 = -1;
 
+    // ---------------- cracked COPV fitting (vehicle damage "Full"): air at tank pressure blows out sideways from
+    // the tank bosses behind the seats; the expansion from up to 690 bar chills it far below the dew point → fog
+    if (dmg && dmg.mode === 'realistic' && dmg.tank > 0 && dmg.leakKgS > 0.05) {
+      _q.set(s.quat.x, s.quat.y, s.quat.z, s.quat.w);
+      const n = this.count(31, Math.min(90, 8 * dmg.leakKgS) * scale * Math.max(0.3, this.air), dt);
+      for (let k = 0; k < n; k++) {
+        const side = k % 2 ? 1 : -1;
+        _p.set(side * 0.7, 0.1, -0.98).applyQuaternion(_q).add(_d.set(s.pos.x, s.pos.y, s.pos.z));
+        const sp = 8 + Math.random() * 10;
+        _v.set(side * sp, (Math.random() - 0.3) * 3, (Math.random() - 0.5) * 3).applyQuaternion(_q);
+        this.ps.emit({ kind: PKind.Condensation, pos: { x: _p.x, y: _p.y, z: _p.z }, vel: { x: _v.x + carVel.x, y: _v.y + carVel.y, z: _v.z + carVel.z },
+          life: 0.6 + Math.random() * 0.8, size0: 0.08, size1: 1.4 + Math.random(), drag: 3.5, buoyancy: 0.05, opacity: 0.45 });
+      }
+    }
+
     // ---------------- fan intake dust (suction pulls dust from around the skirts)
     const fan = s.fans.rpmNorm;
     if (fan > 0.15 && s.heightAboveGroundM < 1.2 && this.air > 0.2) {

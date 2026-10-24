@@ -1,10 +1,13 @@
 // Visible vehicle damage (setting "Vehicle damage": Visual / Full): dents as CPU vertex displacement of the body
 // panels, torn-off parts as copies of the real model parts that follow their Rapier bodies — model nodes (wing,
-// doors, wheels) are cloned, bumpers / diffuser / nozzle covers are cut out of the Body mesh (BODY_PART_CUTS:
-// their triangles move into a debris mesh and leave the Body's index). Driven by VehicleState.damage
+// doors, wheels) are cloned, bumpers / diffuser / nozzle covers and the body panels (hood, deck, roof, fenders,
+// quarters) are cut out of the Body mesh and the lamps (BODY_PART_CUTS: their triangles move into a debris mesh
+// and leave the Body's index). Once a covering part is gone the procedural interior shows (carInterior.ts: tub,
+// battery, motors, COPVs, piping), so an opened body never shows empty space. Driven by VehicleState.damage
 // (src/shared/damage.ts); everything is undone when the sim repairs the car (rev back to 0 / damage off).
 import * as THREE from 'three/webgpu';
-import { BODY_PART_CUTS, PART_GEOMETRY, inBox, type DamageState, type DebrisPose, type Dent, type DetachablePart } from '../../shared/damage';
+import { BODY_PART_CUTS, COVER_PARTS, PART_GEOMETRY, inBox, type DamageState, type DebrisPose, type Dent, type DetachablePart } from '../../shared/damage';
+import { buildCarInterior } from './carInterior';
 
 /** Nodes that keep their shape (rigid parts, cabin) – everything else under the model is a body panel. */
 const RIGID = /^(Wheel_|Caliper_|Wing|Seat|Yoke|Nozzle_)/;
@@ -26,6 +29,9 @@ interface Panel {
   dirty: boolean;
 }
 
+/** Nodes whose meshes the cut-out parts take triangles from (the lamps sit in the bumpers, fenders and quarters). */
+const CUT_NODES = /^(Body|Light_)/;
+
 /** A mesh of the Body node, for cutting out the BODY_PART_CUTS parts (built on first use). */
 interface BodyMesh {
   mesh: THREE.Mesh;
@@ -46,6 +52,8 @@ export class CarDamageView {
   private hidden: THREE.Object3D[] = [];
   private bodyMeshes: BodyMesh[] | null = null;
   private cut = new Set<DetachablePart>();
+  /** Procedural interior (built once, re-parented to each new model; hidden while the body is closed). */
+  private interior: THREE.Group | null = null;
 
   constructor() { this.debrisGroup.name = 'CarDebris'; }
 
@@ -72,6 +80,10 @@ export class CarDamageView {
       const toLocalDir = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(toBody).invert());
       this.panels.push({ geo, pos, nor, orig: copyAttr(pos), origN: nor ? copyAttr(nor) : null, toBody, toLocalDir, dirty: false });
     });
+    // the interior lives in the model's root frame (= body frame), after the panels were collected
+    this.interior ??= buildCarInterior();
+    this.interior.visible = false;
+    model.add(this.interior);
   }
 
   private rigid(o: THREE.Object3D): boolean {
@@ -85,6 +97,7 @@ export class CarDamageView {
     const rev = d?.rev ?? 0;
     if (rev === 0 || rev < this.appliedRev) { if (this.appliedRev !== 0) this.repair(); if (rev === 0) return; }
     if (!d) return;
+    if (this.interior) this.interior.visible = d.lost.some((p) => COVER_PARTS.includes(p));
     // torn-off parts: hide the node (or cut the part out of the Body), show a copy at the debris body's pose
     for (const p of d.debris) this.placeDebris(p);
     // debris cleared by the sim (lifetime / count limit): the copy goes, the part stays missing
@@ -137,16 +150,17 @@ export class CarDamageView {
     return g;
   }
 
-  /** Meshes of the Body node with every triangle assigned to its BODY_PART_CUTS part (once per model). */
+  /** Meshes of the Body node (and the lamps) with every triangle assigned to its BODY_PART_CUTS part (once per model). */
   private bodyParts(): BodyMesh[] {
     if (this.bodyMeshes) return this.bodyMeshes;
     this.bodyMeshes = [];
-    const body = this.model?.getObjectByName('Body');
-    if (!body || !this.model) return this.bodyMeshes;
+    if (!this.model) return this.bodyMeshes;
     this.model.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(this.model.matrixWorld).invert();
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), p = { x: 0, y: 0, z: 0 };
-    body.traverse((o) => {
+    const roots: THREE.Object3D[] = [];
+    this.model.traverse((o) => { if (CUT_NODES.test(o.name) && !CUT_NODES.test(o.parent?.name ?? '')) roots.push(o); });
+    for (const root of roots) root.traverse((o) => {
       const mesh = o as THREE.Mesh;
       const geo = mesh.geometry as THREE.BufferGeometry | undefined;
       if (!mesh.isMesh || !geo?.index) return;
@@ -156,7 +170,10 @@ export class CarDamageView {
       const orig = Uint32Array.from(index.array as ArrayLike<number>);
       const owner = new Int8Array(orig.length / 3).fill(-1);
       // only the parts this material can belong to, and only triangles near their boxes
-      const cuts = BODY_PART_CUTS.map((cut, k) => ({ k, box: PART_GEOMETRY[cut.part].box, ok: !cut.materials || cut.materials.includes(matName) })).filter((x) => x.ok);
+      const cuts = BODY_PART_CUTS.map((cut, k) => ({
+        k, box: PART_GEOMETRY[cut.part].box,
+        ok: (!cut.materials || cut.materials.includes(matName)) && !cut.except?.includes(matName),
+      })).filter((x) => x.ok);
       if (!cuts.length) return;
       for (let t = 0; t < owner.length; t++) {
         a.fromBufferAttribute(pos, orig[t * 3]).applyMatrix4(toBody);
@@ -285,6 +302,7 @@ export class CarDamageView {
     }
     for (const n of this.hidden) n.visible = true;
     this.hidden = [];
+    if (this.interior) this.interior.visible = false;
     if (this.cut.size) { this.cut.clear(); this.applyCuts(); }
     for (const c of this.clones.values()) {
       this.debrisGroup.remove(c);
@@ -296,13 +314,13 @@ export class CarDamageView {
   }
 
   /** Diagnostics (tests): copies of torn-off parts in the scene, and Body triangles cut out. */
-  debrisInfo(): { parts: string[]; cutTriangles: number } {
+  debrisInfo(): { parts: string[]; cutTriangles: number; interior: boolean } {
     let cut = 0;
     for (const B of this.bodyMeshes ?? []) {
       const r = (B.mesh.geometry as THREE.BufferGeometry).drawRange.count;
       if (Number.isFinite(r)) cut += B.owner.length - r / 3;
     }
-    return { parts: [...this.clones].filter(([, c]) => c.parent).map(([p]) => p), cutTriangles: cut };
+    return { parts: [...this.clones].filter(([, c]) => c.parent).map(([p]) => p), cutTriangles: cut, interior: !!this.interior?.visible };
   }
 
   /** Diagnostics (tests): largest vertex displacement currently applied (m, local units). */

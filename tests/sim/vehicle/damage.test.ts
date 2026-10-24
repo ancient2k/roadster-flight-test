@@ -216,7 +216,7 @@ describe('functional consequences', () => {
     r.sim.reset(spawnPose({ x: 0, y: 0, z: -1300 }, 0, 0));
     r.run(1);
     const bodies0 = r.sim.world.bodies.len();
-    r.vm.damage.inject(r.sim, { x: 0.98, y: -0.1, z: -1.25 }, { x: -1, y: 0, z: 0 }, 34_000);
+    r.vm.damage.inject(r.sim, { x: 0.98, y: -0.25, z: -1.25 }, { x: -1, y: 0, z: 0 }, 34_000);   // below the rear quarter
     r.vm.damage.inject(r.sim, { x: 0.3, y: 0.62, z: -1.6 }, { x: 0, y: -0.7, z: 0.7 }, 3_000);   // wing
     const d = r.vm.damage.state;
     expect(d.wheelLost[2]).toBe(true);
@@ -286,14 +286,15 @@ describe('setting off = previous behaviour', () => {
 });
 
 describe('setting and session', () => {
-  it('settings: default off, persisted enum, invalid/legacy values fall back to off', async () => {
-    const { sanitizeSettings, defaultSettings, SettingsStore } = await import('../../../src/ui/settings');
-    expect(defaultSettings().realism.damage).toBe('off');
+  it('settings: default auto (off below Ultra), persisted enum, invalid/legacy values fall back to auto', async () => {
+    const { sanitizeSettings, defaultSettings, damageForSettings, SettingsStore } = await import('../../../src/ui/settings');
+    expect(defaultSettings().realism.damage).toBe('auto');
+    expect(damageForSettings(defaultSettings())).toBe('off');
     expect(sanitizeSettings({ realism: { damage: 'realistic' } }).realism.damage).toBe('realistic');
-    expect(sanitizeSettings({ realism: { damage: 'arcade' } }).realism.damage).toBe('off');
+    expect(sanitizeSettings({ realism: { damage: 'arcade' } }).realism.damage).toBe('auto');
     const legacy = sanitizeSettings({ realism: { crashDamage: false } }) as unknown as { realism: Record<string, unknown> };
     expect(legacy.realism.crashDamage).toBeUndefined();
-    expect(legacy.realism.damage).toBe('off');
+    expect(legacy.realism.damage).toBe('auto');
     const mem = new Map<string, string>();
     const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) };
     new SettingsStore(storage).update((d) => { d.realism.damage = 'realistic'; }, 'realism.damage');

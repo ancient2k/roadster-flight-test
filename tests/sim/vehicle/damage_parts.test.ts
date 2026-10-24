@@ -4,8 +4,8 @@
 import { describe, expect, it } from 'vitest';
 import { spawnPose } from '../../../src/sim/core/roadsterSim';
 import { setDamageMode, type DamageFactors, type VehicleBus } from '../../../src/sim/vehicle';
-import { DEBRIS_LIFE_S, MAX_DEBRIS, PART_DMG, TOTAL_LOSS, WING_DMG } from '../../../src/sim/vehicle/damage';
-import { DETACHABLE_PARTS, PART_GEOMETRY, type DamageMode, type DetachablePart } from '../../../src/shared/damage';
+import { DEBRIS_LIFE_S, MAX_DEBRIS, PART_DMG, TANK_DMG, TOTAL_LOSS, WING_DMG } from '../../../src/sim/vehicle/damage';
+import { BODY_PART_CUTS, COVER_PARTS, DETACHABLE_PARTS, PART_GEOMETRY, inBox, type DamageMode, type DetachablePart } from '../../../src/shared/damage';
 import { ROADSTER } from '../../../src/shared/roadster';
 import type { Vec3 } from '../../../src/shared/math';
 import { resetInputs, rig, type Rig } from './helpers';
@@ -71,8 +71,8 @@ describe('release: momentum and mass', () => {
     const sim = r.sim, dm = r.vm.damage;
     const M0 = sim.getState().massKg, v0 = { ...sim.body.linvel() };
     const p0 = { x: M0 * v0.x, y: M0 * v0.y, z: M0 * v0.z };
-    // 30 kJ on the wing: 28 kJ beyond its break energy → a real kick
-    dm.inject(sim, { x: 0, y: 0.6, z: -1.5 }, { x: 0, y: -0.7, z: 0.7 }, 30_000);
+    // 30 kJ on the wing tip behind the deck: 28 kJ beyond its break energy → a real kick
+    dm.inject(sim, { x: 0, y: 0.7, z: -2.2 }, { x: 0, y: -0.7, z: 0.7 }, 30_000);
     expect(dm.state.lost).toEqual(['Wing']);
     const M1 = sim.getState().massKg, v1 = sim.body.linvel();
     const deb = dm.debrisBodies()[0], vd = deb.body.linvel();
@@ -93,7 +93,7 @@ describe('release: momentum and mass', () => {
 
   it('the debris flies, lands and comes to rest on the ground', async () => {
     const r = await standing('realistic', 15);
-    r.vm.damage.inject(r.sim, { x: 0, y: 0.6, z: -1.5 }, { x: 0, y: -0.7, z: 0.7 }, 10_000);
+    r.vm.damage.inject(r.sim, { x: 0, y: 0.7, z: -2.2 }, { x: 0, y: -0.7, z: 0.7 }, 10_000);
     const deb = r.vm.damage.debrisBodies()[0];
     let maxY = 0;
     r.run(6, () => { maxY = Math.max(maxY, deb.body.translation().y); });
@@ -222,9 +222,9 @@ describe('debris limits', () => {
     const sim = r.sim, dm = r.vm.damage;
     const bodies0 = sim.world.bodies.len();
     for (const part of BOX_PARTS) { const { p, dir } = hitAt(part); dm.inject(sim, p, dir, PART_DMG[part].breakJ * 1.05); }
-    dm.inject(sim, { x: 0.98, y: -0.1, z: -1.25 }, { x: -1, y: 0, z: 0 }, 34_000);   // + a wheel = 9 parts
+    dm.inject(sim, { x: 0.98, y: -0.1, z: -1.25 }, { x: -1, y: 0, z: 0 }, 34_000);   // + a wheel
     const d = dm.state;
-    expect(d.lost.length).toBe(9);
+    expect(d.lost.length).toBe(BOX_PARTS.length + 1);
     expect(d.debris.length).toBe(MAX_DEBRIS);
     expect(d.debris.map((x) => x.part)).toEqual(d.lost.slice(-MAX_DEBRIS));
     expect(sim.world.bodies.len()).toBe(bodies0 + MAX_DEBRIS);
@@ -232,8 +232,88 @@ describe('debris limits', () => {
     expect(d.debris.length).toBe(MAX_DEBRIS);
     r.run(2);
     expect(d.debris.length).toBe(0);
-    expect(d.lost.length).toBe(9);                             // still missing on the car
+    expect(d.lost.length).toBe(BOX_PARTS.length + 1);          // still missing on the car
     expect(sim.world.bodies.len()).toBe(bodies0);
     sim.dispose();
   }, 60_000);
+});
+
+describe('body panels and interior', () => {
+  const PANELS: DetachablePart[] = ['Hood', 'Deck', 'Roof', 'Fender_L', 'Fender_R', 'Quarter_L', 'Quarter_R'];
+
+  it('every panel has a cut region, a debris collider inside its box and a plausible mass', () => {
+    for (const part of PANELS) {
+      expect(BODY_PART_CUTS.some((c) => c.part === part)).toBe(true);
+      const g = PART_GEOMETRY[part];
+      expect(inBox(g.box, g.origin)).toBe(true);
+      expect(PART_DMG[part].massKg).toBeGreaterThan(2); expect(PART_DMG[part].massKg).toBeLessThan(20);
+      expect(PART_DMG[part].breakJ).toBeGreaterThan(1_000); expect(PART_DMG[part].breakJ).toBeLessThan(20_000);
+      expect(COVER_PARTS).toContain(part);
+    }
+  });
+
+  it('a wreck: the car loses exactly the mass of what was torn off, momentum conserved', async () => {
+    const r = await standing('realistic', 10);
+    const sim = r.sim, dm = r.vm.damage;
+    const M0 = sim.getState().massKg;
+    for (const part of PANELS) { const { p, dir } = hitAt(part); dm.inject(sim, p, dir, PART_DMG[part].breakJ * 1.1); }
+    const d = dm.state;
+    for (const part of PANELS) expect(d.lost).toContain(part);
+    const lostKg = d.lost.reduce((s, p) => s + PART_DMG[p].massKg, 0);
+    expect(sim.detachedMassKg).toBeCloseTo(lostKg, 9);
+    expect(M0 - sim.getState().massKg).toBeCloseTo(lostKg, 9);
+    // debris + car: momentum (bodies limited to MAX_DEBRIS, all of them still there)
+    expect(dm.debrisBodies().length).toBe(Math.min(d.lost.length, MAX_DEBRIS));
+    r.run(1 / 240);
+    expect(sim.body.mass()).toBeCloseTo(sim.getState().massKg, 3);
+    sim.dispose();
+  });
+
+  it('the wing stands on the deck: deck torn off → wing goes with it', async () => {
+    const r = await standing();
+    const dm = r.vm.damage;
+    // hit at the front edge of the deck, outside the wing's box
+    dm.inject(r.sim, { x: 0, y: 0.6, z: -0.7 }, { x: 0, y: -1, z: 0 }, PART_DMG.Deck.breakJ * 1.1);
+    expect(dm.partEnergy('Wing')).toBe(0);
+    expect(dm.state.lost).toEqual(['Deck', 'Wing']);
+    expect(dm.state.wingLost).toBe(true);
+    expect(busDamage(r).downforceScale).toBeCloseTo(WING_DMG.downforceScale, 9);
+    r.sim.dispose();
+  });
+
+  it('COPV bay hit (Full): the tanks vent at tank pressure until the reset', async () => {
+    const r = await standing();
+    const sim = r.sim, dm = r.vm.damage;
+    // below the fittings' yield: no leak
+    dm.inject(sim, { x: 0.96, y: 0.1, z: -1.0 }, { x: -1, y: 0, z: 0 }, 0.9 * TANK_DMG.yieldJ);
+    expect(dm.tankEnergy()).toBeCloseTo(0.9 * TANK_DMG.yieldJ, 6);
+    expect(dm.state.tank).toBe(0);
+    expect(sim.propulsion.tankLeakAreaM2).toBe(0);
+    dm.inject(sim, { x: 0.96, y: 0.1, z: -1.0 }, { x: -1, y: 0, z: 0 }, TANK_DMG.fullJ);
+    expect(dm.state.tank).toBe(1);
+    expect(sim.propulsion.tankLeakAreaM2).toBeCloseTo(TANK_DMG.fullAreaM2, 12);
+    const m0 = sim.getState().tank.airMassKg;
+    r.run(1);
+    const st = sim.getState();
+    // choked flow 0.0404·A·p/√T at ≈ 690 bar: ≈ 13 kg/s at the start
+    console.log('tank vent', { m0, m1: st.tank.airMassKg, leak: st.damage!.leakKgS });
+    expect(m0 - st.tank.airMassKg).toBeGreaterThan(6); expect(m0 - st.tank.airMassKg).toBeLessThan(16);
+    expect(st.damage!.leakKgS).toBeGreaterThan(5);
+    sim.reset(spawnPose(ROAD, 0, 0));
+    expect(sim.propulsion.tankLeakAreaM2).toBe(0);
+    expect(dm.tankEnergy()).toBe(0);
+    expect(sim.getState().damage!.tank).toBe(0);
+    sim.dispose();
+  });
+
+  it('Visual: the tank damage is shown but nothing leaks', async () => {
+    const r = await standing('visual');
+    r.vm.damage.inject(r.sim, { x: 0.96, y: 0.1, z: -1.0 }, { x: -1, y: 0, z: 0 }, TANK_DMG.fullJ);
+    expect(r.vm.damage.state.tank).toBe(1);
+    expect(r.sim.propulsion.tankLeakAreaM2).toBe(0);
+    const m0 = r.sim.getState().tank.airMassKg;
+    r.run(0.5);
+    expect(r.sim.getState().tank.airMassKg).toBeCloseTo(m0, 3);
+    r.sim.dispose();
+  });
 });

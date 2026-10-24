@@ -9,7 +9,7 @@ import { Autopilot, ManualAssist, type StuntResult } from '@sim/gnc';
 import { InputManager } from '../input/InputManager';
 import type { PlayerInput } from '../input/types';
 import { Hud, Menu, SettingsStore } from '../ui';
-import type { Settings } from '../ui/settings';
+import { damageForSettings, type Settings } from '../ui/settings';
 import { AudioEngine } from '../audio/AudioEngine';
 import { ROADSTER } from '@shared/roadster';
 import { siteFor } from '@shared/track';
@@ -184,7 +184,7 @@ export class App {
     this.attract = attract;
     this.manual = null;
     // the demo and the auto stunts never take damage
-    setDamageMode(this.sim, attract || mode.kind === 'auto' ? 'off' : this.settings.get().realism.damage);
+    setDamageMode(this.sim, attract || mode.kind === 'auto' ? 'off' : damageForSettings(this.settings.get()));
     this.sim.handling = attract || mode.kind === 'auto' ? 'realistic' : this.settings.get().realism.handling;
     this.session = new SimSession(this.sim, mode, this.makeController);
     if (assist && this.manual) (this.manual as ManualController).assist = assist;

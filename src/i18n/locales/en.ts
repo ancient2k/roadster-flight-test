@@ -497,7 +497,9 @@ export const en = {
   'damage.off': 'Off',
   'damage.realistic': 'Full',
   'damage.visual': 'Visual',
-  'damage.settingNote': 'Off: a hard body impact counts as a collision, as before. Visual: impacts dent the body and tear off parts (wing, doors, bumpers, diffuser, nozzle covers), but the car drives as if intact. Full: the damage also acts on the car (torn-off wheel or wing, bent steering, crushed nozzles with less thrust and an air leak, torn fan skirts), and a heavy crash destroys it: reset to repair. Applies from the next start.',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto follows the graphics preset: Ultra shows visual damage, the other presets none; Full only by choice. Now (graphics {quality}): {mode}.',
+  'damage.settingNote': 'Off: a hard body impact counts as a collision, as before. Visual: impacts dent the body and tear off parts (wing, doors, bumpers, diffuser, nozzle covers, body panels down to the interior), but the car drives as if intact. Full: the damage also acts on the car (torn-off wheel or wing, bent steering, crushed nozzles with less thrust and an air leak, torn fan skirts, leaking air tanks), and a heavy crash destroys it: reset to repair. Applies from the next start.',
   'handling.setting': 'Driving physics',
   'handling.fun': 'Fun',
   'handling.realistic': 'Realistic',
@@ -534,6 +536,15 @@ export const en = {
   'damage.part.diffuser': 'diffuser',
   'damage.part.nozzleCoverL': 'left nozzle cover',
   'damage.part.nozzleCoverR': 'right nozzle cover',
+  'damage.part.hood': 'hood',
+  'damage.part.deck': 'rear deck',
+  'damage.part.roof': 'targa roof',
+  'damage.part.fenderL': 'left front fender',
+  'damage.part.fenderR': 'right front fender',
+  'damage.part.quarterL': 'left rear quarter',
+  'damage.part.quarterR': 'right rear quarter',
+  'damage.tanks': 'Air tanks',
+  'damage.tankVent': 'valve cracked, venting',
 } satisfies Record<string, Msg>;
 
 export type MsgKey = keyof typeof en;
