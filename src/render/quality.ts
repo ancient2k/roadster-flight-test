@@ -129,11 +129,24 @@ export function settingsForBackend(level: QualityLevel, backend: 'webgpu' | 'web
 /**
  * Dynamic resolution with quantised steps and hysteresis. TRAA history restarts whenever the
  * scene-pass size changes, so the scale must not drift continuously.
+ *
+ * Without GPU timestamps the only measure is the frame interval, and on a 60 Hz display that is pinned
+ * to the refresh (≈ 16.7 ms) whatever the headroom: the "clearly fast" threshold below could never be
+ * reached, so one stretch of shader compilation or a heavy view dropped the resolution for good (70 %
+ * on "high": thin geometry – tail-light strip, fences, rails – then shimmered all over while driving).
+ * In that mode a scene that holds the refresh rate probes the next step up after a quiet spell; a
+ * probe that cannot hold it is undone and the next one waits twice as long.
  */
 export class DynamicResolution {
   stepIndex = 0;
   private emaMs: number;
   private cooldown: number;
+  /** Frames in a row at the refresh rate (interval-only mode). */
+  private calm = 0;
+  /** Calm frames needed before a probe step up; doubles after each failed probe. */
+  private probeWait: number;
+  /** Frames left in which a step down counts as a failed probe. */
+  private probing = 0;
 
   constructor(
     public steps: number[],
@@ -141,9 +154,12 @@ export class DynamicResolution {
     /** Frames to wait after a change before reconsidering. */
     public cooldownFrames = 90,
     public smoothing = 0.06,
+    /** Calm frames before the first probe step up in interval-only mode. */
+    public probeFrames = 240,
   ) {
     this.emaMs = targetMs * 0.8;
     this.cooldown = cooldownFrames * 2; // let shader compilation hitches pass first
+    this.probeWait = probeFrames;
   }
 
   get scale(): number { return this.steps[this.stepIndex] ?? 1; }
@@ -154,23 +170,36 @@ export class DynamicResolution {
     this.stepIndex = 0;
     this.cooldown = this.cooldownFrames;
     this.emaMs = this.targetMs * 0.8;
+    this.calm = 0;
+    this.probing = 0;
+    this.probeWait = this.probeFrames;
   }
 
-  /** Feed one frame time (ms). Returns true when the scale changed. */
-  update(frameMs: number): boolean {
+  /**
+   * Feed one frame time (ms): the GPU time when measured, else the frame interval (`intervalOnly`).
+   * Returns true when the scale changed.
+   */
+  update(frameMs: number, intervalOnly = false): boolean {
     if (!Number.isFinite(frameMs) || frameMs <= 0) return false;
     // Ignore hitches (tab switch, GC) so a single spike does not drop resolution.
     const clamped = Math.min(frameMs, this.targetMs * 3);
     this.emaMs += (clamped - this.emaMs) * this.smoothing;
+    if (this.probing > 0) this.probing--;
+    this.calm = intervalOnly && this.emaMs < this.targetMs * 1.06 ? this.calm + 1 : 0;
     if (this.cooldown > 0) { this.cooldown--; return false; }
     if (this.emaMs > this.targetMs * 1.12 && this.stepIndex < this.steps.length - 1) {
       this.stepIndex++;
       this.cooldown = this.cooldownFrames;
+      if (this.probing > 0) { this.probeWait = Math.min(this.probeWait * 2, this.probeFrames * 16); this.probing = 0; }
+      this.calm = 0;
       return true;
     }
-    if (this.emaMs < this.targetMs * 0.72 && this.stepIndex > 0) {
+    if (this.stepIndex > 0 && (this.emaMs < this.targetMs * 0.72 || this.calm >= this.probeWait)) {
+      const probe = this.emaMs >= this.targetMs * 0.72;
       this.stepIndex--;
       this.cooldown = this.cooldownFrames * 2;
+      this.probing = probe ? this.cooldownFrames * 4 : 0;
+      this.calm = 0;
       return true;
     }
     return false;

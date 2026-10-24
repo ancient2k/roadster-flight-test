@@ -4,6 +4,7 @@ import * as THREE from 'three/webgpu';
 import { texture, uv, float, max, smoothstep, length, positionWorld, cameraPosition, mix } from 'three/tsl';
 import type { LandmarkDef } from './terrainData';
 import { partRegions, type PropPlacement, type PropPose } from '../../shared/props';
+import { fenceMaterial, isFenceMaterial } from './fence';
 
 export interface LoadedLandmark { def: LandmarkDef; object: THREE.Object3D }
 
@@ -78,6 +79,8 @@ export async function loadLandmarks(dir: string, defs: LandmarkDef[], heightAt: 
         m.material = Array.isArray(m.material) ? m.material.map(plain) : plain(m.material);
         m.material = Array.isArray(m.material) ? m.material.map(foilAA) : foilAA(m.material);
         for (const mt of Array.isArray(m.material) ? m.material : [m.material]) groundBias(mt);
+        // wire fences: shaded panels (fence.ts); a panel would cast a solid shadow
+        if (!Array.isArray(m.material) && isFenceMaterial(m.material)) { m.material = fenceMaterial(m.material); m.castShadow = false; }
       });
       if (def.ground) dropPavedGeometry(obj);
       group.add(obj);

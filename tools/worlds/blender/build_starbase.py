@@ -224,7 +224,9 @@ def launch_mount(q,mount):
 
 
 def build_site(features):
-    C.reset();mats=C.materials();root=C.empty('Starbase');q=C.Mesh();counts={}
+    C.reset();mats=C.materials();root=C.empty('Starbase');q=C.Mesh();qf=C.Mesh();counts={}
+    fence=bpy.data.materials.new('Fence');fence.use_nodes=True
+    fp=fence.node_tree.nodes.get('Principled BSDF');fp.inputs['Base Color'].default_value=(.55,.55,.53,1);fp.inputs['Metallic'].default_value=.6;fp.inputs['Roughness'].default_value=.5
     for f in features:
         t=f['tags'];p=points(f);x,y=center(p);kind=None;h=float(t.get('height',4))
         if t.get('man_made')=='tower' or 'building:part' in t:continue
@@ -258,12 +260,15 @@ def build_site(features):
             if h<12:q.box((x,y,h+.4),(1.4,1.2,.8),2)
         elif 'barrier' in t:
             kind='barrier';height=float(t.get('height',2.5 if t['barrier']=='fence' else 3))
+            s=0.
             for a,b in zip(f['eastNorthM'],f['eastNorthM'][1:]):
                 if t['barrier']=='fence':
-                    for z in [.25,1.3,height]:q.beam((*a,z),(*b,z),.045,2)
+                    # one vertical panel per segment, uv in metres (u along the fence, v = height): posts and rails
+                    # are drawn by the runtime shader (src/render/worlds/fence.ts). As 4.5 cm rails and 9 cm posts
+                    # they were sub-pixel beyond ~30 m and shimmered into dashes while driving.
                     length=math.dist(a,b)
-                    for i in range(math.ceil(length/3)+1):
-                        u=min(1,i*3/max(length,.001));px=a[0]+(b[0]-a[0])*u;py=a[1]+(b[1]-a[1])*u;q.beam((px,py,0),(px,py,height),.09,2)
+                    qf.face([(*a,0),(*b,0),(*b,height),(*a,height)],0,[(s,0),(s+length,0),(s+length,height),(s,height)])
+                    s+=length
                 else:q.beam((*a,height/2),(*b,height/2),.3,3,height)
         elif t.get('man_made')=='pipeline':
             kind='pipeline'
@@ -283,7 +288,7 @@ def build_site(features):
     for x,y in [(-145,50),(-40,-70),(75,80),(210,65),(300,-130),(285,-35),(50,-130)]:
         q.cylinder((x,y,0),.18,20,0,16);q.beam((x-2,y,20),(x+2,y,20),.16,0)
         for dx in [-1.6,0,1.6]:q.box((x+dx,y,20),(1,.6,.35),1)
-    q.object('SiteStructures',mats,root);root['osmAttribution']='© OpenStreetMap contributors, ODbL 1.0';root['featureCounts']=json.dumps(counts)
+    q.object('SiteStructures',mats,root);qf.object('Fences',[fence],root);root['osmAttribution']='© OpenStreetMap contributors, ODbL 1.0';root['featureCounts']=json.dumps(counts)
     C.export('starbase');return counts
 
 if __name__=='__main__':

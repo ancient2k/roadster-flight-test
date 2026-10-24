@@ -682,8 +682,8 @@ export class GameRenderer {
       this.stats.frameMs = ema(this.stats.frameMs, frame, 0.08);
       this.stats.fps = 1000 / Math.max(this.stats.frameMs, 0.001);
       if (!this.fixedRes) {
-        const budgetMs = this.stats.gpuMs ?? frame;
-        if (this.dynRes.update(budgetMs)) this.applyPixelRatio();
+        const gpu = this.stats.gpuMs;
+        if (this.dynRes.update(gpu ?? frame, gpu == null)) this.applyPixelRatio();
       }
     }
     this.lastFrameT = t0;

@@ -88,9 +88,12 @@ export class CarRig {
         const key = ledKey(m.name) ?? ledKey(o.name) ?? ledKey(o.parent?.name ?? '');
         if (!key) return m;
         seen.add(key);
-        return this.ledMaterial(key, m);
+        // the plate lamps share the head lamps' LED_Front material: lit like head lamps (18) they were two
+        // blinking white dots on the tail; they only light the plate
+        return this.ledMaterial(key === 'LED_Front' && /light_plate/i.test(`${o.name} ${o.parent?.name ?? ''}`) ? 'LED_Plate' : key, m);
       });
       mesh.material = Array.isArray(mesh.material) ? out : out[0];
+      widenThinLamp(mesh);
     });
     for (const k of ['LED_Front', 'LED_Tail', 'LED_Brake']) if (!seen.has(k)) missing.push(k);
     this.info.missing = missing;
@@ -104,9 +107,9 @@ export class CarRig {
     // the mirrored half of the head lamps is exported with flipped winding; LEDs are thin emitters, so both sides render
     m.side = THREE.DoubleSide;
     const base = (src as THREE.MeshBasicMaterial).color?.clone() ?? new THREE.Color(1, 1, 1);
-    const tint = key === 'LED_Front' ? new THREE.Color(1, 1, 1) : new THREE.Color(1, 0.04, 0.02);
+    const tint = key === 'LED_Front' || key === 'LED_Plate' ? new THREE.Color(1, 1, 1) : new THREE.Color(1, 0.04, 0.02);
     void base;
-    const u = key === 'LED_Front' ? this.uFront : key === 'LED_Tail' ? this.uTail : this.uBrake;
+    const u = key === 'LED_Front' ? this.uFront : key === 'LED_Plate' ? PLATE_LAMP : key === 'LED_Tail' ? this.uTail : this.uBrake;
     m.colorNode = tslColor(tint).mul(u).add(vec3(0.015, 0.005, 0.005));
     return m;
   }
@@ -228,6 +231,39 @@ export function replaceTransmission(m: THREE.Material): void {
     pm.depthWrite = true;
     pm.needsUpdate = true;
   }
+}
+
+/**
+ * Minimum lit height (m) of the thin rear lamps. In the model the tail-light bar is 2.3 cm tall, the brake
+ * bar above it 8 mm and the plate lamps 9 mm: from the chase camera 1–2 px or less, so TRAA could not hold
+ * them and the bright HDR lines broke into flickering dashes while driving. Widened along the body's up
+ * axis (tail bar downwards over the black trim, brake bar upwards, plate lamps about their centre).
+ */
+/** Plate lamp intensity (a soft glow at the plate, not a head lamp). */
+const PLATE_LAMP = uniform(1.5);
+
+const LAMP_MIN_HEIGHT: Record<string, { h: number; anchor: 'top' | 'bottom' | 'centre' }> = {
+  light_tail: { h: 0.04, anchor: 'top' },
+  light_brake: { h: 0.016, anchor: 'bottom' },
+  light_plate: { h: 0.018, anchor: 'centre' },
+};
+
+function widenThinLamp(mesh: THREE.Mesh): void {
+  const name = `${mesh.name} ${mesh.parent?.name ?? ''}`.toLowerCase();
+  const spec = Object.entries(LAMP_MIN_HEIGHT).find(([k]) => name.includes(k))?.[1];
+  if (!spec || !mesh.geometry.attributes.position) return;
+  const g = mesh.geometry.clone();
+  g.computeBoundingBox();
+  const bb = g.boundingBox!;
+  // positions may be quantised (meshopt): attribute units × node scale = metres
+  const h = (bb.max.y - bb.min.y) * Math.abs(mesh.scale.y);
+  if (!(h > 0) || h >= spec.h) return;
+  const pivot = spec.anchor === 'top' ? bb.max.y : spec.anchor === 'bottom' ? bb.min.y : (bb.min.y + bb.max.y) / 2;
+  const k = spec.h / h, pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, pivot + (pos.getY(i) - pivot) * k);
+  pos.needsUpdate = true;
+  g.computeBoundingBox(); g.computeBoundingSphere();
+  mesh.geometry = g;
 }
 
 function ledKey(name: string): string | null {

@@ -57,6 +57,14 @@
   blink of thin lights is judged per pixel (share of frames below half the pixel's maximum).
 - Not changed: the ground-cloud volume is simulated at 24 Hz in a worker and swapped as a whole, so it
   moves in steps at 60 fps; dynamic-resolution steps restart the TRAA history (one soft frame).
+- Flicker while driving (Oct 2026): without GPU timestamps dynamic resolution only sees the frame interval,
+  pinned to the refresh rate; it could step down but never back up (stuck at 70 % on "high" after one heavy
+  stretch). In that mode a scene holding the refresh rate now probes the next step up after a quiet spell
+  (`DynamicResolution`, failed probes back off ×2). Thin bright car lamps are widened at load (`widenThinLamp`:
+  tail bar 4 cm, brake bar 1.6 cm, plate lamps 1.8 cm and dimmed), the Starbase wire fences are panels with a
+  box-filtered post/rail shader (`worlds/fence.ts`) instead of sub-pixel beams. The motion vectors were
+  checked against the projected motion of the car mesh and are correct. Capture aid:
+  `tests/perf/_flicker.mjs` (consecutive frames via the CDP screencast).
 
 ## Effects
 

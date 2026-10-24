@@ -250,3 +250,10 @@ water-cooled steel table of mount A lies flush with the ground (top at +4 cm). R
 model with `build_site()` (towers unchanged), then `node tools/compress-assets.mjs
 public/assets/worlds/earth_bocachica/starbase.glb`. The towers' box colliders cover only the fixed
 structure (`fixedBoxTris` in `src/render/worlds/index.ts`), not the catch and QD arms.
+
+## Fences (Oct 2026)
+
+OSM wire fences are exported as one vertical panel per segment (`Fences`, material `Fence`, uv in metres:
+u along the fence, v = height; glTF flips v). Posts (every 3 m, 9 cm) and rails (0.25 m, 1.3 m, top at
+2.5 m, 4.5 cm) are drawn by `src/render/worlds/fence.ts`, box-filtered over the pixel footprint: as beams
+they were sub-pixel beyond ~30 m and flickered. The panels collide like the old rails did and cast no shadow.

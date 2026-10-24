@@ -213,6 +213,36 @@ describe('quality and dynamic resolution', () => {
     for (let i = 0; i < 400; i++) dr.update(9);
     expect(dr.scale).toBeGreaterThan(low);
   });
+
+  it('recovers at a vsync-pinned frame interval, backs off after a failed probe', () => {
+    const vsync = 1000 / 60;
+    const dr = new DynamicResolution([1, 0.85, 0.7], vsync, 10, 0.06, 120);
+    for (let i = 0; i < 200; i++) dr.update(26, true); // heavy stretch (shader compilation)
+    expect(dr.scale).toBe(0.7);
+    // back at the refresh rate: the interval never gets below 16.7 ms, the scale still climbs back
+    let n = 0;
+    while (dr.scale < 1 && n < 2000) { dr.update(vsync, true); n++; }
+    expect(dr.scale).toBe(1);
+    // a scene that cannot hold full resolution: the probe fails, the next one waits longer
+    for (let i = 0; i < 200; i++) dr.update(22, true);
+    const low = dr.scale;
+    expect(low).toBeLessThan(1);
+    const probes: number[] = [];
+    let last = dr.scale;
+    for (let i = 0; i < 6000; i++) {
+      // full resolution costs 22 ms, the reduced one holds the refresh rate
+      dr.update(dr.scale === 1 ? 22 : vsync, true);
+      if (dr.scale > last) probes.push(i);
+      last = dr.scale;
+    }
+    expect(probes.length).toBeGreaterThanOrEqual(2);
+    expect(probes[2] - probes[1]).toBeGreaterThan(probes[1] - probes[0]);
+    // with GPU timings a frame at the refresh interval is not "calm" (no probing)
+    const gpu = new DynamicResolution([1, 0.85, 0.7], vsync, 10, 0.06, 120);
+    for (let i = 0; i < 200; i++) gpu.update(26);
+    for (let i = 0; i < 3000; i++) gpu.update(vsync);
+    expect(gpu.scale).toBe(0.7);
+  });
 });
 
 describe('eye adaptation', () => {
