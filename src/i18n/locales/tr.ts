@@ -477,6 +477,8 @@ export const tr: Messages = {
   'damage.off': 'Kapalı',
   'damage.realistic': 'Tam',
   'damage.visual': 'Görsel',
+  'damage.auto': 'Otomatik',
+  'damage.autoNote': 'Otomatik, grafik ön ayarını izler: Ultra görsel hasar gösterir, diğerleri hiç; Tam yalnızca seçilerek. Şu an (grafik {quality}): {mode}.',
   'damage.settingNote': 'Kapalı: gövdeye sert bir darbe eskisi gibi çarpışma sayılır. Görsel: darbeler gövdeyi göçertir ve parçaları koparır (kanat, kapılar, tamponlar, difüzör, nozul kapakları, iç kısım görünene kadar gövde panelleri), ama araç hasarsızmış gibi sürülür. Tam: hasar araca da etki eder (kopmuş tekerlek veya kanat, eğrilmiş direksiyon, daha az itki ve hava kaçağıyla ezilmiş nozullar, yırtılmış fan etekleri, sızdıran hava tankları) ve ağır bir kaza aracı yok eder: onarmak için sıfırlayın. Bir sonraki başlangıçtan itibaren geçerli.',
   'handling.setting': 'Sürüş fiziği',
   'handling.fun': 'Eğlence',

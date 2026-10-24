@@ -13,7 +13,7 @@ import { Emitter, h, svg } from '../dom';
 import { LOCALE_CODES, LOCALE_NAMES, applyLanguageSetting, fmtDate, fmtNum, fmtPct, getLocale, matchLocale, onLocaleChange, t, type LanguageSetting, type MsgKey } from '../../i18n';
 import { loadFonts } from '../fonts';
 import { ASSIST_DESC, ASSIST_LABEL, REFERENCE_LABEL, STUNTS, reasonText, stuntInfo } from '../labels';
-import type { Settings, SettingsStore } from '../settings';
+import { damageForSettings, type Settings, type SettingsStore } from '../settings';
 import type { Units } from '../units';
 import { gyroFailText, switchGyro } from '../gyroSwitch';
 import { SERIES, SPEED_SERIES, bestOffset, grade, refSeries, seriesToPlot, simSeries } from '../results/chartMath';
@@ -452,7 +452,8 @@ export class Menu extends Emitter<MenuEvents> {
           h('h3', { class: 'rft-subhead', text: t('settings.group.nextStart') }),
           this.segRow(t('settings.assistDefault'), (['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((a) => [a, ASSIST_LABEL[a]] as [string, string]), s.assistDefault, (v) => upd((d) => { d.assistDefault = v as AssistLevel; }, 'assistDefault'),
             t('settings.assistStartNote', { key: assistKey })),
-          this.segRow(t('damage.setting'), [['off', t('damage.off')], ['visual', t('damage.visual')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'), t('damage.settingNote')),
+          this.segRow(t('damage.setting'), [['auto', t('damage.auto')], ['off', t('damage.off')], ['visual', t('damage.visual')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'),
+            `${t('damage.autoNote', { quality: t(`quality.${s.graphics.quality}`), mode: t(`damage.${damageForSettings(s)}`) })} ${t('damage.settingNote')}`),
           this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
         );
         break;

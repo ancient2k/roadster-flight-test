@@ -477,6 +477,8 @@ export const it: Messages = {
   'damage.off': 'Disattivati',
   'damage.realistic': 'Completo',
   'damage.visual': 'Visivo',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto segue il preset grafico: Ultra mostra i danni visivi, gli altri nessuno; Completo solo se scelto. Ora (grafica {quality}): {mode}.',
   'damage.settingNote': 'Spento: un urto violento della carrozzeria conta come collisione, come prima. Visivo: gli urti ammaccano la carrozzeria e strappano via parti (alettone, portiere, paraurti, diffusore, coperture degli ugelli, pannelli della carrozzeria fino all’interno), ma l’auto guida come intatta. Completo: il danno agisce anche sull’auto (ruota o alettone strappati, sterzo storto, ugelli schiacciati con meno spinta e perdita d’aria, minigonne delle ventole strappate, serbatoi d’aria che perdono) e un incidente grave la distrugge: reimposta per ripararla. Vale dal prossimo avvio.',
   'handling.setting': 'Fisica di guida',
   'handling.fun': 'Divertimento',

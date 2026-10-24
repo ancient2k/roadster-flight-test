@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SETTINGS_KEY, SettingsStore, defaultSettings, sanitizeSettings, type KeyValueStorage } from '../../src/ui/settings';
+import { SETTINGS_KEY, SettingsStore, damageForSettings, defaultSettings, sanitizeSettings, type KeyValueStorage, type Settings } from '../../src/ui/settings';
 
 class MemStore implements KeyValueStorage {
   m = new Map<string, string>();
@@ -56,5 +56,30 @@ describe('settings persistence', () => {
     off();
     st.update((d) => { d.units = 'imperial'; }, 'units');
     expect(seen).toEqual(['units']);
+  });
+});
+
+describe('vehicle damage follows the graphics preset unless chosen', () => {
+  const withQ = (q: Settings['graphics']['quality'], damage: Settings['realism']['damage']): Settings => {
+    const s = defaultSettings(); s.graphics.quality = q; s.realism.damage = damage; return s;
+  };
+  it('default is auto: Ultra → visual, every other preset → off; never Full', () => {
+    expect(defaultSettings().realism.damage).toBe('auto');
+    expect(damageForSettings(withQ('ultra', 'auto'))).toBe('visual');
+    for (const q of ['low', 'medium', 'high'] as const) expect(damageForSettings(withQ(q, 'auto'))).toBe('off');
+  });
+  it('an explicit choice wins over the preset', () => {
+    expect(damageForSettings(withQ('ultra', 'off'))).toBe('off');
+    expect(damageForSettings(withQ('low', 'visual'))).toBe('visual');
+    expect(damageForSettings(withQ('medium', 'realistic'))).toBe('realistic');
+    expect(damageForSettings(withQ('ultra', 'realistic'))).toBe('realistic');
+  });
+  it('migration: the stored default "off" of version 1 becomes auto, chosen levels stay, version 2 keeps "off"', () => {
+    expect(sanitizeSettings({ version: 1, realism: { damage: 'off' } }).realism.damage).toBe('auto');
+    expect(sanitizeSettings({ version: 1, realism: { damage: 'visual' } }).realism.damage).toBe('visual');
+    expect(sanitizeSettings({ version: 1, realism: { damage: 'realistic' } }).realism.damage).toBe('realistic');
+    expect(sanitizeSettings({ version: 2, realism: { damage: 'off' } }).realism.damage).toBe('off');
+    expect(sanitizeSettings({ version: 2, realism: { damage: 'bogus' } }).realism.damage).toBe('auto');
+    expect(sanitizeSettings({ version: 1 }).version).toBe(2);
   });
 });

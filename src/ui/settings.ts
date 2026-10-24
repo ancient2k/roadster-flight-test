@@ -9,9 +9,13 @@ import { HANDLING_MODES, type HandlingMode } from '../shared/handling';
 
 export type GraphicsQuality = 'low' | 'medium' | 'high' | 'ultra';
 export type RefillRate = 'realistic' | 'game';
+/** Vehicle damage setting: a level, or 'auto' = follows the graphics preset (damageForSettings). */
+export type DamageSetting = 'auto' | DamageMode;
+export const DAMAGE_SETTINGS: readonly DamageSetting[] = ['auto', ...DAMAGE_MODES];
 
 export interface Settings {
-  version: 1;
+  /** 2: realism.damage gained 'auto' (the stored 'off' of version 1 was the untouched default → 'auto'). */
+  version: 2;
   graphics: { quality: GraphicsQuality; dynamicResolution: boolean; motionBlur: boolean };
   units: Units;
   /** UI language; 'auto' follows navigator.languages (?lang= overrides both). */
@@ -23,8 +27,9 @@ export interface Settings {
     sensorNoise: boolean;     // GNC sees noisy state estimate
     valveDelays: boolean;     // model valve opening/closing delay + min on-time
     wind: boolean;            // gusts over the pad
-    /** Vehicle damage: 'off' = a hard body impact is a collision (previous behaviour), 'realistic' = damage model. */
-    damage: DamageMode;
+    /** Vehicle damage: 'off' = a hard body impact is a collision (previous behaviour), 'visual' = dents and parts
+     *  flying (cosmetic), 'realistic' = damage model; 'auto' (default) = follows the graphics preset. */
+    damage: DamageSetting;
     /** Driving physics in free play: 'fun' (default) adds game helpers on crashes, 'realistic' is the plain model. */
     handling: HandlingMode;
   };
@@ -41,13 +46,13 @@ export const SETTINGS_KEY = 'rft.settings.v1';
 
 export function defaultSettings(): Settings {
   return {
-    version: 1,
+    version: 2,
     graphics: { quality: 'high', dynamicResolution: true, motionBlur: true },
     units: 'imperial',
     language: 'auto',
     audio: { master: 0.8, effects: 1, crowd: 0.7, muted: false },
     refillRate: 'game',
-    realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, damage: 'off', handling: 'fun' },
+    realism: { infiniteAir: false, sensorNoise: false, valveDelays: true, wind: false, damage: 'auto', handling: 'fun' },
     assistDefault: 'ASSIST',
     controls: { invertPitch: false, mouseAttitude: false, mouseSensitivity: 1, stickDeadzone: 0.15, triggerDeadzone: 0.05, gyro: false, gyroSensitivity: 1 },
     hud: { visible: true, scale: 1, showExtras: true },
@@ -96,7 +101,7 @@ const ENUMS: Record<string, readonly string[]> = {
   language: ['auto', ...LOCALE_CODES],
   refillRate: ['realistic', 'game'],
   assistDefault: ['ASSIST', 'STABILIZED', 'RAW'],
-  'realism.damage': DAMAGE_MODES,
+  'realism.damage': DAMAGE_SETTINGS,
   'realism.handling': HANDLING_MODES,
 };
 
@@ -109,12 +114,25 @@ const RANGES: Array<[string[], number, number]> = [
 /** Validate arbitrary (parsed) data into a complete Settings object. */
 export function sanitizeSettings(raw: unknown): Settings {
   const s = mergeTyped(defaultSettings() as unknown as Plain, raw, '', ENUMS) as unknown as Settings;
-  s.version = 1;
+  // version 1 had no 'auto' and stored the default 'off' with every other change: treat it as not chosen
+  if (isObj(raw) && raw.version !== 2 && s.realism.damage === 'off') s.realism.damage = 'auto';
+  s.version = 2;
   for (const [[a, b], lo, hi] of RANGES) {
     const o = (s as unknown as Record<string, Record<string, number>>)[a];
     o[b] = Math.min(hi, Math.max(lo, o[b]));
   }
   return s;
+}
+
+/**
+ * The damage level a run uses. 'auto' follows the graphics preset: the highest one ("Ultra") shows the cosmetic
+ * damage ('visual': dents, parts and body panels flying, the interior), the others none. 'realistic' ("Full")
+ * changes how the car drives and is never set by a preset, only by an explicit choice.
+ */
+export function damageForSettings(s: Readonly<Settings>): DamageMode {
+  const d = s.realism.damage;
+  if (d !== 'auto') return d;
+  return s.graphics.quality === 'ultra' ? 'visual' : 'off';
 }
 
 type Listener = (s: Readonly<Settings>, changed: string) => void;

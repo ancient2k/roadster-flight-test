@@ -477,6 +477,8 @@ export const es: Messages = {
   'damage.off': 'Desactivados',
   'damage.realistic': 'Completo',
   'damage.visual': 'Solo visual',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto sigue el ajuste gráfico: Ultra muestra daños visuales, los demás ninguno; Completo solo eligiéndolo. Ahora (gráficos {quality}): {mode}.',
   'damage.settingNote': 'Desactivado: un golpe fuerte de la carrocería cuenta como colisión, como antes. Visual: los impactos abollan la carrocería y arrancan piezas (alerón, puertas, parachoques, difusor, cubiertas de toberas, paneles de carrocería hasta dejar ver el interior), pero el coche se conduce como intacto. Completo: el daño además afecta al coche (rueda o alerón arrancados, dirección torcida, toberas aplastadas con menos empuje y fuga de aire, faldones de ventiladores rotos, depósitos de aire con fugas) y un choque grave lo destruye: reinicia para repararlo. Se aplica desde el próximo inicio.',
   'handling.setting': 'Física de conducción',
   'handling.fun': 'Diversión',

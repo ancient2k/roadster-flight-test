@@ -477,6 +477,8 @@ export const nl: Messages = {
   'damage.off': 'Uit',
   'damage.realistic': 'Volledig',
   'damage.visual': 'Visueel',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto volgt de grafische voorinstelling: Ultra toont visuele schade, de andere geen; Volledig alleen door zelf te kiezen. Nu (grafisch {quality}): {mode}.',
   'damage.settingNote': 'Uit: een harde klap op de carrosserie telt zoals voorheen als botsing. Visueel: inslagen deuken de carrosserie en rukken onderdelen los (vleugel, deuren, bumpers, diffusor, mondstukkappen, carrosseriepanelen tot op het binnenwerk), maar de auto rijdt alsof hij heel is. Volledig: de schade werkt ook op de auto (losgerukt wiel of vleugel, verbogen stuurinrichting, geplette mondstukken met minder stuwkracht en een luchtlek, gescheurde ventilatorrokken, lekkende luchttanks) en een zware crash vernielt hem: reset om te repareren. Geldt vanaf de volgende start.',
   'handling.setting': 'Rijfysica',
   'handling.fun': 'Plezier',

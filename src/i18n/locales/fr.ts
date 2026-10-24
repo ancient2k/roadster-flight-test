@@ -477,6 +477,8 @@ export const fr: Messages = {
   'damage.off': 'Désactivés',
   'damage.realistic': 'Complet',
   'damage.visual': 'Visuel',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto suit le préréglage graphique : Ultra affiche les dégâts visuels, les autres aucun ; Complet uniquement par choix. Actuellement (graphismes {quality}) : {mode}.',
   'damage.settingNote': 'Désactivé : un choc violent de la carrosserie compte comme une collision, comme avant. Visuel : les impacts cabossent la carrosserie et arrachent des pièces (aileron, portes, pare-chocs, diffuseur, caches de tuyères, panneaux de carrosserie jusqu’à l’intérieur), mais la voiture roule comme intacte. Complet : les dégâts agissent aussi sur la voiture (roue ou aileron arraché, direction faussée, tuyères écrasées avec moins de poussée et une fuite d’air, jupes de ventilateurs déchirées, réservoirs d’air qui fuient), et un choc grave la détruit : réinitialiser pour réparer. S’applique au prochain démarrage.',
   'handling.setting': 'Physique de conduite',
   'handling.fun': 'Ludique',

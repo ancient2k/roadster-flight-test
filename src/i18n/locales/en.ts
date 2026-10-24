@@ -497,6 +497,8 @@ export const en = {
   'damage.off': 'Off',
   'damage.realistic': 'Full',
   'damage.visual': 'Visual',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto follows the graphics preset: Ultra shows visual damage, the other presets none; Full only by choice. Now (graphics {quality}): {mode}.',
   'damage.settingNote': 'Off: a hard body impact counts as a collision, as before. Visual: impacts dent the body and tear off parts (wing, doors, bumpers, diffuser, nozzle covers, body panels down to the interior), but the car drives as if intact. Full: the damage also acts on the car (torn-off wheel or wing, bent steering, crushed nozzles with less thrust and an air leak, torn fan skirts, leaking air tanks), and a heavy crash destroys it: reset to repair. Applies from the next start.',
   'handling.setting': 'Driving physics',
   'handling.fun': 'Fun',

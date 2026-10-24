@@ -477,6 +477,8 @@ export const de: Messages = {
   'damage.off': 'Aus',
   'damage.realistic': 'Voll',
   'damage.visual': 'Optisch',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto folgt der Grafikstufe: Ultra zeigt optischen Schaden, die anderen Stufen keinen; Voll nur per Auswahl. Jetzt (Grafik {quality}): {mode}.',
   'damage.settingNote': 'Aus: Ein harter Karosserietreffer zählt wie bisher als Kollision. Optisch: Aufpralle verbeulen die Karosserie und reißen Teile ab (Flügel, Türen, Stoßfänger, Diffusor, Düsenabdeckungen, Karosserieteile bis zum Innenleben), das Auto fährt aber wie unbeschädigt. Voll: Der Schaden wirkt zusätzlich aufs Fahrzeug (abgerissenes Rad oder Flügel, verzogene Lenkung, gequetschte Düsen mit weniger Schub und Luftleck, aufgerissene Lüfterschürzen, leckende Drucklufttanks), und ein schwerer Unfall zerstört es: Zurücksetzen repariert. Gilt ab dem nächsten Start.',
   'handling.setting': 'Fahrphysik',
   'handling.fun': 'Spielspaß',

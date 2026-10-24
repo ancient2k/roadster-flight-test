@@ -477,6 +477,8 @@ export const ptBR: Messages = {
   'damage.off': 'Desligados',
   'damage.realistic': 'Completo',
   'damage.visual': 'Só visual',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto segue a predefinição gráfica: Ultra mostra danos visuais, as outras nenhum; Completo só por escolha. Agora (gráficos {quality}): {mode}.',
   'damage.settingNote': 'Desligado: uma batida forte da carroceria conta como colisão, como antes. Visual: os impactos amassam a carroceria e arrancam peças (aerofólio, portas, para-choques, difusor, tampas dos bocais, painéis da carroceria até o interior), mas o carro anda como se estivesse intacto. Completo: o dano também age sobre o carro (roda ou aerofólio arrancados, direção torta, bocais esmagados com menos empuxo e vazamento de ar, saias dos ventiladores rasgadas, tanques de ar vazando) e uma batida grave o destrói: reinicie para consertar. Vale a partir do próximo início.',
   'handling.setting': 'Física de direção',
   'handling.fun': 'Diversão',

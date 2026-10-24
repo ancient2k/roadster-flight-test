@@ -477,6 +477,8 @@ export const pl: Messages = {
   'damage.off': 'Wyłączone',
   'damage.realistic': 'Pełne',
   'damage.visual': 'Wizualne',
+  'damage.auto': 'Auto',
+  'damage.autoNote': 'Auto podąża za ustawieniem grafiki: Ultra pokazuje uszkodzenia wizualne, pozostałe żadne; Pełne tylko z wyboru. Teraz (grafika {quality}): {mode}.',
   'damage.settingNote': 'Wył.: mocne uderzenie nadwoziem liczy się jak dotąd jako kolizja. Wizualne: uderzenia wgniatają nadwozie i odrywają części (skrzydło, drzwi, zderzaki, dyfuzor, osłony dysz, panele nadwozia aż do wnętrza), ale auto jeździ jak nieuszkodzone. Pełne: uszkodzenia wpływają też na auto (oderwane koło lub skrzydło, skrzywiony układ kierowniczy, zgniecione dysze z mniejszym ciągiem i wyciekiem powietrza, rozdarte fartuchy wentylatorów, nieszczelne zbiorniki powietrza), a ciężki wypadek je niszczy: zresetuj, aby naprawić. Obowiązuje od następnego startu.',
   'handling.setting': 'Fizyka jazdy',
   'handling.fun': 'Zabawa',

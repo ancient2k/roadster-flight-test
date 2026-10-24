@@ -29,6 +29,16 @@ test('crash with damage on: dented nose, parts fly, total loss → reset', async
   await expect(seg.locator('[data-v="realistic"]')).toHaveAttribute('aria-checked', 'true');
   await expect(seg.locator('[data-v="realistic"]')).toHaveText('Full');
   await expect(seg.locator('[data-v="visual"]')).toHaveText('Visual');
+  await expect(seg.locator('[data-v="auto"]')).toHaveText('Auto');
+  // Auto follows the graphics preset: Ultra → Visual, the others → Off (the note says what applies now)
+  await seg.locator('[data-v="auto"]').click();
+  const autoMode = await page.evaluate(() => {
+    const a = (window as any).__rft.app, q = a.settings.get().graphics.quality;
+    return { q, setting: a.settings.get().realism.damage };
+  });
+  expect(autoMode.setting).toBe('auto');
+  await expect(page.locator('.rft-segs[data-label="Vehicle damage"]').locator('xpath=ancestor::*[contains(@class,"rft-row")][1]')).toContainText(autoMode.q === 'ultra' ? 'Visual.' : 'Off.');
+  await page.locator('.rft-segs[data-label="Vehicle damage"] [data-v="realistic"]').click();
   await page.evaluate(() => (window as any).__rft.app.menu.hide());
 
   // 11 m/s (40 km/h) head-on into the Semi (box face at x = −48.3), car heading +X
