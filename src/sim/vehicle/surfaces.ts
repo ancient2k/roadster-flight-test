@@ -164,9 +164,11 @@ export function surfaceAt(kind: string | undefined, siteSurface: SurfaceKind): S
 /** surfaceAt plus the sim's hard-ground zones (bedrock around the pyramids) at world point p. */
 export function surfaceAtPoint(
   kind: string | undefined,
-  sim: { surface: SurfaceKind; hardGround: { minX: number; maxX: number; minZ: number; maxZ: number }[] },
+  sim: { surface: SurfaceKind; hardGround: { minX: number; maxX: number; minZ: number; maxZ: number }[]; paved?: ((x: number, z: number) => boolean) | null },
   x: number, z: number,
 ): SurfaceKind {
   if (kind === 'ground' && sim.hardGround.some((a) => x >= a.minX && x <= a.maxX && z >= a.minZ && z <= a.maxZ)) return 'concrete';
+  // roads painted onto the field (level editor): asphalt, not the sand below
+  if (kind === 'ground' && sim.paved?.(x, z)) return 'asphalt';
   return surfaceAt(kind, sim.surface);
 }

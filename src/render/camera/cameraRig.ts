@@ -4,9 +4,14 @@ import * as THREE from 'three/webgpu';
 import type { VehicleState } from '../../shared/types';
 import { qrot } from '../../shared/math';
 import {
-  BroadcastDirector, BROADCAST_SHOTS, chaseLook, chaseOffset, chaseYaw, clampAboveGround, dampAngle, smoothDamp3, spring3,
+  BroadcastDirector, BROADCAST_SHOTS, chaseLook, chaseOffset, chaseYaw, clampAboveGround, dampAngle, limitLag, smoothDamp3, spring3,
   type BroadcastShot, type Spring3,
 } from '../cameraMath';
+
+/** Driver's eye in the body frame (m; +X = left, the driver's side). */
+export const COCKPIT_EYE = { x: 0.38, y: 0.5, z: -0.4 };
+/** Longest the chase camera may trail its spring target (m); the soft follow stays below that at normal speeds. */
+const CHASE_MAX_LAG_M = 10;
 
 export type CameraMode = 'chase' | 'orbit' | 'cockpit' | 'top' | 'broadcast' | 'photo';
 export const CAMERA_MODES: CameraMode[] = ['chase', 'orbit', 'cockpit', 'top', 'broadcast', 'photo'];
@@ -159,7 +164,9 @@ export class CameraRig {
         this.wall += (onWall - this.wall) * (1 - Math.exp(-dt * (onWall > this.wall ? 3 : 0.9)));
         if (this.chasePos === null) this.wall = onWall;
         const target = { x: car.x, y: car.y + 0.6 * (1 - this.air), z: car.z };
-        const dRaw = chaseOffset(target, this.yaw, s.speedMs, undefined, this.air);
+        // height above the ground for the low airborne camera (no ground below: space, the sim reports NO_GROUND_M)
+        const hag = s.heightAboveGroundM < 1e4 ? Math.max(0, s.heightAboveGroundM) : 0;
+        const dRaw = chaseOffset(target, this.yaw, s.speedMs, undefined, this.air, hag);
         const look = chaseLook(target, s.linVel, this.air);
         if (this.wall > 0.001) {
           const w = this.wall;
@@ -170,8 +177,10 @@ export class CameraRig {
         }
         const desired = clampAboveGround(dRaw, 0.6, this.groundAt(dRaw.x, dRaw.z));
         if (!this.chasePos || !this.lookPos) { this.chasePos = spring3(desired); this.lookPos = spring3(look); }
-        const p = smoothDamp3(this.chasePos, desired, 0.22 + 0.25 * this.air, dt);
-        const l = smoothDamp3(this.lookPos, look, 0.06 + 0.12 * this.air, dt);
+        smoothDamp3(this.chasePos, desired, 0.22 + 0.25 * this.air, dt);
+        smoothDamp3(this.lookPos, look, 0.06 + 0.12 * this.air, dt);
+        const p = limitLag(this.chasePos, desired, CHASE_MAX_LAG_M);
+        const l = limitLag(this.lookPos, look, CHASE_MAX_LAG_M / 2);
         const lv = new THREE.Vector3(l.x, l.y, l.z);
         const pv = this.applyLook(lv, new THREE.Vector3(p.x, p.y, p.z), s.speedMs, dt);
         const pos = this.avoidCollision(lv, clampAboveGround(pv, 0.4, this.groundAt(pv.x, pv.z)) as THREE.Vector3, this.wall > 0.3 ? up : null);
@@ -200,10 +209,12 @@ export class CameraRig {
       }
       case 'cockpit': {
         const q = new THREE.Quaternion(s.quat.x, s.quat.y, s.quat.z, s.quat.w);
-        const eye = new THREE.Vector3(0, 0.33, -0.3).applyQuaternion(q).add(car);
+        // driver's eye on the left seat behind the yoke (model: yoke at x 0.38, y 0.23; roof at y 0.64): the old eye
+        // in the middle at 0.33 m looked into the console and the dashboard, nothing of the road
+        const eye = new THREE.Vector3(COCKPIT_EYE.x, COCKPIT_EYE.y, COCKPIT_EYE.z).applyQuaternion(q).add(car);
         cam.position.copy(eye);
         cam.up.set(0, 1, 0).applyQuaternion(q);
-        cam.lookAt(new THREE.Vector3(0, 0.2, 10).applyQuaternion(q).add(car));
+        cam.lookAt(new THREE.Vector3(COCKPIT_EYE.x, COCKPIT_EYE.y - 0.45, 10).applyQuaternion(q).add(car));
         fov = 72;
         this.focusDistance = 20;
         break;

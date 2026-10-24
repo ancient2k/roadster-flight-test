@@ -16,7 +16,7 @@ describe('terrain heightfield', () => {
     const h = decodeHeightmap(u16.buffer, meta);
     expect(sampleHeight(h, meta, 0, 0)).toBeCloseTo(0, 6);
     const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
-    const info = buildTerrainColliders(RAPIER, world, h, meta.size, meta.extentM);
+    const info = buildTerrainColliders(RAPIER, world, h, meta.size, meta.extentM).info;
     expect(info.size).toBeGreaterThan(1); // tiled
     world.step();
     for (const [x, z] of [[0, 0], [123.4, -321.9], [-480, 470], [399.7, 1.3], [-0.5, 255.9]]) {
@@ -27,6 +27,37 @@ describe('terrain heightfield', () => {
       // heightfield cells are two triangles; bilinear differs slightly inside a cell
       expect(Math.abs(y - sampleHeight(h, meta, x, z))).toBeLessThan(0.35);
     }
+    world.free();
+  });
+
+  it('far from the spawn the full-resolution tiles follow the car (the coarse ones lay metres under the rugged ground)', async () => {
+    await initRapier();
+    const meta: TerrainMeta = { size: 1201, extentM: 4800, minM: 0, maxM: 60, source: 'synthetic' };
+    const u16 = new Uint16Array(meta.size * meta.size);
+    for (let r = 0; r < meta.size; r++) for (let c = 0; c < meta.size; c++) {
+      // rugged: a ripple of ≈ 10 m wavelength, which the coarse grid (every 4th sample = 16 m) cannot follow
+      u16[r * meta.size + c] = Math.round(65535 * (0.5 + 0.12 * Math.sin(c * 1.7) * Math.cos(r * 1.3)));
+    }
+    const h = decodeHeightmap(u16.buffer, meta);
+    const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+    const tc = buildTerrainColliders(RAPIER, world, h, meta.size, meta.extentM);
+    const err = (x: number, z: number) => {
+      world.step();
+      let worst = 0;
+      for (const [dx, dz] of [[0, 0], [5.3, -7.1], [-9.9, 3.3], [13.7, 12.1]]) {
+        const hit = world.castRay(new RAPIER.Ray({ x: x + dx, y: 500, z: z + dz }, { x: 0, y: -1, z: 0 }), 2000, true)!;
+        worst = Math.max(worst, Math.abs(500 - hit.timeOfImpact - sampleHeight(h, meta, x + dx, z + dz)));
+      }
+      return worst;
+    };
+    const far = [1900, -1700] as const;
+    expect(err(...far)).toBeGreaterThan(3);         // coarse out there (measured 6.6 m)
+    let n = 0;
+    while (tc.update(...far) && n < 100) n++;
+    expect(n).toBeGreaterThan(0);
+    // rebuilt at full resolution; the rest is the two-triangle cell against bilinear sampling on this steep ripple
+    expect(err(...far)).toBeLessThan(1);
+    expect(err(0, 0)).toBeLessThan(1);              // the pinned spawn square stays fine
     world.free();
   });
 });

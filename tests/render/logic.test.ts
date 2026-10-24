@@ -345,3 +345,21 @@ describe('ramp geometry source', () => {
     expect(top.thetaRad / DEG).toBeGreaterThan(160);
   });
 });
+
+import { pickQuality } from '../../src/render/quality';
+describe('first-start quality benchmark', () => {
+  it('desktop: upgrades only with measured GPU headroom, downgrades on long frames or a scaled-down resolution', () => {
+    expect(pickQuality('desktop', { frameMs: 16.7, gpuMs: 4, resolutionScale: 1 })).toBe('ultra');
+    expect(pickQuality('desktop', { frameMs: 16.7, gpuMs: null, resolutionScale: 1 })).toBe('high'); // WebGL2: no timestamps
+    expect(pickQuality('desktop', { frameMs: 16.7, gpuMs: 11, resolutionScale: 1 })).toBe('high');
+    expect(pickQuality('desktop', { frameMs: 22, gpuMs: 14, resolutionScale: 0.8 })).toBe('medium');
+    expect(pickQuality('desktop', { frameMs: 33, gpuMs: null, resolutionScale: 0.9 })).toBe('medium');
+    expect(pickQuality('desktop', { frameMs: 60, gpuMs: null, resolutionScale: 0.7 })).toBe('low');
+  });
+  it('phone: Medium (TRAA instead of FXAA) only when Low runs with room to spare', () => {
+    expect(pickQuality('mobile', { frameMs: 16.7, gpuMs: 5, resolutionScale: 1 })).toBe('medium');
+    expect(pickQuality('mobile', { frameMs: 16.7, gpuMs: null, resolutionScale: 1 })).toBe('medium');
+    expect(pickQuality('mobile', { frameMs: 25, gpuMs: null, resolutionScale: 1 })).toBe('low');
+    expect(pickQuality('mobile', { frameMs: 16.7, gpuMs: 5, resolutionScale: 0.85 })).toBe('low');
+  });
+});

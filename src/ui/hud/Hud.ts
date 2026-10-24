@@ -5,7 +5,7 @@ import type { AssistLevel, StuntId, TelemetryFrame, VehicleState } from '../../s
 import { ROADSTER } from '../../shared/roadster';
 import { DISPLAY_FONT, loadFonts } from '../fonts';
 import { AERO_LABEL, ASSIST_LABEL, FAN_LABEL, airWarning, phaseLabel, stuntInfo } from '../labels';
-import { getLocale, t, upper } from '../../i18n';
+import { getLocale, t, upper, type MsgKey } from '../../i18n';
 import * as U from '../units';
 import { ARC_SWEEP_DEG, LAYOUT, REF_H, SCALES, fillAngleRad, follow, fraction, hudScale } from './gaugeMath';
 import { CAR_FACES, HeadingTracker, SPHERE_CAMERA, paintMesh, removeYaw } from './carModel';
@@ -70,6 +70,8 @@ interface TouchLayout {
   y: number; xs: number[];
   /** Bottom of the top-right button bar, top of the right button block (CSS px). */
   topBarBottom: number; rightBlockTop: number;
+  /** Left edge of the top-right button bar (CSS px). */
+  topBarLeft: number;
 }
 
 /** Gauge extent around its centre in reference px (ring + label above, unit + end ticks below). */
@@ -108,8 +110,15 @@ export class Hud {
   private safe = { t: 0, r: 0, b: 0, l: 0 };
   private touchRoot: HTMLElement | null = null;
   private touchShown = false;
+  /** Right edge of the top-left text block (last frame). */
+  private leftBlockR = 0;
   private touch: TouchLayout | null = null;
   private boxes: HudBox[] = [];
+  private assistBtn: HTMLButtonElement | null = null;
+  private assistPop: HTMLDivElement | null = null;
+  private onAssistPick: ((level: AssistLevel) => void) | null = null;
+  private assistNow: AssistLevel | null = null;
+  private assistRect = '';
 
   constructor(private root: HTMLElement) {
     this.el = document.createElement('div');
@@ -139,6 +148,43 @@ export class Hud {
 
   private menuBtn: HTMLButtonElement | null = null;
   /** Menu button (pause menu with the settings) for mouse and keyboard; the touch overlay has its own ☰. */
+  /** Tap / click on the assist readout top left opens a picker with the three levels (manual sessions only). */
+  setAssistPicker(onPick: (level: AssistLevel) => void): void {
+    if (this.assistBtn) { this.onAssistPick = onPick; return; }
+    this.onAssistPick = onPick;
+    const b = this.assistBtn = document.createElement('button');
+    b.className = 'rft-hud-assist'; b.type = 'button'; b.tabIndex = -1; b.hidden = true;
+    b.setAttribute('aria-haspopup', 'true');
+    const pop = this.assistPop = document.createElement('div');
+    pop.className = 'rft-assist-pop'; pop.hidden = true; pop.setAttribute('role', 'menu');
+    b.addEventListener('click', (e) => { e.stopPropagation(); this.toggleAssistPop(!pop.hidden ? false : true); });
+    // any tap elsewhere closes it
+    document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target as Node) && e.target !== b) this.toggleAssistPop(false); }, true);
+    this.el.append(b);
+    this.root.append(pop); // above the touch overlay (z 40), which would otherwise catch the taps on the options
+  }
+
+  private toggleAssistPop(open: boolean): void {
+    const pop = this.assistPop!;
+    if (open) {
+      pop.replaceChildren(...(['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((lvl) => {
+        const o = document.createElement('button');
+        o.type = 'button'; o.setAttribute('role', 'menuitemradio'); o.setAttribute('aria-checked', String(lvl === this.assistNow));
+        o.className = 'rft-assist-opt' + (lvl === this.assistNow ? ' on' : '');
+        o.style.setProperty('--c', ASSIST_COLOR[lvl]);
+        const n = document.createElement('span'); n.className = 'n'; n.textContent = upper(ASSIST_LABEL[lvl]);
+        const d = document.createElement('span'); d.className = 'd'; d.textContent = t(`assist.${lvl}.desc` as MsgKey);
+        o.append(n, d);
+        o.addEventListener('click', (e) => { e.stopPropagation(); this.onAssistPick?.(lvl); this.toggleAssistPop(false); });
+        return o;
+      }));
+      const r = this.assistBtn!.getBoundingClientRect(), host = this.el.getBoundingClientRect();
+      pop.style.left = `${r.left - host.left}px`; pop.style.top = `${r.bottom - host.top + 6}px`;
+    }
+    pop.hidden = !open;
+    this.assistBtn!.setAttribute('aria-expanded', String(open));
+  }
+
   setMenuButton(label: string, onClick: () => void): void {
     if (!this.menuBtn) {
       this.menuBtn = document.createElement('button');
@@ -316,6 +362,7 @@ export class Hud {
         this.touch = {
           y, xs: Array.from({ length: n }, (_, i) => x0 + i * step),
           topBarBottom: bar ? bar.bottom - host.top : 0, rightBlockTop: block ? block.top - host.top : H,
+          topBarLeft: bar ? bar.left - host.left : W,
         };
         return;
       }
@@ -387,8 +434,8 @@ export class Hud {
 
     if (timer !== null) this.drawTimer(timer, tl ? y - GAUGE_UP * s - 8 : undefined);
     const aw = airWarning(tel.phase);
-    const below = ctx.extras !== false ? this.drawExtras(tel, state, ctx, aw !== null) : 0;
-    if (aw) this.drawAirWarning(aw, this.touchShown ? below + 10 : undefined);
+    if (ctx.extras !== false) this.drawExtras(tel, state, ctx, aw !== null);
+    if (aw) this.drawAirWarning(aw);
   }
 
   /** Soft dark backing behind each group (the stream keys its HUD over a subtle vignette). Pre-rendered on resize. */
@@ -549,13 +596,19 @@ export class Hud {
   private pulse(): number { return 0.5 + 0.5 * Math.sin((performance.now() / 1000) * Math.PI * 2 * 1.6); }
 
   /** Low-air warning from ManualAssist (phase ids LOW_AIR / AUTOLAND): top centre, pulsing red. */
-  /** minTop: touch layout, below the readouts (they share the top of a phone screen). */
-  private drawAirWarning(kind: 'low' | 'autoland', minTop?: number): void {
-    const c = this.ctx, s = minTop !== undefined ? TOUCH_TEXT_SCALE : Math.max(0.7, this.s), p = this.pulse();
+  /** Touch layout: smaller, at the very top between the left block and the button bar, so the picture stays clear. */
+  private drawAirWarning(kind: 'low' | 'autoland'): void {
+    const touch = this.touchShown;
+    const c = this.ctx, s = touch ? 0.68 : Math.max(0.7, this.s), p = this.pulse();
     const title = upper(t(kind === 'autoland' ? 'hud.autoland' : 'hud.lowAir'));
     const sub = upper(t(kind === 'autoland' ? 'hud.autolandSub' : 'hud.lowAirSub'));
-    const cx = this.cssW / 2, top = Math.max(74 * s + this.safe.t, minTop ?? 0), hgt = 66 * s;
-    const w = Math.min(380 * s, this.cssW - 2 * (16 + Math.max(this.safe.l, this.safe.r)));
+    let cx = this.cssW / 2, w = Math.min(380 * s, this.cssW - 2 * (16 + Math.max(this.safe.l, this.safe.r)));
+    if (touch) {
+      const x0 = this.leftBlockR + 12, x1 = (this.touch?.topBarLeft ?? this.cssW - this.safe.r) - 12;
+      w = Math.max(160, Math.min(w, x1 - x0));
+      cx = Math.min(Math.max(cx, x0 + w / 2), x1 - w / 2);
+    }
+    const top = touch ? this.safe.t + 8 : 74 * s + this.safe.t, hgt = 66 * s;
     this.box('air-warning', cx - w / 2, top, w, hgt);
     c.save();
     c.globalAlpha = 0.72 + 0.28 * p;
@@ -571,6 +624,22 @@ export class Hud {
     this.text1(title, cx, top + 33 * s, 27 * s, 800, '#ffffff', 3 * s, w - 24 * s);
     this.text1(sub, cx, top + 53 * s, 11 * s, 600, 'rgb(255,190,184)', 1.4 * s, w - 20 * s);
     c.restore();
+  }
+
+  /** Keeps the (invisible) assist tap target over the drawn assist lines. */
+  private placeAssistButton(level: AssistLevel | null, x0: number, y0: number, x1: number, y1: number): void {
+    const b = this.assistBtn;
+    if (!b) return;
+    this.assistNow = level;
+    const show = level !== null && !Number.isNaN(y0);
+    if (b.hidden === show) { b.hidden = !show; if (!show && this.assistPop) this.toggleAssistPop(false); }
+    if (!show) return;
+    const pad = 8, key = `${x0 | 0},${y0 | 0},${x1 | 0},${y1 | 0}`;
+    if (key !== this.assistRect) {
+      this.assistRect = key;
+      Object.assign(b.style, { left: `${x0 - pad}px`, top: `${y0 - pad}px`, width: `${x1 - x0 + 2 * pad}px`, height: `${y1 - y0 + 2 * pad}px` });
+    }
+    b.setAttribute('aria-label', `${t('hud.assist')}: ${ASSIST_LABEL[level!]}`);
   }
 
   /** Returns the lowest y of the drawn groups (the touch layout puts the air warning below). */
@@ -594,14 +663,19 @@ export class Hud {
       lines.push([t('hud.assist'), 20, 11, 600, COLORS.label, 1.2]);
       lines.push([upper(ASSIST_LABEL[ctx.assist]), 22, 19, 800, ASSIST_COLOR[ctx.assist], 1.2]);
     }
-    let leftR = padL;
-    for (const [str, dy, px, weight, col, sp] of lines) {
+    let leftR = padL, assistTop = NaN, assistR = padL;
+    const assistFrom = ctx.mode === 'manual' && ctx.assist ? lines.length - 2 : lines.length;
+    lines.forEach(([str, dy, px, weight, col, sp], i) => {
       yy += dy * s;
       this.text1(str, padL, yy, px * s, weight, col, sp * s, leftW);
-      leftR = Math.max(leftR, padL + this.textW(str, px * s, weight, sp * s, leftW));
-    }
+      const w = this.textW(str, px * s, weight, sp * s, leftW);
+      leftR = Math.max(leftR, padL + w);
+      if (i >= assistFrom) { if (Number.isNaN(assistTop)) assistTop = yy - px * s; assistR = Math.max(assistR, padL + w); }
+    });
+    this.placeAssistButton(ctx.mode === 'manual' ? ctx.assist ?? null : null, padL, assistTop, assistR, yy + 4 * s);
     const leftBottom = yy + 4 * s;
     this.box('top-left', padL, padT, leftR - padL, leftBottom - padT);
+    this.leftBlockR = leftR;
 
     // ---- top-right: systems
     c.textAlign = 'right';

@@ -44,6 +44,7 @@ export const ru: Messages = {
   'menu.help': 'Справка и управление',
   'menu.helpSub': 'Назначение клавиш и описание HUD',
   'menu.disclaimer': 'Неофициальный фан-проект · не связан с Tesla, Inc. и SpaceX',
+  'menu.source': 'Исходный код на GitHub',
   'menu.hintKeys': '↑↓ выбор · Enter подтвердить · Esc назад',
 
   'stunts.title': 'Выбор трюка',
@@ -418,6 +419,7 @@ export const ru: Messages = {
   'update.ready': 'Доступна новая версия',
   'update.reload': 'Перезагрузить',
   'update.later': 'Позже',
+  'flash.autoQuality': 'Графика для этого устройства: {quality} · изменить в Настройки → Графика',
   'settings.group.live': 'Действует сразу – и во время езды',
   'settings.group.nextStart': 'Действует со следующего старта или перезапуска',
   'settings.assistStartNote': 'Каждый заезд начинается с этого уровня. Во время езды переключай клавишей {key}.',

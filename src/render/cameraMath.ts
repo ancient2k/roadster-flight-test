@@ -34,6 +34,20 @@ export function smoothDamp3(s: Spring3, target: Vec3, smoothTime: number, dt: nu
   return s.value;
 }
 
+/**
+ * Keep a damped value within maxM of its target. The chase camera lags speed × smoothing time behind: at the hundreds
+ * of m/s of the Sun dive that was hundreds of metres, the car shrank to a speck and the depth range fell apart.
+ */
+export function limitLag(s: Spring3, target: Vec3, maxM: number): Vec3 {
+  const dx = s.value.x - target.x, dy = s.value.y - target.y, dz = s.value.z - target.z;
+  const d = Math.hypot(dx, dy, dz);
+  if (d > maxM) {
+    const k = maxM / d;
+    s.value.x = target.x + dx * k; s.value.y = target.y + dy * k; s.value.z = target.z + dz * k;
+  }
+  return s.value;
+}
+
 /** Shortest signed angle difference a-b in radians, in (-pi, pi]. */
 export function angleDelta(a: number, b: number): number {
   let d = (a - b) % (2 * Math.PI);
@@ -63,15 +77,23 @@ export function chaseYaw(bodyFwd: Vec3, linVel: Vec3, minSpeed = 3): number | nu
   return null;
 }
 
+/** Height above ground (m) up to which the airborne chase camera drops below the car; higher it stays at that offset. */
+export const CHASE_LOW_MAX_H_M = 40;
+/** Longest look-ahead of the airborne chase camera (m). */
+export const CHASE_MAX_LEAD_M = 12;
+
 /** Desired chase-camera position for a given yaw. Distance grows with speed. */
-export function chaseOffset(target: Vec3, yaw: number, speedMs: number, out: Vec3 = { x: 0, y: 0, z: 0 }, air = 0): Vec3 {
+export function chaseOffset(target: Vec3, yaw: number, speedMs: number, out: Vec3 = { x: 0, y: 0, z: 0 }, air = 0, heightM = Math.max(0, target.y)): Vec3 {
   // ground: close behind and above. Airborne (air → 1): pull back, drop towards a broadcast-like
   // low camera and slide to the side so the trajectory reads (stream shot t_963).
   const groundDist = 7.2 + clamp(speedMs * 0.06, 0, 4.5);
   const dist = groundDist + (19 - groundDist) * air;
   const side = 11 * air;
   const groundH = target.y + 2.1 + clamp(speedMs * 0.012, 0, 1.0);
-  const airH = 2.2 + Math.max(0, target.y) * 0.45;
+  // airborne: low, at 45 % of the height above the ground (broadcast look) – relative to the car, and only up to
+  // CHASE_LOW_MAX_H_M of height: the absolute "0.45 × y" put the camera hundreds of metres off a car high above the
+  // origin (space, high terrain) or below the terrain
+  const airH = target.y + 2.2 - 0.55 * clamp(heightM, 0, CHASE_LOW_MAX_H_M);
   out.x = target.x - Math.sin(yaw) * dist - Math.cos(yaw) * side;
   out.z = target.z - Math.cos(yaw) * dist + Math.sin(yaw) * side;
   out.y = groundH + (airH - groundH) * air;
@@ -80,7 +102,9 @@ export function chaseOffset(target: Vec3, yaw: number, speedMs: number, out: Vec
 
 /** Look-at point: in flight slightly ahead of the car so it sits in the trailing third of the frame. */
 export function chaseLook(target: Vec3, vel: Vec3, air: number, out: Vec3 = { x: 0, y: 0, z: 0 }): Vec3 {
-  const lead = 0.25 * air;
+  // (lead capped at CHASE_MAX_LEAD_M: at the speeds of a long flight in space the look point ran far ahead of the car)
+  const sp = Math.hypot(vel.x, vel.y, vel.z);
+  const lead = 0.25 * air * Math.min(1, CHASE_MAX_LEAD_M / Math.max(1e-6, 0.25 * sp));
   out.x = target.x + vel.x * lead;
   out.y = target.y + vel.y * lead * 0.3;
   out.z = target.z + vel.z * lead;

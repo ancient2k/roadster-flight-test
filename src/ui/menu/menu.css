@@ -67,6 +67,9 @@
 }
 .rft-mainbtn:focus-visible::before { content: ""; position: absolute; left: -2px; top: 0; bottom: 0; width: 2px; box-shadow: 0 0 12px 1px var(--rft-red); }
 .rft-footer { display: flex; justify-content: space-between; gap: 2em; color: #777; font-size: .78em; flex-wrap: wrap; }
+.rft-version { color: #555; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.rft-footer-link { color: #aaa; text-decoration: underline; text-underline-offset: .2em; }
+.rft-footer-link:hover, .rft-footer-link:focus-visible { color: #fff; }
 
 /* ---------------------------------------------------------------- pages */
 .rft-page { position: relative; max-width: 120em; margin: 0 auto; padding: 5.5vh 5vw 5vh; }
@@ -168,8 +171,26 @@
 @keyframes rft-blink { 50% { box-shadow: 0 0 0 3px var(--rft-red), 0 0 18px var(--rft-red-glow); } }
 
 /* pause */
-.rft-pause { position: absolute; left: 0; top: 0; bottom: 0; width: min(30em, 92vw); padding: 12vh 4vw; background: linear-gradient(90deg, rgba(0,0,0,.85), rgba(0,0,0,.6) 80%, transparent); }
-.rft-pause-quick { margin-top: 1.6em; max-width: 24em; }
+.rft-pause { position: absolute; left: 0; top: 0; bottom: 0; width: min(30em, 92vw); padding: 12vh 4vw; overflow-y: auto; background: linear-gradient(90deg, rgba(0,0,0,.88), rgba(0,0,0,.72) 80%, rgba(0,0,0,.35)); }
+/* quick settings: a card of its own, label above the control, segments share the width (no wrapping into a stack) */
+.rft-pause-quick { margin-top: 1.8em; max-width: 24em; padding: .2em 1.1em .6em; border: 1px solid rgba(255,255,255,.12); border-left: 2px solid var(--rft-red); border-radius: 0 .5em .5em 0; background: rgba(255,255,255,.035); }
+.rft-pause-quick .rft-subhead { margin: 1em 0 .4em; }
+.rft-pause-quick .rft-note { margin: 0 0 .4em; font-size: .82em; color: var(--rft-dim); }
+.rft-pause-quick .rft-row { padding: .7em 0; gap: 1em; }
+.rft-pause-quick .rft-row:last-child { border-bottom: 0; }
+.rft-pause-quick .rft-row:has(.rft-segs) { flex-direction: column; align-items: stretch; gap: .55em; }
+.rft-pause-quick .rft-segs { display: flex; flex-wrap: nowrap; }
+.rft-pause-quick .rft-seg { flex: 1 1 0; padding: .6em .5em; white-space: nowrap; text-align: center; }
+/* phone landscape: the menu left, the quick card right, everything on one screen */
+@media (max-height: 500px) {
+  .rft-pause { width: min(58em, 100vw); padding: max(4vh, var(--rft-sa-t, 0px)) 4vw 3vh max(4vw, var(--rft-sa-l, 0px));
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 4vw; align-content: start;
+    background: linear-gradient(90deg, rgba(0,0,0,.9), rgba(0,0,0,.8) 75%, rgba(0,0,0,.45)); }
+  .rft-pause-title { grid-column: 1 / -1; margin-bottom: .8em; font-size: 1.8em; }
+  .rft-pause .rft-list { gap: .2em; }
+  .rft-pause .rft-listbtn { padding: .6em 1em; }
+  .rft-pause-quick { margin-top: 0; align-self: start; }
+}
 .rft-pause-title { margin: 0 0 1.4em; font: 800 2.6em/1 var(--rft-display); letter-spacing: .3em; text-transform: uppercase; }
 .rft-list { display: flex; flex-direction: column; gap: .5em; }
 .rft-listbtn { text-align: left; background: transparent; border: 0; border-left: 2px solid rgba(255,255,255,.2); padding: .9em 1.2em; font-size: 1.05em !important; }

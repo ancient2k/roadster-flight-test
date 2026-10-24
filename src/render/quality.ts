@@ -88,6 +88,24 @@ export function defaultQualityFor(profile: DeviceProfile): QualityLevel {
   return profile === 'mobile' ? 'low' : 'high';
 }
 
+/** Frame measurements of the first-start benchmark (medians over a few seconds of the title scene). */
+export interface BenchSample { frameMs: number; gpuMs: number | null; resolutionScale: number }
+
+/**
+ * First start without a stored choice: the preset from a short measurement at the device default (desktop High,
+ * phone Low). Frame time alone hides headroom behind vsync, so the GPU time (WebGPU timestamps) decides upgrades;
+ * dynamic resolution already scaling down, or long frames, decide downgrades.
+ */
+export function pickQuality(profile: DeviceProfile, m: BenchSample): QualityLevel {
+  if (profile === 'mobile') {
+    return m.resolutionScale >= 0.99 && m.frameMs < 20 && (m.gpuMs === null || m.gpuMs < 8) ? 'medium' : 'low';
+  }
+  if (m.frameMs > 45 || m.resolutionScale < 0.65) return 'low';
+  if (m.frameMs > 28 || m.resolutionScale < 0.85) return 'medium';
+  if (m.gpuMs !== null && m.gpuMs < 6 && m.resolutionScale >= 0.99 && m.frameMs < 18) return 'ultra';
+  return 'high';
+}
+
 /** Budgets that apply on phones/tablets on top of any preset (GPU memory, fill rate, thermal limits). */
 export const MOBILE_CAPS = {
   maxPixelRatio: 1, shadowMapSize: 1024, particleBudget: 1500, crowdCount: 300, starCount: 1000,

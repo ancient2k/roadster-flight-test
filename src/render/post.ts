@@ -3,12 +3,13 @@
 import * as THREE from 'three/webgpu';
 import {
   pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, velocity, metalness, roughness, vec2, vec4,
-  uniform, float, mix, screenUV, sample, renderOutput, hash, screenCoordinate, max, luminance, clamp, int, smoothstep,
+  uniform, float, mix, screenUV, sample, renderOutput, hash, screenCoordinate, max, min, luminance, clamp, int, smoothstep,
   convertToTexture, Fn, Loop, vec3,
 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { ssr } from 'three/addons/tsl/display/SSRNode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
 import type { QualitySettings } from './quality';
@@ -29,6 +30,8 @@ export function transparentMRT(withMask: boolean) {
   return m;
 }
 
+/** Longest motion-blur streak (screen UV, 0.06 = 6 % of the width). */
+const MB_MAX_UV = 0.06;
 let frameSeedRef: UFloat | null = null;
 /** Advance the film-grain seed (call once per frame). */
 export function advanceGrain(): void { if (frameSeedRef) frameSeedRef.value = (frameSeedRef.value + 1) % 4096; }
@@ -189,13 +192,17 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
   // frame, ×0.5 is its UV length. 0.25 = a 180° shutter (was 0.5 = 360°: a launching car turned
   // see-through over a quarter of its length, unlike the crisp car in the stream's 0-60 shots)
   const motionAmount = uniform(0.25);
+  const frameSeed = uniform(0);   // per-frame noise seed (grain, motion blur jitter)
   let mb: AnyNode = aa;
   if (postEnabled && q.motionBlur) {
     const velTex = scenePass.getTextureNode('velocity');
     // (the velocity buffer holds NDC motion, y up; screen UV runs y down – without the flip the gather ran along
     // the mirrored direction for any vertical motion, and diagonal streaks of bright lamps fell apart into copies)
     const ndcToUv = vec2(1, -1);
-    const vel = velTex.sample(screenUV).xy.mul(ndcToUv).mul(motionAmount).mul(float(1).sub(fresh));
+    // capped streak length: a fast move far from the camera (broadcast shots, the Sun dive) asked for streaks across
+    // half the screen, which the few taps drew as a row of separate copies of the car and its jets
+    const velRaw = velTex.sample(screenUV).xy.mul(ndcToUv).mul(motionAmount).mul(float(1).sub(fresh));
+    const vel = velRaw.mul(min(float(1), float(MB_MAX_UV).div(velRaw.length().add(1e-6))));
     type Tex = { sample(uvn: unknown): { rgb: AnyNode } };
     const src = (traaNode ? texOf(traaNode) : color) as unknown as Tex;
     // motion blur only where pixels actually move; CA is re-applied by mixing the AA result back.
@@ -207,9 +214,12 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
     const blurred = Fn(() => {
       const tol = vel.length().mul(0.35).add(0.0004);
       const acc = vec3(0).toVar(), wsum = float(0).toVar();
+      // per-pixel, per-frame jitter of the tap positions: the remaining banding becomes noise that TRAA averages out
+      const jit = hash(screenCoordinate.xy.add(frameSeed.mul(vec2(13.7, 29.1))).dot(vec2(1, 571)));
       Loop({ start: int(0), end: int(n), type: 'int', condition: '<' } as never, (({ i }: { i: AnyNode }) => {
-        const uvi = screenUV.add(vel.mul(float(i).add(0.5).div(n).sub(0.5)));
-        const vi = velTex.sample(uvi).xy.mul(ndcToUv).mul(motionAmount);
+        const uvi = screenUV.add(vel.mul(float(i).add(jit).div(n).sub(0.5)));
+        const vr = velTex.sample(uvi).xy.mul(ndcToUv).mul(motionAmount);
+        const vi = vr.mul(min(float(1), float(MB_MAX_UV).div(vr.length().add(1e-6))));
         const w = float(1).sub(vi.sub(vel).length().div(tol)).clamp(0, 1);
         acc.addAssign(src.sample(uvi).rgb.mul(w) as never);
         wsum.addAssign(w);
@@ -237,7 +247,6 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
 
   const focusDistance = uniform(8);
   const grainAmount = uniform(0.006);
-  const frameSeed = uniform(0);
   pipeline.renderer.info; // keep reference
   frameSeedRef = frameSeed;
   const normalOut = out;
@@ -250,8 +259,11 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
   };
   const finish = (hdr: AnyNode): AnyNode => {
     // tone map (AgX) explicitly, then the display-referred camera look: vignette + film grain
-    const ldr = renderOutput(hdr as never) as unknown as { rgb: AnyNode };
+    let ldr = renderOutput(hdr as never) as unknown as { rgb: AnyNode };
     if (!postEnabled) return ldr as unknown as AnyNode;
+    // without TRAA (Low, the phone default) the edges stair-stepped across the whole scene: FXAA on the tone-mapped
+    // image (one cheap full-screen pass; it needs display-referred colour, so after AgX)
+    if (!q.traa) ldr = fxaa(ldr as never) as unknown as { rgb: AnyNode };
     const d = screenUV.sub(0.5).mul(vec2(1.0, 0.75));
     // ≈ 0.3 EV darkening in the corners
     const vig = float(1).sub(d.dot(d).mul(0.55)).clamp(0, 1);
@@ -266,7 +278,7 @@ export function buildPost(renderer: THREE.WebGPURenderer, scene: THREE.Scene, ca
   pipeline.outputColorTransform = false;
   const finalNormal = finish(normalOut);
   pipeline.outputNode = finalNormal as never;
-  if (postEnabled) effects.push('AgX', 'Vignette', 'Grain');
+  if (postEnabled) effects.push(...(q.traa ? [] : ['FXAA']), 'AgX', 'Vignette', 'Grain');
 
   void max;
   let cutFrames = 0;

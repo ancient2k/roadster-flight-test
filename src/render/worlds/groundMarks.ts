@@ -289,7 +289,11 @@ export class GroundMarks {
   }
 
   /** Is the wheel on the bare loose ground (not on a landmark, a pyramid or a prop)? */
+  /** Roads painted onto the soil (level editor): no ruts there. */
+  paved: ((x: number, z: number) => boolean) | null = null;
+
   private onSoil(x: number, y: number, z: number): boolean {
+    if (this.paved?.(x, z)) return false;
     const h = this.o.height(x, z);
     return Number.isFinite(h) && y - h < 0.15;
   }

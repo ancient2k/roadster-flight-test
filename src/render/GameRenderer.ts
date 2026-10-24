@@ -329,7 +329,7 @@ export class GameRenderer {
     this.emitters.setEnvironment(env.ambientPressurePa, Math.abs(env.gravity.y) || 0, w && w.terrain ? (x, z) => w.surfaceAt(x, z) : null);
     // loose soil under wheels and jets (bare terrain only: not on landmarks, pyramids or props)
     this.emitters.setSoil(w && w.terrain ? worldSite.surface : null,
-      w && w.terrain ? (x, y, z) => { const h = w.heightAt(x, z); return Number.isFinite(h) && y - h < 0.15 && w.surfaceAt(x, z) - h < 0.05; } : null,
+      w && w.terrain ? (x, y, z) => { if (w.paved?.(x, z)) return false; const h = w.heightAt(x, z); return Number.isFinite(h) && y - h < 0.15 && w.surfaceAt(x, z) - h < 0.05; } : null,
       env.airDensity);
     this.emitters.onScour = w?.marks ? (x, z, r, dose) => w.marks!.scour(x, z, r, dose) : null;
     this.emitters.waterLevel = w?.waterLevelY ?? null;
@@ -838,11 +838,13 @@ export class GameRenderer {
   setCameraMode(mode: CameraMode): void {
     this.rig.setMode(mode);
     this.post.setPhotoMode(mode === 'photo');
+    this.car.setCockpitView(mode === 'cockpit');
   }
 
   cycleCamera(): CameraMode {
     const m = this.rig.cycle();
     this.post.setPhotoMode(m === 'photo');
+    this.car.setCockpitView(m === 'cockpit');
     return m;
   }
 

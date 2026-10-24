@@ -101,6 +101,8 @@ export interface WorldHandle {
   setPropPoses?(poses: readonly PropPose[]): void;
   /** tyre tracks and jet scour on loose ground (regolith, Martian soil, sand); absent elsewhere. */
   readonly marks?: GroundMarks;
+  /** Roads painted onto the loose ground (level editor): no dust, tracks or scour there. Set by the game. */
+  paved?: ((x: number, z: number) => boolean) | null;
   /** Spawn from the asset meta if present, else SiteDef.spawn. */
   readonly spawn: { x: number; y: number; z: number; headingDeg: number };
   /** Graded build field of the level editor (Boca Chica), null elsewhere. */

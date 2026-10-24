@@ -44,6 +44,7 @@ export const es: Messages = {
   'menu.help': 'Ayuda y controles',
   'menu.helpSub': 'Asignación de teclas y guía del HUD',
   'menu.disclaimer': 'Proyecto de fans no oficial · sin relación con Tesla, Inc. ni SpaceX',
+  'menu.source': 'Código fuente en GitHub',
   'menu.hintKeys': '↑↓ elegir · Intro confirmar · Esc atrás',
 
   'stunts.title': 'Elegir acrobacia',
@@ -418,6 +419,7 @@ export const es: Messages = {
   'update.ready': 'Nueva versión disponible',
   'update.reload': 'Recargar',
   'update.later': 'Más tarde',
+  'flash.autoQuality': 'Gráficos ajustados a {quality} para este dispositivo · cámbialo en Ajustes → Gráficos',
   'settings.group.live': 'Se aplica al instante, también conduciendo',
   'settings.group.nextStart': 'Se aplica desde el próximo inicio o reinicio',
   'settings.assistStartNote': 'Cada recorrido empieza en este nivel. Conduciendo, cambia con {key}.',

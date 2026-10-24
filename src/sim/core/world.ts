@@ -97,11 +97,11 @@ function addTerrainWindow(
   RAPIER: R, world: RAPIER_NS.World, fixed: RAPIER_NS.RigidBody, info: Map<number, WorldColliderInfo>,
   heights: Float32Array, size: number, extentM: number, stride: number,
   r0: number, r1: number, c0: number, c1: number, tag: string,
-): void {
+): RAPIER_NS.Collider | null {
   const g = groups(GROUP_WORLD, GROUP_CAR | GROUP_PROP);
   const baseCell = extentM / (size - 1);
   const nr = Math.floor((r1 - r0) / stride), nc = Math.floor((c1 - c0) / stride);
-  if (nr < 1 || nc < 1) return;
+  if (nr < 1 || nc < 1) return null;
   const verts = new Float32Array((nr + 1) * (nc + 1) * 3);
   for (let r = 0; r <= nr; r++) for (let c = 0; c <= nc; c++) {
     const rr = r0 + r * stride, cc = c0 + c * stride, k = (r * (nc + 1) + c) * 3;
@@ -122,6 +122,7 @@ function addTerrainWindow(
     fixed,
   );
   info.set(col.handle, { kind: 'ground', id: `terrain_${tag}_${r0}_${c0}` });
+  return col;
 }
 
 /**
@@ -140,14 +141,17 @@ export function buildTerrainColliders(
     /** Extra world rectangles that need the full resolution (pyramid talus must meet the exact ground). */
     fineAreas?: { minX: number; maxX: number; minZ: number; maxZ: number }[];
   } = {},
-): Map<number, WorldColliderInfo> {
+): TerrainColliders {
   const info = new Map<number, WorldColliderInfo>();
   const fixed = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+  const tiles: TerrainTile[] = [];
   const cell = extentM / (size - 1);
   const stride = Math.max(1, opts.coarseStride ?? (size > 1100 ? 4 : 1));
   const fineHalfM = opts.fineHalfM ?? 500;
-  // coarse tile in original sample units (multiple of the stride), ~500 m
-  const tileCells = opts.tileCells ?? Math.max(stride * 2, Math.round(500 / cell / stride) * stride);
+  // coarse tile in original sample units (multiple of the stride)
+  // (with a coarse level: ≈ 125 m tiles, so that rebuilding one at full resolution while driving costs a few ms, not
+  // the ≈ 70 ms of a 500 m tile – TerrainColliders.update)
+  const tileCells = opts.tileCells ?? Math.max(stride * 2, Math.round((stride > 1 ? 125 : 500) / cell / stride) * stride);
   const n = size - 1;
   // centre of the full-resolution square in sample units (default: map centre; worlds pass the spawn)
   const fc = opts.fineCenter;
@@ -160,14 +164,54 @@ export function buildTerrainColliders(
       const x0 = c0 * cell - extentM / 2, x1 = c1 * cell - extentM / 2, z0 = r0 * cell - extentM / 2, z1 = r1 * cell - extentM / 2;
       const inArea = (opts.fineAreas ?? []).some((a) => a.maxX > x0 && a.minX < x1 && a.maxZ > z0 && a.minZ < z1);
       const inFine = stride > 1 && (inArea || (fineCells > 0 && r0 >= centreR - fineCells && r1 <= centreR + fineCells && c0 >= centreC - fineCells && c1 <= centreC + fineCells));
-      if (inFine) {
-        addTerrainWindow(RAPIER, world, fixed, info, heights, size, extentM, 1, r0, r1, c0, c1, 'fine');
-      } else {
-        addTerrainWindow(RAPIER, world, fixed, info, heights, size, extentM, stride, r0, r1, c0, c1, 'coarse');
-      }
+      const col = addTerrainWindow(RAPIER, world, fixed, info, heights, size, extentM, inFine ? 1 : stride, r0, r1, c0, c1, inFine ? 'fine' : 'coarse');
+      tiles.push({ r0, r1, c0, c1, x0, x1, z0, z1, fine: inFine || stride === 1, pinned: inFine || stride === 1, col });
     }
   }
-  return info;
+  return new TerrainColliders(RAPIER, world, fixed, info, heights, size, extentM, stride, tiles);
+}
+
+interface TerrainTile {
+  r0: number; r1: number; c0: number; c1: number;
+  x0: number; x1: number; z0: number; z1: number;
+  /** full resolution now; pinned = built fine at the start (spawn square, fine areas), never coarsened again */
+  fine: boolean; pinned: boolean;
+  col: RAPIER_NS.Collider | null;
+}
+
+/** Distance (m) from the car within which coarse tiles are rebuilt at full resolution, and beyond which they go back. */
+export const TERRAIN_FINE_NEAR_M = 300, TERRAIN_FINE_FAR_M = 900;
+
+/**
+ * Terrain tiles with a full-resolution window that follows the car. Beyond the spawn square the tiles used to stay
+ * coarse (every 4th sample, ≈ 16 m on the large worlds): on rugged ground the physics surface lay metres below the
+ * rendered one and the car sank out of sight ("slid under the surface at the edge of the world"). Coarse tiles near
+ * the car are now rebuilt fine, at most one per call, and far ones go back to coarse (memory).
+ */
+export class TerrainColliders {
+  constructor(
+    private RAPIER: R, private world: RAPIER_NS.World, private fixed: RAPIER_NS.RigidBody,
+    readonly info: Map<number, WorldColliderInfo>, private heights: Float32Array, private size: number,
+    private extentM: number, private stride: number, readonly tiles: TerrainTile[],
+  ) {}
+
+  /** Swap at most one tile towards the wanted resolution around (x, z); returns true if one was rebuilt. */
+  update(x: number, z: number): boolean {
+    if (this.stride === 1) return false;
+    let best: TerrainTile | null = null, bestD = Infinity, wantFine = false;
+    for (const t of this.tiles) {
+      if (t.pinned) continue;
+      const dx = Math.max(t.x0 - x, 0, x - t.x1), dz = Math.max(t.z0 - z, 0, z - t.z1), d = Math.hypot(dx, dz);
+      if (!t.fine && d < TERRAIN_FINE_NEAR_M && d < bestD) { best = t; bestD = d; wantFine = true; }
+      else if (t.fine && d > TERRAIN_FINE_FAR_M && !wantFine && !best) { best = t; wantFine = false; }
+    }
+    if (!best) return false;
+    if (best.col) { this.info.delete(best.col.handle); this.world.removeCollider(best.col, false); }
+    best.col = addTerrainWindow(this.RAPIER, this.world, this.fixed, this.info, this.heights, this.size, this.extentM,
+      wantFine ? 1 : this.stride, best.r0, best.r1, best.c0, best.c1, wantFine ? 'fine' : 'coarse');
+    best.fine = wantFine;
+    return true;
+  }
 }
 
 /**

@@ -43,6 +43,8 @@ export interface LevelScene {
   readonly group: THREE.Group;
   /** Static colliders for createRoadsterSim({ landmarks }). */
   readonly shapes: LandmarkShape[];
+  /** World triangles of the roads and pads painted onto the field (no collider of their own: src/shared/paved.ts). */
+  readonly paved: Float32Array;
   dispose(): void;
 }
 
@@ -56,6 +58,7 @@ export function buildLevelScene(level: Level, area: LevelArea): LevelScene {
   group.name = 'Level';
   const byMat = new Map<MatKey, Float32Array[]>();
   const shapes: LandmarkShape[] = [];
+  const pavedParts: Float32Array[] = [];
   const push = (m: MatKey, t: Float32Array) => { let a = byMat.get(m); if (!a) byMat.set(m, a = []); a.push(t); };
   const toWorld = (t: Float32Array) => {
     for (let k = 0; k < t.length; k += 3) { t[k] += area.minX; t[k + 1] += area.y; t[k + 2] += area.minZ; }
@@ -70,7 +73,11 @@ export function buildLevelScene(level: Level, area: LevelArea): LevelScene {
       shapes.push({ id: `level_${n}_${p.type}`, kind: 'mesh', data: t, outward: true });
     }
     // paint lies 6 cm above the field: the coarse terrain LOD further away would otherwise cover it
-    for (const d of mesh.decals) push(d.mat, toWorld(placeTris(d.tris, def, p.i, p.j, p.rot, 0.06, area.tileM)));
+    for (const d of mesh.decals) {
+      const t = toWorld(placeTris(d.tris, def, p.i, p.j, p.rot, 0.06, area.tileM));
+      push(d.mat, t);
+      if (d.mat === 'asphalt' || d.mat === 'pad') pavedParts.push(t);
+    }
   });
   const geos: THREE.BufferGeometry[] = [];
   const mats: THREE.Material[] = [];
@@ -117,8 +124,11 @@ export function buildLevelScene(level: Level, area: LevelArea): LevelScene {
     group.add(im);
     geos.push(g); mats.push(mat);
   }
+  const paved = new Float32Array(pavedParts.reduce((s, a) => s + a.length, 0));
+  let po = 0;
+  for (const a of pavedParts) { paved.set(a, po); po += a.length; }
   return {
-    group, shapes,
+    group, shapes, paved,
     dispose: () => { geos.forEach((g) => g.dispose()); mats.forEach((m) => m.dispose()); },
   };
 }

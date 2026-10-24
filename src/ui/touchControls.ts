@@ -1,6 +1,7 @@
 // On-screen controls for phones and tablets. Writes InputManager.touch (per ControlId), so every
 // action of src/input/bindings.ts is reachable without a keyboard and rebinding is unaffected.
-// Layout (landscape): drive stick bottom left, attitude stick + lift/down/boost/roll bottom right,
+// Layout (landscape): drive stick bottom left with fans/compressor above it, attitude stick + lift/down/boost/roll/
+// handbrake bottom right,
 // menu/camera/reset top right with a tray for the remaining actions. Shown only on touch devices
 // and only while driving (InputManager context 'game'); menus are plain DOM buttons (tap = click).
 import type { InputManager } from '../input/InputManager';
@@ -23,9 +24,13 @@ const RIGHT_BUTTONS: ButtonSpec[] = [
   { id: 'liftDown', label: 'touch.down', cls: 'down' },
   { id: 'rollLeft', label: null, glyph: '⟲', cls: 'rollL' },
   { id: 'rollRight', label: null, glyph: '⟳', cls: 'rollR' },
-];
-const LEFT_BUTTONS: ButtonSpec[] = [
+  // the left thumb steers, so the handbrake sits with the right thumb (drifts: steer and pull it at once)
   { id: 'handbrake', label: 'touch.handbrake', cls: 'hb' },
+];
+/** Left, above the drive stick: the system toggles used most while driving (fans for grip, compressor). */
+const LEFT_BUTTONS: ButtonSpec[] = [
+  { id: 'fanModeCycle', label: 'hud.fans', cls: 'sys' },
+  { id: 'refillToggle', label: 'touch.refill', cls: 'sys' },
 ];
 const TOP_BUTTONS: ButtonSpec[] = [
   { id: 'cameraCycle', label: 'touch.camera' },
@@ -34,9 +39,7 @@ const TOP_BUTTONS: ButtonSpec[] = [
 ];
 const TRAY_BUTTONS: ButtonSpec[] = [
   { id: 'assistCycle', label: 'hud.assist' },
-  { id: 'fanModeCycle', label: 'hud.fans' },
   { id: 'aeroModeCycle', label: 'hud.aero' },
-  { id: 'refillToggle', label: 'touch.refill' },
   { id: 'reverseToggle', label: 'touch.reverse' },
   { id: 'launchMode', label: 'touch.launch' },
   { id: 'slowMo', label: 'touch.slowMo' },
@@ -75,7 +78,8 @@ export class TouchControls {
   private disposers: Array<() => void> = [];
 
   /** `settings`: enables the TILT quick switch (tilt steering, stored like the Settings -> Controls toggle). */
-  constructor(private host: HTMLElement, private input: InputManager, private opts: { force?: boolean; settings?: SettingsStore } = {}) {
+  /** `systems`: current fan / compressor state, lights the left toggles while on (null: no manual session). */
+  constructor(private host: HTMLElement, private input: InputManager, private opts: { force?: boolean; settings?: SettingsStore; systems?: () => { fans: boolean; refill: boolean } | null } = {}) {
     this.root = el('div', 'rft-touch');
     this.root.setAttribute('data-touch-ui', '');
     this.root.hidden = true;
@@ -136,7 +140,7 @@ export class TouchControls {
     this.stick(left, 'drive', DRIVE_STICK);
     this.stick(right, 'att', ATTITUDE_STICK);
     const lb = el('div', 'rft-touch-btns left', this.root);
-    for (const s of LEFT_BUTTONS) this.button(lb, s, 'hold');
+    for (const s of LEFT_BUTTONS) this.button(lb, s, 'tap');
     const rb = el('div', 'rft-touch-btns right', this.root);
     for (const s of RIGHT_BUTTONS) this.button(rb, s, 'hold');
     const top = el('div', 'rft-touch-top', this.root);
@@ -267,5 +271,11 @@ export class TouchControls {
       if (home && this.gyroBtn.parentElement !== home) home.prepend(this.gyroBtn, this.recenterBtn!);
     }
     this.rotate.hidden = !(touchUi && portrait && !this.rotateDismissed);
+    const sys = show ? this.opts.systems?.() : null;
+    for (const [b, s] of this.labelled) {
+      if (s.cls !== 'sys') continue;
+      const on = !!sys && (s.id === 'fanModeCycle' ? sys.fans : sys.refill);
+      b.classList.toggle('active', on);
+    }
   }
 }

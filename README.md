@@ -1,5 +1,9 @@
 # Roadster Flight Test
 
+[![CI](https://github.com/ancient2k/roadster-flight-test/actions/workflows/ci.yml/badge.svg)](https://github.com/ancient2k/roadster-flight-test/actions/workflows/ci.yml)
+[![Deploy](https://github.com/ancient2k/roadster-flight-test/actions/workflows/pages.yml/badge.svg)](https://github.com/ancient2k/roadster-flight-test/actions/workflows/pages.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 <p align="center">
   <a href="https://roadster.ageco-labs.de"><img src="docs/media/play-now.png" width="600"
     alt="▶ Play now – in-game shot: the Roadster upside down in the kickflip, all thrusters firing"></a><br>
@@ -21,7 +25,9 @@ at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, sho
 - **Auto mode:** the autopilot re-flies the five stunts from the livestream – upside-down ramp, ramp launch,
   kickflip over the Semi, 0–60 mph in 0.81 s, ground-start flip. Purely physical and only through drive and
   valve commands; the result screen compares the telemetry with the HUD values from the stream.
-- **Manual mode:** drive and fly freely with three assist levels (ASSIST, STABILIZED, RAW).
+- **Manual mode:** drive and fly freely with three assist levels (ASSIST, STABILIZED, RAW) – click or tap the level
+  top left to pick one. In the air the steering (A/D, left stick) turns the car with the front yaw jets; ASSIST also
+  switches the fans to suction on its own while the car stands tilted on a ramp, wall, loop or steep stone.
 - **Eleven sites:** McGregor test site, Stonehenge, the Giza Plateau and Boca Chica with the Starbase launch site on Earth; Tranquility Base, Hadley Rille and
   Shackleton crater on the Moon; Jezero, Gale and Valles Marineris on Mars – with real gravity, atmosphere and
   terrain data from NASA, USGS and Copernicus. Plus the Sun: Roadster 1 with Starman and the "Sun dive".
@@ -29,9 +35,12 @@ at the SpaceX test site in McGregor, Texas: cold-gas thrusters, fan suction, sho
   the stones of Stonehenge can be knocked over; they break when the impact energy is high enough. Roadster 1 can
   be rammed, and a panel shows its new orbit around the Sun. On the Moon, on Mars and at Giza the wheels kick up
   dust and leave tracks, and the thrusters blow the ground clear.
-- **Vehicle damage** (Settings → Simulation, Off / Visual / Full): crashes dent the body and tear off the wing,
-  doors, bumpers, diffuser, nozzle covers and wheels, which fly as real parts of the model. With "Full" the
-  missing parts change how the car drives, and a heavy crash destroys it – reset (Backspace) to repair.
+- **Vehicle damage** (Settings → Simulation, Auto / Off / Visual / Full): crashes dent the body and tear off the
+  wing, doors, bumpers, hood, rear deck, targa roof, fenders, quarter panels, diffuser, nozzle covers and wheels,
+  which fly as real parts of the model and open the view onto the interior – tub, battery pack, motors, the two
+  air tanks (COPVs) and their piping. *Auto* (default) follows the graphics preset: Visual on Ultra, Off below.
+  With "Full" the missing parts change how the car drives, a hit tank vents its air, and a heavy crash destroys
+  the car – reset (Backspace) to repair.
 - **Driving physics** (Settings → Simulation, Fun / Realistic): *Fun* (default) adds the helpers sim-arcade games
   use – a wall guides a car that glances off it along and lines it up, the spin after a hard crash is damped for a
   moment, landings give no rebound. *Realistic* is the plain model; the auto stunts always run realistic.

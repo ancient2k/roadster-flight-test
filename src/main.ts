@@ -1,7 +1,7 @@
 // Entry point: boots the app and exposes a debug/test hook on window.__rft.
 import { App } from './game/app';
 import { t } from './i18n';
-import { classifyDevice, defaultQualityFor, setDeviceProfile, type QualityLevel } from './render/quality';
+import { classifyDevice, defaultQualityFor, pickQuality, setDeviceProfile, type QualityLevel } from './render/quality';
 import { SETTINGS_KEY } from './ui/settings';
 import { TouchControls, hasTouch } from './ui/touchControls';
 import { PREPARING_STEPS, type BootState } from './ui/bootProgress';
@@ -79,13 +79,18 @@ async function boot(): Promise<void> {
     },
   };
   // Phones and tablets start on "low" unless the player picked a quality before (or ?q= is given).
+  // (not under automation: the tests pin their preset, a preset switch in the middle of one would break it)
+  const firstRun = !params.has('q') && !storedSettingsExist() && !params.has('nomenu') && !navigator.webdriver;
   const q = (params.get('q') as QualityLevel | null) ?? (storedSettingsExist() ? null : profile === 'mobile' ? defaultQualityFor(profile) : null);
   // A lost context before the first frame (GPU memory on phones) would otherwise leave the boot screen up forever.
   const lost = new Promise<never>((_, reject) => canvas.addEventListener('webglcontextlost', () => reject(new Error('WebGL context lost')), { once: true }));
   await Promise.race([app.init({ quality: q ?? undefined, forceWebGL: params.has('webgl'), skipMenu: params.has('nomenu') }), lost]);
   const stunt = params.get('stunt') as StuntId | null;
   if (stunt && STUNTS.includes(stunt)) { app.menu.hide(); app.startStunt(stunt); }
-  const touch = new TouchControls(root, app.input, { force: params.has('touch') || hasTouch(), settings: app.settings });
+  const touch = new TouchControls(root, app.input, {
+    force: params.has('touch') || hasTouch(), settings: app.settings,
+    systems: () => app.manual ? { fans: app.manual.fanMode !== 'off' || app.manual.autoFan, refill: app.manual.refill } : null,
+  });
   window.__rft.touch = touch;
   window.__rft.ready = true;
   window.__rft.openEditor = () => app.openEditor();
@@ -94,9 +99,43 @@ async function boot(): Promise<void> {
   try { sessionStorage.removeItem(RETRY_KEY); } catch { /* blocked */ }
   hideBootScreen();
   void registerServiceWorker(showUpdateNotice);
+  if (firstRun) void benchmarkQuality(app);
 }
 
 /** A new build is ready (src/pwa/register.ts): a small notice with "Reload" – the game keeps running until then. */
+/**
+ * First start: measure a few seconds of the title scene at the device default and store the fitting preset
+ * (pickQuality). Runs once: afterwards the settings exist. Said in a short note, changeable under Settings → Graphics.
+ */
+async function benchmarkQuality(app: App): Promise<void> {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  await wait(2500); // shaders compiled, terrain streamed, dynamic resolution settled
+  const f: number[] = [], g: number[] = [], r: number[] = [];
+  for (let i = 0; i < 16; i++) {
+    await wait(250);
+    if (document.hidden) return; // a background tab throttles rAF: no valid measurement
+    const s = app.renderer.getStats();
+    f.push(s.frameMs); r.push(s.resolutionScale);
+    if (s.gpuMs !== null) g.push(s.gpuMs);
+  }
+  const med = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  const pick = pickQuality(profile, { frameMs: med(f), gpuMs: g.length ? med(g) : null, resolutionScale: Math.min(...r) });
+  const was = app.settings.get().graphics.quality;
+  app.setQuality(pick);
+  console.info(`[quality] first start: frame ${med(f).toFixed(1)} ms, gpu ${g.length ? med(g).toFixed(1) : '–'} ms, scale ${Math.min(...r)} -> ${pick}`);
+  if (pick !== was) showNote(t('flash.autoQuality', { quality: t(`quality.${pick}`) }));
+}
+
+/** Short note at the bottom (same place as the update notice), gone after a few seconds. */
+function showNote(text: string): void {
+  const el = document.createElement('div');
+  el.className = 'rft-update';
+  el.setAttribute('role', 'status');
+  el.textContent = text;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 7000);
+}
+
 function showUpdateNotice(apply: () => void): void {
   if (document.querySelector('.rft-update')) return;
   const el = document.createElement('div');

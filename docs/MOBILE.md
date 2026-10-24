@@ -36,11 +36,14 @@ endless boot screen (the UI language is not loaded at that point).
   devices (coarse pointer without hover, `hasTouch()`) and only while driving. A desktop browser that merely
   reports touch support (touch-screen laptop, touch emulation) shows them after the first touch and hides them
   again on mouse or keyboard use:
-  - left: floating drive stick (steer; push = throttle, pull = brake) and **Handbrake**;
+  - left: floating drive stick (steer; push = throttle, pull = brake; in the air steering turns the car with the
+    front yaw jets) and above it **Fans** and **Air** (compressor), lit green while on;
   - right: floating attitude stick (yaw; pull = nose up, as on a gamepad) and a three-row button
-    block: the two roll buttons on top, **Boost** and **Down** on the left, a tall **Lift** at the thumb;
-  - top right: **⋯** (tray with assist level, fans, aero, compressor, reverse, launch mode, slow
-    motion, photo mode, pause, help), **Cam**, **↺** (reset) and **☰** (menu).
+    block: **Handbrake** and the two roll buttons on top, **Boost** and **Down** below, a tall **Lift** at the thumb
+    (the handbrake sits with the right thumb, since the left one steers); in portrait the handbrake is a wide
+    bottom row;
+  - top right: **⋯** (tray with assist level, aero, reverse, launch mode, slow motion, photo mode, pause, help),
+    **Cam**, **↺** (reset) and **☰** (menu). Tapping the assist level top left opens a picker with the three levels.
   The overlay writes analog values per control id into `InputManager.touch`; the mapper treats
   them like a gamepad, so every action of `src/input/bindings.ts` is reachable and keyboard or
   gamepad rebinding has no effect on the touch layout. Menus are plain buttons and work by tap.
@@ -70,7 +73,7 @@ endless boot screen (the UI language is not loaded at that point).
     left out and the sphere turns into the PITCH ring on a wall;
   - the readouts top right start below the ⋯ / CAM / ↺ / ☰ bar and get a soft dark backing; in portrait
     they move below the mode block; the damage view goes next to them when the space down to the
-    button block is too short; the low-air warning sits below the readouts, the 0–60 timer above the gauges;
+    button block is too short; the low-air warning sits small at the top centre between the mode block and the button bar, the 0–60 timer above the gauges;
   - text keeps a minimum size (readouts ≈ 10 px labels / 16 px values, gauge labels ≥ 9 px);
   - everything stays inside the safe area (notch, Dynamic Island, home indicator): the overlay and the
     HUD canvas both use `env(safe-area-inset-*)` through the CSS variables `--rft-sa-*`

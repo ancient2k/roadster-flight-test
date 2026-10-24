@@ -50,6 +50,7 @@ export const en = {
   'menu.help': 'Help & controls',
   'menu.helpSub': 'Key bindings and HUD guide',
   'menu.disclaimer': 'Unofficial fan project · not affiliated with Tesla, Inc. or SpaceX',
+  'menu.source': 'Source code on GitHub',
   'menu.hintKeys': '↑↓ select · Enter confirm · Esc back',
 
   // ---------------------------------------------------------------- stunt selection
@@ -435,6 +436,7 @@ export const en = {
   'update.ready': 'New version available',
   'update.reload': 'Reload',
   'update.later': 'Later',
+  'flash.autoQuality': 'Graphics set to {quality} for this device · change it under Settings → Graphics',
   'settings.group.live': 'Applies immediately – also while driving',
   'settings.group.nextStart': 'Applies from the next start or restart',
   'settings.assistStartNote': 'Every run starts at this level. While driving, switch with {key}.',

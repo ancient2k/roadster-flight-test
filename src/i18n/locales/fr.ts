@@ -44,6 +44,7 @@ export const fr: Messages = {
   'menu.help': 'Aide et commandes',
   'menu.helpSub': 'Touches et explication du HUD',
   'menu.disclaimer': 'Projet de fan non officiel · sans lien avec Tesla, Inc. ni SpaceX',
+  'menu.source': 'Code source sur GitHub',
   'menu.hintKeys': '↑↓ choisir · Entrée valider · Échap retour',
 
   'stunts.title': 'Choisir une cascade',
@@ -418,6 +419,7 @@ export const fr: Messages = {
   'update.ready': 'Nouvelle version disponible',
   'update.reload': 'Recharger',
   'update.later': 'Plus tard',
+  'flash.autoQuality': 'Graphismes réglés sur {quality} pour cet appareil · modifiable dans Paramètres → Graphismes',
   'settings.group.live': 'S’applique immédiatement – même en conduite',
   'settings.group.nextStart': 'S’applique au prochain départ ou redémarrage',
   'settings.assistStartNote': 'Chaque course commence à ce niveau. En conduite, change avec {key}.',

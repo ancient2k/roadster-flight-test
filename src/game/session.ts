@@ -12,6 +12,7 @@ import { ROADSTER } from '@shared/roadster';
 import { Recorder } from './recorder';
 import { AutoGear } from '../input/autoGear';
 import { qrot } from '@shared/math';
+import { steepStoneWithoutGrip } from '@sim/vehicle/fans';
 
 export interface ControlOutput {
   drive: DriveInput;
@@ -30,6 +31,13 @@ export interface Controller {
 
 export interface ManualAxes { lift: number; boost: number; pitch: number; roll: number; yaw: number }
 export interface ManualAssistLike { update(sim: RoadsterSim, axes: ManualAxes, level: AssistLevel): ThrusterCommand }
+
+/** ASSIST auto-suction: body tilt on the wheels (deg) from which the fans switch to grip, and how long they stay on (s). */
+export const AUTO_FAN_TILT_DEG = 18;
+export const AUTO_FAN_HOLD_S = 1.5;
+
+/** Height above ground (m) from which steering turns the car with the yaw jets (below: the wheels still touch soon). */
+export const AIR_STEER_MIN_H_M = 0.6;
 
 /** Free-play controller: driver inputs + toggles + assisted thrust. */
 export class ManualController implements Controller {
@@ -52,6 +60,21 @@ export class ManualController implements Controller {
   private settled = false;
   readonly gear = new AutoGear();
 
+  /** ASSIST switches the fans to suction on its own while the car needs the grip (fans off by the player). */
+  autoFan = false;
+  private autoFanUntil = -1;
+
+  /** Fan mode sent to the sim: the player's choice, or "grip" while ASSIST holds the car to a slope, wall or loop
+   *  (tilted more than AUTO_FAN_TILT_DEG on its wheels, or on a steep landmark), held AUTO_FAN_HOLD_S after that. */
+  effectiveFan(st = this.sim.getState()): FanMode {
+    if (this.fanMode !== 'off' || this.assist !== 'ASSIST') { this.autoFan = false; this.autoFanUntil = -1; return this.fanMode; }
+    const upY = qrot(st.quat, { x: 0, y: 1, z: 0 }).y;
+    const need = st.groundContact && (upY < Math.cos(AUTO_FAN_TILT_DEG * Math.PI / 180) || steepStoneWithoutGrip(this.sim, 'off'));
+    if (need) this.autoFanUntil = st.t + AUTO_FAN_HOLD_S;
+    this.autoFan = st.t < this.autoFanUntil;
+    return this.autoFan ? 'grip' : 'off';
+  }
+
   update(): ControlOutput {
     const st0 = this.sim.getState();
     if (!this.settled) {
@@ -60,8 +83,13 @@ export class ManualController implements Controller {
       if ((st0.t >= this.settleMinS && (onWheels || anyInput)) || st0.t >= this.settleMaxS || st0.heightAboveGroundM > 3) this.settled = true;
     }
     const settling = !this.settled;
-    const thrust = settling ? zeroThrust() : this.assistImpl ? this.assistImpl.update(this.sim, this.axes, this.assist) : rawGroups(this.axes);
-    const systems: SystemsInput = { ...neutralSystems(), fanMode: this.fanMode, aeroMode: this.aeroMode, refill: this.refill };
+    // in the air the wheels steer nothing: steering (A/D, left stick) turns the car with the front yaw jets, as long as
+    // the yaw control itself is idle – hovering otherwise felt "lost", the yaw keys were the only way to turn
+    const airborne = !st0.groundContact && st0.heightAboveGroundM > AIR_STEER_MIN_H_M;
+    const axes = airborne && Math.abs(this.axes.yaw) < 0.05 && Math.abs(this.drive.steer) > 0.02
+      ? { ...this.axes, yaw: this.drive.steer } : this.axes;
+    const thrust = settling ? zeroThrust() : this.assistImpl ? this.assistImpl.update(this.sim, axes, this.assist) : rawGroups(axes);
+    const systems: SystemsInput = { ...neutralSystems(), fanMode: this.effectiveFan(st0), aeroMode: this.aeroMode, refill: this.refill };
     // Auto-hold (as on Tesla cars): standing still on the wheels without pedal input holds the brakes.
     const st = this.sim.getState();
     // automatic reverse gear: S held at standstill reverses, W at standstill goes forward again

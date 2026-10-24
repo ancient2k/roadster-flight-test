@@ -1,9 +1,17 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 import { serviceWorkerPlugin } from './tools/pwa/plugin.ts';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+// version shown in the title footer (src/shared/version.ts): package.json version + short commit of the build
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
+let commit = 'dev';
+try { commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { /* no git */ }
 
 export default defineConfig({
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(pkg.version), __APP_COMMIT__: JSON.stringify(commit) },
   plugins: [serviceWorkerPlugin()], // sw.js for the installable app (docs/MOBILE.md)
   resolve: {
     alias: {

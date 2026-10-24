@@ -2,7 +2,7 @@
   "name": "roadster-flight-test",
   "private": true,
   "version": "1.0.0",
-  "description": "Unofficial browser simulation of the Tesla Roadster Gen 2 prototype: cold-gas thrusters, fan suction, stunts and ten worlds (WebGPU, Rapier).",
+  "description": "Unofficial browser simulation of the Tesla Roadster Gen 2 prototype: cold-gas thrusters, fan suction, stunts and eleven worlds (WebGPU, Rapier).",
   "license": "MIT",
   "type": "module",
   "scripts": {

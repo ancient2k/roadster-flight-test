@@ -18,11 +18,13 @@ import { PropSystem, BREAK_WINDOW_S, rotTerm } from './props';
 import type { HandlingMode } from '@shared/handling';
 import { sampleHeight } from '@shared/heightmap';
 import type { PropPlacement } from '@shared/props';
-import { GROUP_CAR, GROUP_PROP, GROUP_WORLD, buildLandmarkColliders, buildTerrainColliders, buildTrackColliders, groups, type LandmarkShape, type WorldColliderInfo } from './world';
+import { GROUP_CAR, GROUP_PROP, GROUP_WORLD, buildLandmarkColliders, buildTerrainColliders, buildTrackColliders, groups, type LandmarkShape, type TerrainColliders, type WorldColliderInfo } from './world';
 
 /** heightAboveGroundM when no ground is found below the car (space, off the terrain, very high). */
 export const NO_GROUND_M = 10_000;
 /** Terrain worlds end where the collision terrain ends (a square of extentM): the car is kept this far inside (m) … */
+/** Steps between two checks of the terrain resolution around the car (one tile rebuilt per check at most). */
+const TERRAIN_UPDATE_STEPS = 24;
 const WORLD_EDGE_MARGIN_M = 30;
 /** … braked over the last WORLD_EDGE_SOFT_M with at most WORLD_EDGE_DECEL (m/s²) towards the edge. */
 const WORLD_EDGE_SOFT_M = 150, WORLD_EDGE_DECEL = 15;
@@ -152,6 +154,9 @@ export class RoadsterSim implements VehicleSim {
   readonly body: RAPIER.RigidBody;
   readonly chassis: RAPIER.Collider;
   readonly colliderInfo: Map<number, WorldColliderInfo>;
+  /** Terrain tiles; the full-resolution window follows the car (see TerrainColliders). */
+  private terrainColliders: TerrainColliders | null = null;
+  private terrainTick = 0;
   propulsion = new Propulsion();
   readonly modules: ForceModule[];
   readonly acc = new ForceAccumulator();
@@ -161,6 +166,8 @@ export class RoadsterSim implements VehicleSim {
   /** World rectangles where the terrain is bedrock/pavement instead of the site material (Giza: the pyramid
    *  courts are levelled limestone, not loose sand). */
   hardGround: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+  /** Roads and pads painted onto loose ground (level editor, src/shared/paved.ts): asphalt there. */
+  paved: ((x: number, z: number) => boolean) | null = null;
   /** Current physical environment (Phase 2 worlds). Vehicle modules read airDensity from here. */
   env: Environment = { ...EARTH };
   /** The compressor can deliver air here: an atmosphere to draw in, or the on-board supply ("Compressor: Fun"). */
@@ -219,7 +226,8 @@ export class RoadsterSim implements VehicleSim {
     this.groundKind = ground;
     if (ground === 'terrain') {
       if (!opts.terrain) throw new Error('ground "terrain" needs opts.terrain');
-      this.colliderInfo = buildTerrainColliders(RAPIER, this.world, opts.terrain.heights, opts.terrain.size, opts.terrain.extentM, { fineCenter: opts.terrain.fineCenter, fineAreas: opts.terrain.fineAreas });
+      this.terrainColliders = buildTerrainColliders(RAPIER, this.world, opts.terrain.heights, opts.terrain.size, opts.terrain.extentM, { fineCenter: opts.terrain.fineCenter, fineAreas: opts.terrain.fineAreas });
+      this.colliderInfo = this.terrainColliders.info;
       this.terrainH = { h: opts.terrain.heights, size: opts.terrain.size, extentM: opts.terrain.extentM };
       this.waterLevelY = opts.water?.levelY ?? null;
       if (opts.landmarks?.length) {
@@ -402,6 +410,11 @@ export class RoadsterSim implements VehicleSim {
     const vfx = v0.x + (f.x / m0 + g.x) * dt, vfy = v0.y + (f.y / m0 + g.y) * dt, vfz = v0.z + (f.z / m0 + g.z) * dt;
     // 6. integrate
     this.world.step();
+    // after the step (the scene queries of the next step see the rebuilt tile): the fine terrain follows the car
+    if (this.terrainColliders && ++this.terrainTick % TERRAIN_UPDATE_STEPS === 0) {
+      const p = this.body.translation();
+      this.terrainColliders.update(p.x, p.z);
+    }
     if (m0 > 0) this.limitContactRebound(v0, w0, vfx, vfy, vfz);   // mass properties exist from the first world step on
     this.dampCrashSpin(dt);
     this.alignToWall(dt);

@@ -44,6 +44,7 @@ export const pl: Messages = {
   'menu.help': 'Pomoc i sterowanie',
   'menu.helpSub': 'Klawisze i objaśnienie HUD',
   'menu.disclaimer': 'Nieoficjalny projekt fanowski · bez związku z Tesla, Inc. ani SpaceX',
+  'menu.source': 'Kod źródłowy na GitHubie',
   'menu.hintKeys': '↑↓ wybór · Enter potwierdź · Esc wstecz',
 
   'stunts.title': 'Wybierz akrobację',
@@ -418,6 +419,7 @@ export const pl: Messages = {
   'update.ready': 'Dostępna nowa wersja',
   'update.reload': 'Odśwież',
   'update.later': 'Później',
+  'flash.autoQuality': 'Grafika ustawiona na {quality} dla tego urządzenia · zmień w Ustawienia → Grafika',
   'settings.group.live': 'Działa od razu – także podczas jazdy',
   'settings.group.nextStart': 'Obowiązuje od następnego startu lub restartu',
   'settings.assistStartNote': 'Każdy przejazd zaczyna się na tym poziomie. W trakcie jazdy przełączasz klawiszem {key}.',

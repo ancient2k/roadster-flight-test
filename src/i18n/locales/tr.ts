@@ -44,6 +44,7 @@ export const tr: Messages = {
   'menu.help': 'Yardım ve kontroller',
   'menu.helpSub': 'Tuş atamaları ve HUD açıklaması',
   'menu.disclaimer': 'Resmî olmayan hayran projesi · Tesla, Inc. veya SpaceX ile bağlantısı yoktur',
+  'menu.source': 'GitHub’da kaynak kod',
   'menu.hintKeys': '↑↓ seç · Enter onayla · Esc geri',
 
   'stunts.title': 'Gösteri seç',
@@ -418,6 +419,7 @@ export const tr: Messages = {
   'update.ready': 'Yeni sürüm mevcut',
   'update.reload': 'Yeniden yükle',
   'update.later': 'Sonra',
+  'flash.autoQuality': 'Grafikler bu cihaz için {quality} olarak ayarlandı · Ayarlar → Grafik altından değiştirilebilir',
   'settings.group.live': 'Hemen uygulanır – sürüş sırasında da',
   'settings.group.nextStart': 'Bir sonraki başlangıç veya yeniden başlatmadan itibaren geçerli',
   'settings.assistStartNote': 'Her sürüş bu seviyede başlar. Sürüş sırasında {key} ile değiştir.',

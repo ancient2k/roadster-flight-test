@@ -44,6 +44,7 @@ export const ja: Messages = {
   'menu.help': 'ヘルプと操作',
   'menu.helpSub': 'キー割り当てとHUDの説明',
   'menu.disclaimer': '非公式ファンプロジェクト · Tesla, Inc. および SpaceX とは無関係です',
+  'menu.source': 'GitHub のソースコード',
   'menu.hintKeys': '↑↓ 選択 · Enter 決定 · Esc 戻る',
 
   'stunts.title': 'スタントを選択',
@@ -418,6 +419,7 @@ export const ja: Messages = {
   'update.ready': '新しいバージョンがあります',
   'update.reload': '再読み込み',
   'update.later': '後で',
+  'flash.autoQuality': 'このデバイスのグラフィックを {quality} に設定しました · 設定 → グラフィックで変更できます',
   'settings.group.live': 'すぐに反映 – 走行中も',
   'settings.group.nextStart': '次のスタートまたはリスタートから反映',
   'settings.assistStartNote': '各走行はこのレベルで始まります。走行中は {key} で切り替えます。',

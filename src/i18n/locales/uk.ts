@@ -44,6 +44,7 @@ export const uk: Messages = {
   'menu.help': 'Довідка та керування',
   'menu.helpSub': 'Призначення клавіш і пояснення HUD',
   'menu.disclaimer': 'Неофіційний фан-проєкт · не пов’язаний із Tesla, Inc. чи SpaceX',
+  'menu.source': 'Вихідний код на GitHub',
   'menu.hintKeys': '↑↓ вибір · Enter підтвердити · Esc назад',
 
   'stunts.title': 'Вибір трюку',
@@ -418,6 +419,7 @@ export const uk: Messages = {
   'update.ready': 'Доступна нова версія',
   'update.reload': 'Перезавантажити',
   'update.later': 'Пізніше',
+  'flash.autoQuality': 'Графіка для цього пристрою: {quality} · змінити в Налаштування → Графіка',
   'settings.group.live': 'Діє одразу – і під час їзди',
   'settings.group.nextStart': 'Діє з наступного старту або перезапуску',
   'settings.assistStartNote': 'Кожен заїзд починається з цього рівня. Під час їзди перемикай клавішею {key}.',

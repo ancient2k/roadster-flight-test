@@ -24,6 +24,7 @@ import type { SiteId } from '../../shared/worlds';
 import type { BodyId } from '../../shared/environment';
 import { DAMAGE_ZONES, damageLevel, type DamageState, type DetachablePart } from '../../shared/damage';
 import { drawDamageView } from '../hud/damageView';
+import { versionLabel } from '../../shared/version';
 
 /** Torn-off parts listed in the results (wheels and the wing have rows of their own). */
 const PART_LABEL: Partial<Record<DetachablePart, MsgKey>> = {
@@ -264,7 +265,9 @@ export class Menu extends Emitter<MenuEvents> {
         btn(t('menu.help'), t('menu.helpSub'), () => this.show('help')),
       ),
       h('footer', { class: 'rft-footer' },
-        h('span', { text: t('menu.disclaimer') }),
+        h('span', {}, t('menu.disclaimer'), ' · ',
+          h('a', { class: 'rft-footer-link', href: 'https://github.com/ancient2k/roadster-flight-test', target: '_blank', rel: 'noopener', text: t('menu.source') }),
+          ' · ', h('span', { class: 'rft-version', lang: 'en', text: versionLabel() })),
         h('span', { class: 'rft-hintkeys', text: t('menu.hintKeys') })),
     );
   }

@@ -44,6 +44,7 @@ export const ptBR: Messages = {
   'menu.help': 'Ajuda e controles',
   'menu.helpSub': 'Teclas e guia do HUD',
   'menu.disclaimer': 'Projeto de fã não oficial · sem vínculo com a Tesla, Inc. ou a SpaceX',
+  'menu.source': 'Código-fonte no GitHub',
   'menu.hintKeys': '↑↓ escolher · Enter confirmar · Esc voltar',
 
   'stunts.title': 'Escolher manobra',
@@ -418,6 +419,7 @@ export const ptBR: Messages = {
   'update.ready': 'Nova versão disponível',
   'update.reload': 'Recarregar',
   'update.later': 'Mais tarde',
+  'flash.autoQuality': 'Gráficos ajustados para {quality} neste dispositivo · altere em Configurações → Gráficos',
   'settings.group.live': 'Vale na hora – também dirigindo',
   'settings.group.nextStart': 'Vale a partir da próxima largada ou reinício',
   'settings.assistStartNote': 'Cada corrida começa neste nível. Dirigindo, troque com {key}.',

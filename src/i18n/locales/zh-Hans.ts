@@ -44,6 +44,7 @@ export const zhHans: Messages = {
   'menu.help': '帮助与操控',
   'menu.helpSub': '按键分配与 HUD 说明',
   'menu.disclaimer': '非官方粉丝项目 · 与 Tesla, Inc. 及 SpaceX 无关',
+  'menu.source': 'GitHub 上的源代码',
   'menu.hintKeys': '↑↓ 选择 · Enter 确认 · Esc 返回',
 
   'stunts.title': '选择特技',
@@ -418,6 +419,7 @@ export const zhHans: Messages = {
   'update.ready': '有新版本可用',
   'update.reload': '重新加载',
   'update.later': '稍后',
+  'flash.autoQuality': '已为此设备将画质设为 {quality} · 可在 设置 → 图形 中更改',
   'settings.group.live': '立即生效——行驶中也是',
   'settings.group.nextStart': '从下次开始或重新开始时生效',
   'settings.assistStartNote': '每次行驶都从此级别开始。行驶中按 {key} 切换。',

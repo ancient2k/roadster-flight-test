@@ -26,6 +26,16 @@ export class CarRig {
   /** Left and right head lamp (body +X = left): one spot per lamp, aimed slightly outwards. */
   private headlights: THREE.SpotLight[];
   private brakeSmoothed = 0;
+
+  /** Cockpit camera: the glazing is hidden – seen from inside at a grazing angle the tinted glass showed mostly the
+   *  reflected sky and cabin instead of the road. */
+  setCockpitView(on: boolean): void {
+    this.model?.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      if (!m || !(o as THREE.Mesh).isMesh) return;
+      if ((Array.isArray(m) ? m : [m]).some((x) => /glass|glas|window/i.test(x.name))) o.visible = !on;
+    });
+  }
   /** Dents and torn-off parts (vehicle damage setting "Realistic"). */
   readonly damage = new CarDamageView();
 

@@ -120,7 +120,7 @@ test('Giza: player-style drive up Khufu – fans forgotten, uneven throttle, sto
     const flashes: string[] = [];
     const fl = document.querySelector('.rft-flash');
     if (fl) new MutationObserver(() => flashes.push(fl.textContent ?? '')).observe(fl, { childList: true, characterData: true, subtree: true });
-    const d = w.__drv2 = { phase: 'nofan', hint: false, maxY: -Infinity, crashed: false, parkedS: 0, stoppedOnEdge: false, trace: [] as string[], stop: false, flashes };
+    const d = w.__drv2 = { phase: 'nofan', hint: false, auto: false, maxY: -Infinity, crashed: false, parkedS: 0, stoppedOnEdge: false, trace: [] as string[], stop: false, flashes };
     let lastT = performance.now(), lastLog = 0, lastReact = 0, lift = 0, t0 = performance.now(), fPressedAt = 0, seed = 12345;
     const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
     const tick = () => {
@@ -131,6 +131,7 @@ test('Giza: player-style drive up Khufu – fans forgotten, uneven throttle, sto
       const y = st.pos.y, v = st.speedMs;
       d.maxY = Math.max(d.maxY, y); d.crashed ||= st.crashed;
       d.hint ||= flashes.some((f) => /STEEP/.test(f));
+      d.auto ||= !!a.manual?.autoFan;   // ASSIST switches the suction on by itself on the steep stone
       if (fPressedAt && now - fPressedAt > 120) { key('KeyF', false); fPressedAt = 0; }
       if (d.phase === 'parked') { key('KeyW', false); key('KeyS', true); d.parkedS += dt; }
       if (now - lastReact > 100) { // reaction: ten decisions a second
@@ -145,7 +146,8 @@ test('Giza: player-style drive up Khufu – fans forgotten, uneven throttle, sto
         }
         if (d.phase === 'nofan') {
           key('KeyW', v < 5);
-          if (d.hint || now - t0 > 25_000) { key('KeyF', true); fPressedAt = now; d.phase = 'climb'; }
+          if (d.auto) d.phase = 'climb';    // the assist took over: the player never has to press F
+          else if (d.hint || now - t0 > 25_000) { key('KeyF', true); fPressedAt = now; d.phase = 'climb'; }
         } else if (d.phase === 'climb') {
           const vHi = y > 115 ? 4 : 6;
           key('KeyS', false);
@@ -166,10 +168,11 @@ test('Giza: player-style drive up Khufu – fans forgotten, uneven throttle, sto
     requestAnimationFrame(tick);
   });
   await page.waitForFunction(() => { const d = (window as any).__drv2; return d.crashed || d.parkedS > 5; }, null, { timeout: 220_000 }).catch(() => {});
-  const drv = await page.evaluate(() => { const d = (window as any).__drv2; d.stop = true; return { phase: d.phase, hint: d.hint, maxY: d.maxY, crashed: d.crashed, parkedS: d.parkedS, stoppedOnEdge: d.stoppedOnEdge, flashes: d.flashes as string[], trace: d.trace as string[] }; });
+  const drv = await page.evaluate(() => { const d = (window as any).__drv2; d.stop = true; return { phase: d.phase, hint: d.hint, auto: d.auto, maxY: d.maxY, crashed: d.crashed, parkedS: d.parkedS, stoppedOnEdge: d.stoppedOnEdge, flashes: d.flashes as string[], trace: d.trace as string[] }; });
   await page.waitForTimeout(300);
   const trace = [`flashes: ${drv.flashes.join(' | ')}`, ...drv.trace.slice(0, 12), '…', ...drv.trace.slice(-40)].join('\n');
-  expect(drv.hint, trace).toBe(true);               // the HUD asked for the fans on the steep stone
+  // fans forgotten: ASSIST switches the suction on by itself (before: the HUD asked for the fans on the steep stone)
+  expect(drv.auto || drv.hint, trace).toBe(true);
   expect(drv.crashed, trace).toBe(false);
   expect(drv.stoppedOnEdge, trace).toBe(true);       // it stopped on the edge …
   expect(drv.phase, trace).toBe('parked');           // … pulled away and parked

@@ -27,6 +27,7 @@ import { AERO_LABEL, ASSIST_LABEL, FAN_LABEL } from '../ui/labels';
 import { cloneState, copyStateInto, interpolateState } from './interp';
 import { ManualController, SimSession, type Controller, type SessionMode } from './session';
 import { buildLevelScene, tileToWorld, type LevelArea, type LevelScene } from '../render/level/levelScene';
+import { pavedLookup, type PavedTest } from '../shared/paved';
 import { partDef, placeTransform } from '@shared/parts';
 import type { Level } from '@shared/level';
 import type { LandmarkShape } from '@sim/core/world';
@@ -333,6 +334,13 @@ export class App {
   }
 
   /** Removes the track-editor level from the world (next physics build without its colliders). */
+  /** Roads painted onto the field: asphalt for the tyres, no ruts, dust or scour on them. */
+  private setPaved(p: PavedTest | null): void {
+    this.sim.paved = p;
+    const w = this.renderer.worldHandle;
+    if (w) { w.paved = p; if (w.marks) w.marks.paved = p; }
+  }
+
   private clearLevel(): void {
     this.endLaunch();
     this.levelRun = null;
@@ -342,6 +350,7 @@ export class App {
     this.levelScene?.dispose();
     this.levelScene = null;
     this.extraShapes = [];
+    this.setPaved(null);
   }
 
   /**
@@ -364,6 +373,7 @@ export class App {
       this.sim = await this.createSiteSim(siteDef(id), w);
       this.sim.surface = siteDef(id).surface;
       this.sim.hardGround = [];
+      this.setPaved(pavedLookup(this.levelScene.paved));
       this.applySettings(this.settings.get());
       const s = levelStart(level, area) ?? { x: w.spawn.x, z: w.spawn.z, headingDeg: w.spawn.headingDeg };
       const spawn = spawnPose({ x: s.x, y: area.y, z: s.z }, s.headingDeg, 0);
@@ -523,6 +533,11 @@ export class App {
     });
   }
 
+  /** Store and apply a graphics preset (first-start benchmark, src/main.ts). */
+  setQuality(q: Settings['graphics']['quality']): void {
+    this.applySettings(this.settings.update((d) => { d.graphics.quality = q; }, 'graphics.quality'));
+  }
+
   private applySettings(s: Readonly<Settings>): void {
     this.input.setOptions(s.controls);
     this.input.gyro.mapper.tuning.sensitivity = s.controls.gyroSensitivity;
@@ -531,6 +546,11 @@ export class App {
     this.audio.setVolume(s.audio);
     this.hud.setVisible(s.hud.visible);
     // visible way into the pause menu (settings) for mouse and keyboard; re-labelled on a language change
+    this.hud.setAssistPicker((lvl) => {
+      if (!this.manual || this.manual.assist === lvl) return;
+      this.manual.assist = lvl;
+      this.hud.flash(t('flash.assist', { mode: upper(ASSIST_LABEL[lvl]) }));
+    });
     this.hud.setMenuButton(`☰ ${t('hud.menu')} · ${this.input.hint('menu')}`, () => {
       if (this.menu.isOpen() || this.editor?.visible) return;
       if (this.levelMode) this.backToEditor(); else this.menu.show('pause');
@@ -584,7 +604,7 @@ export class App {
           else this.hud.flash(t(this.manual.refill ? 'flash.compressorOn' : 'flash.compressorOff'));
         }
         // pyramid faces need the fan suction: hint (at most every 20 s) while on steep stone without GRIP
-        if (steepStoneWithoutGrip(this.sim, this.manual.fanMode) && performance.now() > this.pyramidHintAt) { this.pyramidHintAt = performance.now() + 20_000; this.hud.flash(t('pyramid.needFans', { mode: upper(FAN_LABEL.grip) }), 'warn', 4500); }
+        if (steepStoneWithoutGrip(this.sim, this.manual.autoFan ? 'grip' : this.manual.fanMode) && performance.now() > this.pyramidHintAt) { this.pyramidHintAt = performance.now() + 20_000; this.hud.flash(t('pyramid.needFans', { mode: upper(FAN_LABEL.grip) }), 'warn', 4500); }
       }
       // the end of a terrain world (RoadsterSim.keepInsideWorld): say why the car stops there (at most every 8 s)
       if (this.sim.atWorldEdge && performance.now() > this.worldEdgeHintAt) { this.worldEdgeHintAt = performance.now() + 8000; this.hud.flash(t('flash.worldEdge'), 'warn', 3500); }

@@ -20,7 +20,7 @@
 /* stick zones: lower half of each side (the camera can still be dragged in the top centre) */
 .rft-touch-zone { position: absolute; bottom: 0; height: 58%; }
 .rft-touch-zone.left { left: 0; width: 38%; }
-.rft-touch-zone.right { right: calc(var(--tb) * 1.6 + var(--rft-sa-r)); width: 30%; }
+.rft-touch-zone.right { right: calc(var(--tb) * 1.6 + var(--rft-sa-r)); width: max(30%, calc(var(--tb) * 4.4 + 40px)); }
 .rft-touch-stick { position: absolute; inset: 0; }
 .rft-touch-base {
   position: absolute; left: 50%; top: 58%; width: calc(var(--tb) * 1.9); height: calc(var(--tb) * 1.9);
@@ -28,8 +28,14 @@
   border: 2px solid rgba(255,255,255,.28); background: rgba(0,0,0,.18); transition: opacity .15s; opacity: .3;
 }
 .rft-touch-stick.on .rft-touch-base { opacity: 1; transition: none; }
-/* the attitude stick rests left of centre, clear of the button block next to it */
-.rft-touch-zone.right .rft-touch-base { left: 40%; }
+/* the attitude stick rests left of the button block (clear of the handbrake in its top-left corner) */
+.rft-touch-zone.right .rft-touch-base { left: calc(100% - var(--tb) * 3.25 - 34px); }
+/* very short landscape screens (iPhone SE): next to the block the stick would push the gauge row up into the readouts;
+   it rests further right instead, low enough to pass under the handbrake */
+@media (orientation: landscape) and (max-height: 400px) {
+  .rft-touch-zone.right .rft-touch-base { left: 40%; top: calc(100% - var(--tb) * .85 - 22px); }
+  .rft-touch-zone.right .rft-touch-hint { display: none; } /* no room under the lowered stick; its ring says enough */
+}
 .rft-touch-zone.right .rft-touch-hint { right: 20%; }
 /* portrait: the button block is as wide as a third of the screen; the zones sit side by side left of it */
 @media (orientation: portrait) {
@@ -56,24 +62,35 @@
   -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); -webkit-tap-highlight-color: transparent;
 }
 .rft-touch-btn.on { background: var(--rft-red, #e8261c); border-color: #fff; }
+/* fans / compressor switched on: lit outline (the press colour stays red) */
+.rft-touch-btn.active { border-color: #5fe08a; color: #b9f5cb; box-shadow: inset 0 0 0 1px rgba(95,224,138,.5); }
 
-/* right block: roll pair on top, boost / down on the left, a tall lift button at the thumb on the right
+/* right block: handbrake and roll pair on top, boost / down below, a tall lift button at the thumb on the right
    (three rows instead of four, so the HUD readouts above keep their room on short screens) */
 .rft-touch-btns.right {
   position: absolute; right: calc(12px + var(--rft-sa-r)); bottom: calc(12px + var(--rft-sa-b));
-  display: grid; grid-template-columns: calc(var(--tb) * 1.3) calc(var(--tb) * 1.3); grid-template-rows: var(--tb) var(--tb) calc(var(--tb) * .8);
-  grid-template-areas: "rollL rollR" "boost lift" "down lift";
+  display: grid; grid-template-columns: calc(var(--tb) * 1.3) calc(var(--tb) * 1.3) calc(var(--tb) * 1.3); grid-template-rows: var(--tb) var(--tb) calc(var(--tb) * .8);
+  grid-template-areas: "hb rollL rollR" ". boost lift" ". down lift";
   gap: 8px; pointer-events: none;
 }
 .rft-touch-btns.right .boost { grid-area: boost; }
 .rft-touch-btns.right .lift { grid-area: lift; height: auto; }
 .rft-touch-btns.right .down { grid-area: down; height: auto; }
+
 .rft-touch-btns.right .rft-touch-btn { min-width: 0; padding: 0 .25em; letter-spacing: .03em; white-space: nowrap; overflow: hidden; }
 .rft-touch-btns.right .rollL { grid-area: rollL; font-size: 1.6em; }
 .rft-touch-btns.right .rollR { grid-area: rollR; font-size: 1.6em; }
-.rft-touch-btns.left {
-  position: absolute; left: calc(12px + var(--rft-sa-l)); top: 34%; display: flex; gap: 8px; pointer-events: none;
+/* handbrake: in the free corner left of the roll pair, so the lower rows (and the stick zone next to them) keep their width */
+.rft-touch-btns.right .rft-touch-btn.hb { grid-area: hb; height: auto; font-size: .7em; letter-spacing: 0; white-space: normal; line-height: 1.2; overflow-wrap: break-word; }
+@media (orientation: portrait) {
+  /* portrait: no room for a third column; the handbrake becomes a wide bottom row */
+  .rft-touch-btns.right { grid-template-columns: calc(var(--tb) * 1.3) calc(var(--tb) * 1.3); grid-template-rows: var(--tb) var(--tb) calc(var(--tb) * .8) calc(var(--tb) * .7);
+    grid-template-areas: "rollL rollR" "boost lift" "down lift" "hb hb"; }
 }
+.rft-touch-btns.left {
+  position: absolute; left: calc(12px + var(--rft-sa-l)); top: 30%; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.rft-touch-btns.left .rft-touch-btn { height: calc(var(--tb) * .8); min-width: calc(var(--tb) * 1.6); font-size: .85em; }
 
 /* top right: more / camera / reset / menu; tray below */
 .rft-touch-top {

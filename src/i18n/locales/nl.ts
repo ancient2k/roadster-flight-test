@@ -44,6 +44,7 @@ export const nl: Messages = {
   'menu.help': 'Help en besturing',
   'menu.helpSub': 'Toetsen en uitleg van de HUD',
   'menu.disclaimer': 'Onofficieel fanproject · niet verbonden aan Tesla, Inc. of SpaceX',
+  'menu.source': 'Broncode op GitHub',
   'menu.hintKeys': '↑↓ kiezen · Enter bevestigen · Esc terug',
 
   'stunts.title': 'Kies een stunt',
@@ -418,6 +419,7 @@ export const nl: Messages = {
   'update.ready': 'Nieuwe versie beschikbaar',
   'update.reload': 'Herladen',
   'update.later': 'Straks',
+  'flash.autoQuality': 'Graphics voor dit apparaat ingesteld op {quality} · wijzigen onder Instellingen → Graphics',
   'settings.group.live': 'Werkt direct – ook tijdens het rijden',
   'settings.group.nextStart': 'Geldt vanaf de volgende start of herstart',
   'settings.assistStartNote': 'Elke rit begint op dit niveau. Tijdens het rijden wissel je met {key}.',

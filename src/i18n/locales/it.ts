@@ -44,6 +44,7 @@ export const it: Messages = {
   'menu.help': 'Aiuto e comandi',
   'menu.helpSub': 'Tasti e guida all’HUD',
   'menu.disclaimer': 'Progetto amatoriale non ufficiale · nessun legame con Tesla, Inc. o SpaceX',
+  'menu.source': 'Codice sorgente su GitHub',
   'menu.hintKeys': '↑↓ scegli · Invio conferma · Esc indietro',
 
   'stunts.title': 'Scegli un’acrobazia',
@@ -418,6 +419,7 @@ export const it: Messages = {
   'update.ready': 'Nuova versione disponibile',
   'update.reload': 'Ricarica',
   'update.later': 'Più tardi',
+  'flash.autoQuality': 'Grafica impostata su {quality} per questo dispositivo · modificabile in Impostazioni → Grafica',
   'settings.group.live': 'Vale subito – anche durante la guida',
   'settings.group.nextStart': 'Vale dalla prossima partenza o riavvio',
   'settings.assistStartNote': 'Ogni corsa parte da questo livello. Durante la guida cambi con {key}.',

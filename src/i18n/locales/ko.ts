@@ -44,6 +44,7 @@ export const ko: Messages = {
   'menu.help': '도움말 및 조작',
   'menu.helpSub': '키 설정과 HUD 설명',
   'menu.disclaimer': '비공식 팬 프로젝트 · Tesla, Inc. 및 SpaceX와 무관합니다',
+  'menu.source': 'GitHub 소스 코드',
   'menu.hintKeys': '↑↓ 선택 · Enter 확인 · Esc 뒤로',
 
   'stunts.title': '스턴트 선택',
@@ -418,6 +419,7 @@ export const ko: Messages = {
   'update.ready': '새 버전이 있습니다',
   'update.reload': '새로고침',
   'update.later': '나중에',
+  'flash.autoQuality': '이 기기의 그래픽을 {quality}(으)로 설정했습니다 · 설정 → 그래픽에서 변경',
   'settings.group.live': '즉시 적용 – 주행 중에도',
   'settings.group.nextStart': '다음 출발 또는 재시작부터 적용',
   'settings.assistStartNote': '모든 주행은 이 단계로 시작합니다. 주행 중에는 {key}(으)로 전환합니다.',

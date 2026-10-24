@@ -44,6 +44,7 @@ export const de: Messages = {
   'menu.help': 'Hilfe & Steuerung',
   'menu.helpSub': 'Tastenbelegung und HUD-Erklärung',
   'menu.disclaimer': 'Inoffizielles Fan-Projekt · keine Verbindung zu Tesla, Inc. oder SpaceX',
+  'menu.source': 'Quellcode auf GitHub',
   'menu.hintKeys': '↑↓ wählen · Eingabe bestätigen · Esc zurück',
 
   'stunts.title': 'Stunt wählen',
@@ -418,6 +419,7 @@ export const de: Messages = {
   'update.ready': 'Neue Version verfügbar',
   'update.reload': 'Neu laden',
   'update.later': 'Später',
+  'flash.autoQuality': 'Grafik für dieses Gerät auf {quality} gestellt · änderbar unter Einstellungen → Grafik',
   'settings.group.live': 'Wirkt sofort – auch während der Fahrt',
   'settings.group.nextStart': 'Gilt ab dem nächsten Start oder Neustart',
   'settings.assistStartNote': 'Mit dieser Stufe beginnt jede Fahrt. Während der Fahrt schaltest du mit {key} um.',
