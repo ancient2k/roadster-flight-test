@@ -75,7 +75,8 @@ export class Estimator {
     e.airKg = s.tank.airMassKg + n.airKg * g();
     e.height = s.heightAboveGroundM + n.heightM * g();
     e.speed = Math.hypot(e.vel.x, e.vel.y, e.vel.z);
-    e.groundContact = s.groundContact;
+    // (afloat on the water counts as ground: no height hold, no automatic landing)
+    e.groundContact = s.groundContact || !!s.afloat;
     e.bodyContact = s.bodyContact;
     let load = 0;
     for (const w of s.wheels) load += w.normalLoadN;

@@ -15,7 +15,7 @@ const _hit = new THREE.Vector3(), _vel = new THREE.Vector3();
 const dustTintOf = (k: SurfaceKind | null): [number, number, number] => dustTint(k);
 
 export class Emitters {
-  private acc = new Float32Array(64);
+  private acc = new Float32Array(80);
   private steamAcc = 0;
   /** Sim time of the total loss (wreck smoke), −1 = intact. */
   private wreckT0 = -1;
@@ -80,7 +80,67 @@ export class Emitters {
     for (const k of Object.keys(this.soilStats) as (keyof Emitters['soilStats'])[]) this.soilStats[k] = 0;
   }
   private looseHere(x: number, y: number, z: number): boolean {
-    return isLooseSoil(this.soil) && (!this.looseAt || this.looseAt(x, y, z));
+    return isLooseSoil(this.soil) && !this.underWater(y) && (!this.looseAt || this.looseAt(x, y, z));
+  }
+
+  /** Sea / lagoon plane (Boca Chica), null without water: under it there is no dust or tyre smoke, the car and the
+   *  jets throw spray instead. */
+  waterLevel: number | null = null;
+  private underWater(y: number): boolean { return this.waterLevel !== null && y < this.waterLevel; }
+  /** Hull under the water surface in the last frame (entry splash). */
+  private wasInWater = false;
+
+  /** water droplets on a ballistic arc (falling back onto the sea) */
+  private spray(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, opacity: number, dt: number): void {
+    this.ps.emit({ kind: PKind.Spray, pos: { x, y, z }, vel: { x: vx, y: vy, z: vz }, life: 0.6 + Math.random() * 0.7,
+      size0: size * 0.35, size1: size * (1.1 + Math.random() * 0.6), drag: 0.9, buoyancy: -this.gravity * 0.85, opacity, age0: Math.random() * dt });
+  }
+
+  /**
+   * The car in the sea: spray where the hull and the wheels cut the surface (bow wave to the sides, rooster tails
+   * behind, growing with speed) and a burst when it drops into the water.
+   */
+  private emitWaterSpray(s: VehicleState, dt: number, scale: number, carVel: THREE.Vector3): void {
+    const L = this.waterLevel;
+    if (L === null) { this.wasInWater = false; return; }
+    const inWater = s.pos.y - 0.45 < L && s.pos.y + 0.9 > L - 0.3;
+    // entry: falling into the water from a jump or a flight
+    if (inWater && !this.wasInWater && carVel.y < -2) {
+      const k = Math.min(1, -carVel.y / 8);
+      const n = Math.round(160 * k * scale);
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, r = 1.2 + Math.random() * 1.6, sp = 2 + Math.random() * 6;
+        this.spray(s.pos.x + Math.cos(a) * r, L + 0.05, s.pos.z + Math.sin(a) * r, Math.cos(a) * sp + carVel.x * 0.3, 3 + Math.random() * 8 * k, Math.sin(a) * sp + carVel.z * 0.3, 0.5 + Math.random() * 0.5, 0.5, 0);
+      }
+    }
+    this.wasInWater = inWater;
+    const vh = Math.hypot(carVel.x, carVel.z);
+    if (!inWater || vh < 1.2) return;
+    const f = Math.min(1, vh / 18);
+    const fw = _p.set(0, 0, 1).applyQuaternion(_q).setY(0);
+    if (fw.lengthSq() < 1e-6) return;
+    fw.normalize();
+    const ux = carVel.x / vh, uz = carVel.z / vh;                // travel direction
+    // four corners of the hull (body frame: ±x left/right, +z front): wheels and bow where they cut the surface
+    for (let c = 0; c < 4; c++) {
+      const side = c & 1 ? -1 : 1, front = c < 2;
+      _d.set(side * 0.95, -0.25, front ? 1.45 : -1.35).applyQuaternion(_q).add(_v.set(s.pos.x, s.pos.y, s.pos.z));
+      if (Math.abs(_d.y - L) > 0.7) continue;
+      const n = this.count(64 + c, (front ? 110 : 90) * f * scale, dt);
+      // sideways normal of the travel direction for this side of the car
+      const sx = -uz * side, sz = ux * side;
+      for (let k = 0; k < n; k++) {
+        if (front) {
+          // bow wave: a fan out to the side and a little forward
+          const out = 1.5 + vh * (0.18 + Math.random() * 0.18), up = 1 + vh * (0.1 + Math.random() * 0.15);
+          this.spray(_d.x, L + 0.1, _d.z, sx * out + ux * vh * 0.35, Math.min(9, up), sz * out + uz * vh * 0.35, 0.45 + f * 0.7, 0.6, dt);
+        } else {
+          // rooster tail behind the wheels: thrown up and back, left behind by the car
+          const back = vh * (0.05 + Math.random() * 0.25), up = 1.5 + vh * (0.12 + Math.random() * 0.22);
+          this.spray(_d.x, L + 0.1, _d.z, carVel.x * 0.55 - ux * back + sx * (Math.random() - 0.3) * 2, Math.min(11, up), carVel.z * 0.55 - uz * back + sz * (Math.random() - 0.3) * 2, 0.5 + f * 0.8, 0.6, dt);
+        }
+      }
+    }
   }
 
   update(s: VehicleState, dt: number, scale = 1): void {
@@ -121,7 +181,22 @@ export class Emitters {
       }
       // wall jet: a near-horizontal main jet close to the ground (0-60 launch) scours the pad and
       // drags a ground-hugging cloud far behind the car (stream 1267 s: a 20 m wall of vapour)
-      if (main && dirW.y >= -0.15 && this.air > 0.5) {
+      // (over the sea: a rooster tail of spray along the jet instead, see below)
+      const seaBelow = this.waterLevel !== null && this.groundAt !== null && this.groundAt(exitW.x, exitW.z) < this.waterLevel;
+      if (main && dirW.y >= -0.15 && seaBelow) {
+        const h = exitW.y - this.waterLevel!;
+        if (h < 1.4) {
+          const w = p.intensity * (1 - Math.max(0, h) / 1.4);
+          const ns = this.count(68 + i, 70 * w * scale, dt);
+          for (let k = 0; k < ns; k++) {
+            _hit.copy(exitW).addScaledVector(dirW, L * (0.3 + Math.random() * 1.4));
+            const sp = 6 + Math.random() * 12;
+            this.spray(_hit.x, this.waterLevel! + 0.05, _hit.z, dirW.x * sp + carVel.x * 0.3 + (Math.random() - 0.5) * 3, 2 + Math.random() * 6 * w,
+              dirW.z * sp + carVel.z * 0.3 + (Math.random() - 0.5) * 3, 0.35 + Math.random() * 0.4, 0.5, dt);
+          }
+        }
+      }
+      if (main && dirW.y >= -0.15 && this.air > 0.5 && !seaBelow) {
         const gy0 = this.groundAt ? this.groundAt(exitW.x, exitW.z) : 0;
         const h = exitW.y - gy0;
         if (h < 1.4) {
@@ -174,16 +249,31 @@ export class Emitters {
         let gy = this.groundAt ? this.groundAt(exitW.x, exitW.z) : 0;
         let tHit = (gy - exitW.y) / dirW.y;
         if (this.groundAt && tHit > 0) { gy = this.groundAt(exitW.x + dirW.x * tHit, exitW.z + dirW.z * tHit); tHit = (gy - exitW.y) / dirW.y; }
+        // over the sea the jet hits the water surface, not the sea floor (it blasted sand up through the water); a
+        // nozzle already under the surface (car afloat) boils the water right above it
+        const onWater = this.waterLevel !== null && gy < this.waterLevel;
+        if (onWater) { gy = this.waterLevel!; tHit = exitW.y > gy ? (gy - exitW.y) / dirW.y : 0.01; }
         // (the under-expanded jets stay coherent well past the visible condensation: in the stream a
         // landing from 3-6 m altitude already throws a wall of vapour, t_964.5 / 729.5)
         const reach = L * 2.6 + 3.0;
         if (tHit > 0 && tHit < reach) {
           _hit.copy(exitW).addScaledVector(dirW, tHit);
-          const loose = this.looseHere(_hit.x, gy, _hit.z);
+          const loose = !onWater && this.looseHere(_hit.x, gy, _hit.z);
           const strength = p.intensity * (1 - tHit / reach) * (-dirW.y);
-          const nb = this.count(10 + i, 150 * strength * scale * (this.air > 0.5 ? (vol ? 0.35 : 1) : 3), dt);
-          if (this.air > 0.5) this.clouds.add(_hit.x, gy, _hit.z, nb / Math.max(scale, 0.25) / (vol ? 0.35 : 1));
-          if (vol && strength > 0.01) {
+          if (onWater) {
+            // a crater of spray: a ring of droplets thrown out and up around the impact point
+            // (a few, fast-falling droplets: hundreds per second from four jets hung over the sea as a grey fog)
+            const ns = this.count(68 + i, 40 * strength * scale, dt);
+            for (let k = 0; k < ns; k++) {
+              const a = Math.random() * Math.PI * 2, rr = 0.3 + Math.random() * (0.6 + tHit * 0.15), sp = 3 + Math.random() * 9 * Math.min(1, strength * 2);
+              this.spray(_hit.x + Math.cos(a) * rr, gy + 0.05, _hit.z + Math.sin(a) * rr, Math.cos(a) * sp + dirW.x * 4, 2 + Math.random() * 7 * Math.min(1, strength * 2.5), Math.sin(a) * sp + dirW.z * 4, 0.3 + Math.random() * 0.35, 0.45, dt);
+            }
+          }
+          // (over water the jet throws spray, not a billowing ground cloud: the blast puffs became a dark wall around
+          // a car hovering over the sea, and a grey fog layer after it had landed)
+          const nb = onWater ? 0 : this.count(10 + i, 150 * strength * scale * (this.air > 0.5 ? (vol ? 0.35 : 1) : 3), dt);
+          if (this.air > 0.5 && nb > 0) this.clouds.add(_hit.x, gy, _hit.z, nb / Math.max(scale, 0.25) / (vol ? 0.35 : 1));
+          if (vol && strength > 0.01 && !onWater) {
             // the volume: the jet spreads radially along the pad and rolls up at the front
             // (a steep, energetic jet throws the billows higher than a grazing one)
             const steep = -dirW.y;
@@ -224,7 +314,7 @@ export class Emitters {
     for (let w = 0; w < s.wheels.length; w++) {
       const ws = s.wheels[w];
       // (no rubber smoke on loose soil – the tyre digs and throws dust instead, emitWheelDust)
-      if (this.looseHere(ws.contactPoint.x, ws.contactPoint.y, ws.contactPoint.z)) continue;
+      if (this.looseHere(ws.contactPoint.x, ws.contactPoint.y, ws.contactPoint.z) || this.underWater(ws.contactPoint.y)) continue;
       const rate = tireSmokeRate(ws, s.speedMs) * scale * this.air;
       const n = this.count(20 + w, rate, dt);
       for (let k = 0; k < n; k++) {
@@ -265,6 +355,7 @@ export class Emitters {
     }
 
     this.emitWheelDust(s, dt, scale, carVel);
+    this.emitWaterSpray(s, dt, scale, carVel);
     this.emitHaze(dt);
     cloudVolume.update(dt, carPos.x, carPos.z);
 

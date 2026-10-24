@@ -229,7 +229,8 @@ export class App {
     // movable, breakable landmarks (LM, LRV, rovers; Roadster 1 in the Sun scene)
     const props = w?.dynamicProps?.() ?? [];
     const sim = await createRoadsterSim(t
-      ? { ground: 'terrain', terrain: { heights: t.heights, size: t.size, extentM: t.extentM, fineCenter: { x: spc.x, z: spc.z }, fineAreas }, landmarks, props }
+      ? { ground: 'terrain', terrain: { heights: t.heights, size: t.size, extentM: t.extentM, fineCenter: { x: spc.x, z: spc.z }, fineAreas }, landmarks, props,
+        water: w?.waterLevelY != null ? { levelY: w.waterLevelY } : null }
       : { ground: 'space', props });
     sim.setEnvironment(environmentFor(site.id));
     return sim;

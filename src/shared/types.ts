@@ -111,6 +111,8 @@ export interface VehicleState {
   /** Brake demand applied this step, 0..1 (service brake or handbrake) – drives the brake lights. */
   brakeInput: number;
   groundContact: boolean;     // any wheel in contact
+  /** Floating on the water (Boca Chica sea): the flight controller treats it like standing on the ground. */
+  afloat?: boolean;
   bodyContact: boolean;       // chassis touching geometry (crash indicator)
   heightAboveGroundM: number; // CoG to nearest surface below (world -Y ray)
   crashed: boolean;

@@ -332,6 +332,7 @@ export class GameRenderer {
       w && w.terrain ? (x, y, z) => { const h = w.heightAt(x, z); return Number.isFinite(h) && y - h < 0.15 && w.surfaceAt(x, z) - h < 0.05; } : null,
       env.airDensity);
     this.emitters.onScour = w?.marks ? (x, z, r, dose) => w.marks!.scour(x, z, r, dose) : null;
+    this.emitters.waterLevel = w?.waterLevelY ?? null;
     this.jets.air = this.emitters.air;
   }
 

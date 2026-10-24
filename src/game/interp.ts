@@ -29,7 +29,7 @@ export function copyStateInto(dst: VehicleState, s: Readonly<VehicleState>): voi
   Object.assign(dst.fans, s.fans);
   Object.assign(dst.aero, s.aero);
   dst.speedMs = s.speedMs; dst.motorPowerW = s.motorPowerW; dst.brakeInput = s.brakeInput;
-  dst.groundContact = s.groundContact; dst.bodyContact = s.bodyContact;
+  dst.groundContact = s.groundContact; dst.afloat = s.afloat; dst.bodyContact = s.bodyContact;
   dst.heightAboveGroundM = s.heightAboveGroundM; dst.crashed = s.crashed;
   dst.damage = s.damage; // shared, mutated in place by the sim (discrete, not interpolated)
 }

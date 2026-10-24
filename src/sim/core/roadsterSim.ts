@@ -26,6 +26,20 @@ export const NO_GROUND_M = 10_000;
 const WORLD_EDGE_MARGIN_M = 30;
 /** … braked over the last WORLD_EDGE_SOFT_M with at most WORLD_EDGE_DECEL (m/s²) towards the edge. */
 const WORLD_EDGE_SOFT_M = 150, WORLD_EDGE_DECEL = 15;
+/** Water: hull bottom below the CoG and the depth over which the hull goes under (m) … */
+const WATER_HULL_BOTTOM_M = 0.45, WATER_HULL_DEPTH_M = 1.1;
+/** … drag areas Cd·A (m²) horizontally (bow, wheels) and vertically (kept small: the lift jets must still get the car
+ *  out of the water), the water density and the damping of the rotation (1/s) when fully under. */
+const WATER_CDA_H = 2.0, WATER_CDA_V = 3.0, WATER_RHO = 1000, WATER_SPIN_DAMP = 3;
+/** Largest deceleration by the water (m/s²): at speed the quadratic drag alone stopped the car like a wall (20 → 6 m/s
+ *  in 0.25 s). Limited – but above the motor's pull, so full throttle still loses – it ploughs on for about a second,
+ *  throwing spray, and then wades. */
+const WATER_MAX_DECEL = 22, WATER_MAX_DECEL_V = 25;
+/** The car floats (sealed hull, two tanks full of air) with this share of the hull under water – roof and lamps stay
+ *  above the surface; with the wheels off the bottom they paddle it along (N) and the front wheels steer (N·m). */
+const WATER_FLOAT_SUB = 0.55, WATER_PADDLE_N = 3500, WATER_RUDDER_NM = 2500;
+/** Heave damping afloat (1/s, ≈ 0.6 of critical): the quadratic drag alone let the car bob for seconds. */
+const WATER_HEAVE_DAMP = 5;
 
 let rapierReady: Promise<void> | null = null;
 export function initRapier(): Promise<void> {
@@ -102,6 +116,8 @@ export interface RoadsterSimOptions {
   terrain?: { heights: Float32Array; size: number; extentM: number; fineCenter?: { x: number; z: number }; fineAreas?: { minX: number; maxX: number; minZ: number; maxZ: number }[] };
   /** movable, breakable landmarks (dynamic bodies whose parts break off, src/sim/core/props.ts). */
   props?: PropPlacement[];
+  /** Sea and lagoons (Boca Chica): water plane at levelY; below it the car wades against the water's drag. */
+  water?: { levelY: number } | null;
   /** Valve timing overrides (Monte Carlo robustness: 4–16 ms delays). */
   valves?: Partial<{ openDelayS: number; closeDelayS: number; minOnTimeS: number; pwmPeriodS: number }>;
 }
@@ -117,7 +133,7 @@ const makeState = (): VehicleState => ({
   nozzles: Array.from({ length: NOZZLE_COUNT }, () => ({ open: false, thrustN: 0, massFlowKgS: 0, exitPressureRatio: 1 })),
   fans: { mode: 'off', deltaPPa: 0, flowM3s: 0, powerW: 0, forceN: 0, gapM: 1, rpmNorm: 0 },
   aero: { mode: 'auto', wingAngleDeg: 0, dragN: 0, downforceN: 0 },
-  speedMs: 0, motorPowerW: 0, brakeInput: 0, groundContact: false, bodyContact: false, heightAboveGroundM: 0, crashed: false,
+  speedMs: 0, motorPowerW: 0, brakeInput: 0, groundContact: false, afloat: false, bodyContact: false, heightAboveGroundM: 0, crashed: false,
 });
 
 /** limitContactRebound: restitution allowed to a contact on top of cancelling the approach, and a slack (m/s). */
@@ -205,6 +221,7 @@ export class RoadsterSim implements VehicleSim {
       if (!opts.terrain) throw new Error('ground "terrain" needs opts.terrain');
       this.colliderInfo = buildTerrainColliders(RAPIER, this.world, opts.terrain.heights, opts.terrain.size, opts.terrain.extentM, { fineCenter: opts.terrain.fineCenter, fineAreas: opts.terrain.fineAreas });
       this.terrainH = { h: opts.terrain.heights, size: opts.terrain.size, extentM: opts.terrain.extentM };
+      this.waterLevelY = opts.water?.levelY ?? null;
       if (opts.landmarks?.length) {
         for (const [h, i] of buildLandmarkColliders(RAPIER, this.world, opts.landmarks)) this.colliderInfo.set(h, i);
       }
@@ -376,6 +393,7 @@ export class RoadsterSim implements VehicleSim {
     }
     const ctx: StepContext = { dt, t: st.t, sim: this, drive, systems, acc: this.acc, state: st };
     for (const m of this.modules) m.apply(ctx);
+    this.applyWater(dt, drive);
     this.body.addForce(this.acc.force, true);
     this.body.addTorque(this.acc.torque, true);
     const v0 = this.body.linvel(), m0 = this.body.mass(), w0 = this.body.angvel();
@@ -512,6 +530,49 @@ export class RoadsterSim implements VehicleSim {
     if (Math.hypot(w.x, w.y, w.z) < FUN_SPIN_MIN_RADS) return;
     const f = Math.exp(-FUN_SPIN_RATE * dt);
     this.body.setAngvel({ x: w.x * f, y: w.y * f, z: w.z * f }, true);
+  }
+
+  /** Height of the water plane (null: no water in this world). */
+  private waterLevelY: number | null = null;
+  /** Share of the hull under water (0..1) this step. */
+  submersion = 0;
+
+  /**
+   * Driving into the sea: quadratic water drag on the submerged share of the hull (the water was only drawn before,
+   * the car raced over the sea floor at 50 m/s, out of sight under the surface), limited to a hard but survivable
+   * deceleration, and damped rotation. The car floats; afloat the wheels paddle and steer it at walking pace, in the
+   * shallows it drives on the bottom against the drag, and the jets lift it out.
+   */
+  private applyWater(dt: number, drive: DriveInput): void {
+    this.submersion = 0;
+    const level = this.waterLevelY;
+    if (level === null) return;
+    const p = this.body.translation();
+    const sub = Math.min(1, Math.max(0, (level - (p.y - WATER_HULL_BOTTOM_M)) / WATER_HULL_DEPTH_M));
+    const m = this.body.mass();
+    if (sub <= 0 || m <= 0) return;
+    this.submersion = sub;
+    const v = this.body.linvel(), vh = Math.hypot(v.x, v.z);
+    let kH = 0.5 * WATER_RHO * WATER_CDA_H * sub * vh, kV = 0.5 * WATER_RHO * WATER_CDA_V * sub * Math.abs(v.y);
+    // (at most WATER_MAX_DECEL, and never more than stops the car in this step: a fast entry must not throw it back)
+    kH = Math.min(kH, m / dt, m * WATER_MAX_DECEL / Math.max(vh, 1e-3));
+    kV = Math.min(kV, m / dt, m * WATER_MAX_DECEL_V / Math.max(Math.abs(v.y), 1e-3));
+    const com = this.comWorld();
+    this.acc.addWorld({ x: -kH * v.x, y: -kV * v.y, z: -kH * v.z }, com);
+    // buoyancy, at the centre of mass (no righting moment: the damping below keeps the car steady)
+    const g = Math.hypot(this.gravity.x, this.gravity.y, this.gravity.z);
+    this.acc.addWorld({ x: 0, y: m * g * sub / WATER_FLOAT_SUB - m * WATER_HEAVE_DAMP * Math.min(1, sub / WATER_FLOAT_SUB) * v.y, z: 0 }, com);
+    if (sub > 0.35 && !this.state.groundContact) {
+      // afloat: the turning wheels paddle the car along its heading, the steered front wheels act as a rudder
+      const q = this.body.rotation() as Quat, f = qrot(q, { x: 0, y: 0, z: 1 });
+      const fl = Math.hypot(f.x, f.z);
+      const push = WATER_PADDLE_N * (drive.reverse ? -1 : 1) * Math.max(0, drive.throttle);
+      if (fl > 0.2 && push !== 0) this.acc.addWorld({ x: f.x / fl * push, y: 0, z: f.z / fl * push }, com);
+      // steer +1 = right = nose towards −Y rotation (+X is the car's left)
+      this.acc.torque.y -= drive.steer * WATER_RUDDER_NM * Math.min(1, 0.3 + vh / 2);
+    }
+    const w = this.body.angvel(), k = Math.exp(-WATER_SPIN_DAMP * sub * dt);
+    this.body.setAngvel({ x: w.x * k, y: w.y * k, z: w.z * k }, true);
   }
 
   /** The car is at the edge of a terrain world this step (keepInsideWorld braked or stopped it). */
@@ -653,6 +714,10 @@ export class RoadsterSim implements VehicleSim {
     s.bodyContact = contact;
     const down = this.castRay(s.pos, { x: 0, y: -1, z: 0 }, NO_GROUND_M);
     s.heightAboveGroundM = down ? down.dist : NO_GROUND_M;
+    // over the sea the surface below is the water, not the sea floor (the flight controller measured to the bottom
+    // and started an automatic landing while the car was floating)
+    if (this.waterLevelY !== null && (!down || down.point.y < this.waterLevelY)) s.heightAboveGroundM = Math.min(s.heightAboveGroundM, Math.max(0, s.pos.y - this.waterLevelY));
+    s.afloat = this.submersion >= 0.3;
     for (const m of this.modules) m.writeState?.(s, this);
     s.groundContact = s.wheels.some((wh) => wh.contact);
     if (this.impactCrash) {

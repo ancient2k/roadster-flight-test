@@ -12,7 +12,9 @@ import {
 import { mediumLight, cloudDepth, fxLight } from './fxLight';
 
 // (Grain = ballistic soil grains – no swirl, no wind, no ground clamp: pure parabolas on the Moon)
-export const enum PKind { Condensation = 0, TireSmoke = 1, Dust = 2, Steam = 3, Blast = 4, Haze = 5, Grain = 6 }
+// (Spray = water thrown up by the car and the jets: shaded like condensation – white, lit by the scene – and falling
+// back under gravity through a negative buoyancy)
+export const enum PKind { Condensation = 0, TireSmoke = 1, Dust = 2, Steam = 3, Blast = 4, Haze = 5, Grain = 6, Spray = 7 }
 
 export interface EmitOpts {
   kind: PKind;
@@ -167,7 +169,8 @@ export class ParticleSystem {
     const tauUp = cloudDepth(pv, vec3(0, 1, 0) as unknown as Node<'vec3'>);
     const tauSide = cloudDepth(pv, vec3(1, 0, 0) as unknown as Node<'vec3'>).min(cloudDepth(pv, vec3(-1, 0, 0) as unknown as Node<'vec3'>));
     const trans = (tau: Node<'float'>) => max(exp(tau.negate()), exp(tau.mul(-0.25)).mul(0.12));
-    const shadowed = kind.equal(3).not();
+    // (spray is not part of the blast cloud: its shadow made the droplets over the sea dark grey blots)
+    const shadowed = kind.equal(3).not().and(kind.equal(7).not());
     const tKey = select(shadowed, trans(tauKey), float(1));
     const tAmb = select(shadowed, trans(tauUp.mul(0.6)), float(1));
     const tRed = select(shadowed, trans(tauSide.mul(0.8)), float(1));
@@ -213,7 +216,8 @@ export class ParticleSystem {
     const lit = mix(select(isSteam, steamLight, lightV.add(fillV).add(this.fill).mul(shade).add(redV.mul(mix(float(0.6), float(1.0), thick)).mul(select(kind.equal(4), float(2.4), float(1))))), grainLit, grainF);
     // the jet blast cloud is dense, freshly condensed vapour: it scatters noticeably more than the
     // thin stage haze or tyre smoke (stream: brilliant white billows next to dark asphalt)
-    mat.colorNode = base.mul(lit).mul(select(kind.equal(4), float(2.6), float(1)));
+    // (water spray: bright droplets in the sun, like the blast's fresh vapour)
+    mat.colorNode = base.mul(lit).mul(select(kind.equal(4), float(2.6), select(kind.equal(7), float(2.0), float(1))));
     // (the life fraction goes to the fragment stage as an explicit varying – recomputed there from
     // the instanced attributes it came out ≈ 0 in the terrain worlds, so fadeIn hid every sprite: no
     // dust, veil or condensation was visible on the Moon/Mars/Giza)
