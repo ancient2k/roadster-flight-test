@@ -8,7 +8,7 @@ import path from 'node:path';
 export const OUT = path.resolve('trailer-out');
 
 /** Opens the game headless with WebGPU at the capture size. */
-export async function open({ url = process.env.TRAILER_URL ?? 'http://127.0.0.1:4173/', width = 1920, height = 1080, scale = 1, quality = 'ultra', lang = process.env.TRAILER_LANG ?? 'de' } = {}) {
+export async function open({ url = process.env.TRAILER_URL ?? 'http://127.0.0.1:4173/', width = 1920, height = 1080, scale = 1, quality = 'ultra', lang = process.env.TRAILER_LANG ?? 'en' } = {}) {
   const browser = await chromium.launch({ args: ['--enable-unsafe-webgpu', '--enable-features=Vulkan,WebGPU', '--use-angle=metal'] });
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
   const errors = [];
@@ -285,4 +285,22 @@ export async function flyPath(page, keys, { agl = true } = {}) {
 /** Endless air for the shot (no autoland, no empty tank). */
 export async function infiniteAir(page) {
   await page.evaluate(() => { window.__rft.app.session.infiniteAir = true; });
+}
+
+/** The course driver (src/sim/gnc/courseDriver.ts) drives the level being played: real driving, as a player would
+ *  (after delayS on the brake). */
+export async function courseDrive(page, { delayS = 0 } = {}) {
+  await page.evaluate((delayS) => {
+    const app = window.__rft.app, inp = app.input, drv = window.__rft.courseDriver(), t0 = app.sim.getState().t;
+    if (!drv) throw new Error('no level is being driven');
+    inp.__poll ??= inp.poll.bind(inp);
+    inp.poll = (dt) => {
+      const p = inp.__poll(dt);
+      for (const k of Object.keys(p.pressed)) p.pressed[k] = false;
+      const st = app.sim.getState(), d = drv.update(st);
+      p.drive = st.t - t0 < delayS ? { ...d, throttle: 0, brake: 1, steer: 0 } : d;
+      p.thrust = { lift: 0, boost: 0, pitch: 0, roll: 0, yaw: 0 };
+      return p;
+    };
+  }, delayS);
 }

@@ -1,5 +1,6 @@
 // Starbase: the Roadster drifts across the build field, the camera rises and turns toward the launch tower ~950 m
-// east just as Starship lifts off (one continuous move). An almost empty level arms the launch clock.
+// east just as Starship lifts off (one continuous move), then follows the rising ship and zooms in on it as it climbs
+// away over the Gulf. An almost empty level arms the launch clock.
 const LEVEL = { v: 1, name: 'Trailer', site: 'earth_bocachica', parts: [{ type: 'start', i: 2, j: 2, rot: 1 }], deco: [] };
 export const LIFTOFF_S = 8;
 
@@ -18,7 +19,7 @@ export default async function (page, { flyPath, infiniteAir, controls, camera, s
     { t: 6, pos: [-290, 0.45, 55], heading: 92 },
     { t: 7.5, pos: [-266, 0.45, 51], heading: 74 },
     { t: 8.5, pos: [-262, 0.45, 50.5], heading: 72 },
-    { t: 16, pos: [-262, 0.45, 50.5], heading: 72 },
+    { t: 24, pos: [-262, 0.45, 50.5], heading: 72 },
   ]);
   await controls(page, [{ t: 0, drive: { throttle: 1, steer: 0.6 } }, { t: 4, drive: { throttle: 1, steer: -0.3 } }, { t: 7, drive: { throttle: 0.6 } }]);
   await camera(page, [
@@ -27,7 +28,8 @@ export default async function (page, { flyPath, infiniteAir, controls, camera, s
     { t: 6, pos: 'car+[-14,3,-2]', look: 'car+[30,4,10]', fov: 38 },
     { t: 9, pos: [-286, 2.6, 43], look: [656, 60, 344], fov: 18 },
     { t: 12, pos: [-286, 2.8, 43], look: 'booster+[0,10,0]', fov: 20 },
-    { t: 16, pos: [-286, 3, 43], look: 'booster', fov: 26 },
+    { t: 16, pos: [-286, 3, 43], look: 'booster', fov: 24 },
+    { t: 24, pos: [-286, 3.2, 43], look: 'booster', fov: 9 },
   ]);
-  return record(page, name, 16);
+  return record(page, name, 24);
 }

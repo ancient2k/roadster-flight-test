@@ -8,7 +8,7 @@ import path from 'node:path';
 import { OUT, encode } from './lib.mjs';
 
 const URL_SITE = 'https://roadster.ageco-labs.de';
-const lang = process.env.TRAILER_LANG ?? 'de';
+const lang = process.env.TRAILER_LANG ?? 'en';
 const TEXT = {
   de: { free: 'Kostenlos im Browser · Open Source', build: 'Bau deine Strecke.', fly: 'Flieg sie.', scan: 'Scannen und losfliegen', disclaimer: 'Inoffizielles Fan-Projekt · keine Verbindung zu Tesla, Inc. oder SpaceX' },
   en: { free: 'Free in your browser · Open source', build: 'Build your track.', fly: 'Fly it.', scan: 'Scan and take off', disclaimer: 'Unofficial fan project · not affiliated with Tesla, Inc. or SpaceX' },

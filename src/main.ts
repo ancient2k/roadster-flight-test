@@ -1,5 +1,7 @@
 // Entry point: boots the app and exposes a debug/test hook on window.__rft.
 import { App } from './game/app';
+import { CourseDriver } from './sim/gnc/courseDriver';
+import { courseLine } from './shared/lanes';
 import { t } from './i18n';
 import { classifyDevice, defaultQualityFor, pickQuality, setDeviceProfile, type QualityLevel } from './render/quality';
 import { SETTINGS_KEY } from './ui/settings';
@@ -76,6 +78,12 @@ async function boot(): Promise<void> {
     captureFrame: (dt: number) => { app.loop.advance(dt); },
     /** Hard camera cut: clears the temporal history (TRAA, motion blur) for the next frame. */
     captureCut: () => { app.renderer.rig.onCut?.(); },
+    /** The course driver for the level being driven (trailer test drive): returns per-frame drive input. */
+    courseDriver: () => {
+      const run = app.activeRun, area = app.renderer.worldHandle?.buildArea;
+      const line = run && area ? courseLine(run.src.level, area) : null;
+      return line ? new CourseDriver(line.pts, line.closed) : null;
+    },
     /** Test hook: advance the simulation synchronously by `seconds` (rendering continues normally). */
     fastForward: (seconds: number) => {
       const n = Math.round(seconds / app.sim.dt);

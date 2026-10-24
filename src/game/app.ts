@@ -270,6 +270,8 @@ export class App {
   }
 
   private levelRun: LevelRun | null = null;
+  /** The time trial of the level being driven (null outside a level). */
+  get activeRun(): LevelRun | null { return this.levelRun; }
   private raceHud: RaceHud | null = null;
   /** Starship launch of the level (from the moment it is armed). */
   private launch: LaunchShow | null = null;

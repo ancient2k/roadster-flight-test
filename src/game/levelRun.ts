@@ -68,7 +68,7 @@ export class LevelRun {
     }
   }
 
-  private readonly src: { level: Level; area: RunArea; bestKey?: string };
+  readonly src: { level: Level; area: RunArea; bestKey?: string };
   /** The same level from the beginning (restart). */
   fresh(): LevelRun { return new LevelRun(this.src.level, this.src.area, this.src.bestKey); }
 

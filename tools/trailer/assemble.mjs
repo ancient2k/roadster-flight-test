@@ -10,20 +10,21 @@ import { OUT } from './lib.mjs';
 /** Edit list: source, in point, length (s), and what happens to it. */
 const EDIT = [
   { src: '01-liftoff', in: 0.0, len: 4.0, fadeIn: 0.6 },
-  { src: '02-stonehenge', in: 0.8, len: 2.6 },
-  { src: '03-giza', in: 0.5, len: 2.6 },
-  { src: '04-starbase', in: 0.5, len: 14.5 },
-  { src: '05-ascent', in: 1.0, len: 6.5 },
-  { src: '06-moon', in: 0.8, len: 3.2 },
-  { src: '07-mars', in: 0.8, len: 3.2 },
+  { src: '02-stonehenge', in: 0.3, len: 3.2 },
+  { src: '03-giza', in: 0.2, len: 3.8 },
+  { src: '04-starbase', in: 0.5, len: 20.0 },
+  { src: '06-moon', in: 0.5, len: 4.0 },
+  { src: '07-mars', in: 0.2, len: 3.2 },
   { src: '08-sun', in: 0.0, len: 4.0 },
   { src: '09-roadster1', in: 0.0, len: 5.5, fadeOut: 2.2 },
   { black: 0.8 },
   { src: 'dos', in: 0.0, len: 4.2, silent: true, stem: 'dos-sfx' },
   { src: '10-editor', in: 0.0, len: 11.6, silent: true, stem: ['chiptune', 'editor-sfx'] },
-  { src: '11-return', in: 0.0, len: 7.5, pixelIn: 0.7 },
+  { src: '11-return', in: 0.0, len: 8.5, pixelIn: 0.7 },
   { src: '12-finale', in: 0.0, len: 14.0, card: { at: 2.5, fade: 1.2 }, fadeOut: 1.5 },
 ];
+/** Game sound under the music (the score carries the trailer; jets and engine only underneath). */
+const GAME_VOLUME = 0.3;
 const W = 1920, H = 1080, FPS = 60;
 
 const inputs = [], vf = [], af = [], segs = [];
@@ -63,7 +64,7 @@ for (const [k, e] of EDIT.entries()) {
 const total = t;
 const concat = `${segs.map((k) => `[v${k}][a${k}]`).join('')}concat=n=${segs.length}:v=1:a=1[vout][game]`;
 // stems at their places; the music (if any) from 0 to the end of the Sun part, with a fade-out
-const mix = ['[game]volume=1.0[g]'];
+const mix = [`[game]volume=${GAME_VOLUME}[g]`];
 const labels = ['[g]'];
 for (const [j, s] of stems.entries()) {
   const i = inputs.push(s.file) - 1;
