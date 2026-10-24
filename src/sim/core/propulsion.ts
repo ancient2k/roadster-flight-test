@@ -46,7 +46,9 @@ export class Propulsion {
    *  line leak between regulator and valves (m²); 1 / 0 for an intact car. */
   readonly thrustScale: Float64Array;
   leakAreaM2 = 0;
-  /** Air lost through the leak last step (kg/s). */
+  /** Damage hook: open area of a cracked COPV fitting (m²), leaking at tank pressure (no regulator before it). */
+  tankLeakAreaM2 = 0;
+  /** Air lost through the leaks last step (kg/s). */
   leakKgS = 0;
 
   /** Apply the compressor setting (see compressorConfig). */
@@ -114,8 +116,9 @@ export class Propulsion {
     }
     this.totalMassFlow = mdotTotal;
     // choked leak at feed pressure: ṁ = A·p·√(γ/R)·(2/(γ+1))^((γ+1)/(2(γ−1))) / √T = 0.0404·A·p/√T (air)
-    this.leakKgS = this.leakAreaM2 > 0 && this.tank.m > 0.01
-      ? 0.0404 * this.leakAreaM2 * Math.min(this.tank.pressure, ROADSTER.tank.regulatorSetpointPa) / Math.sqrt(T0) : 0;
+    this.leakKgS = (this.leakAreaM2 > 0 || this.tankLeakAreaM2 > 0) && this.tank.m > 0.01
+      ? 0.0404 * (this.leakAreaM2 * Math.min(this.tank.pressure, ROADSTER.tank.regulatorSetpointPa)
+        + this.tankLeakAreaM2 * Math.max(0, this.tank.pressure - this.ambientPressure)) / Math.sqrt(T0) : 0;
     this.tank.step(dt, mdotTotal + this.leakKgS, refill ? this.refillRateKgS : 0);
   }
 }

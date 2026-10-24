@@ -209,3 +209,54 @@ test('parts tear off at speed and fly as real model parts (debris copies, Body c
   await page.screenshot({ path: info.outputPath('damage-parts-flying-giza.png') });
   expect(errors, errors.join('\n')).toEqual([]);
 });
+
+test('a heavy wreck opens the body: panels fly, the interior (tub, battery, motors, COPVs) shows; restart closes it', async ({ page }, info) => {
+  test.setTimeout(300_000);
+  const errors = errorsOf(page);
+  await page.addInitScript(() => {
+    try { localStorage.setItem('rft.settings.v1', JSON.stringify({ version: 1, realism: { damage: 'visual' } })); } catch { /* blocked */ }
+  });
+  await page.goto('/?q=low&nomenu&lang=en');
+  await page.waitForFunction(() => (window as any).__rft?.ready === true, null, { timeout: 120_000 });
+  await page.evaluate(() => (window as any).__rft.startWorld('earth_giza'));
+  await page.waitForTimeout(4000);
+  const closed = await page.evaluate(() => (window as any).__rft.app.renderer.car.damage.debrisInfo());
+  expect(closed.interior).toBe(false);
+  // hood, both fenders, roof, both quarters, deck (+ wing), front bumper
+  const lost = await page.evaluate(() => {
+    const a = (window as any).__rft.app, dm = a.sim.modules.find((m: any) => m.name === 'damage');
+    const hits: Array<[any, any, number]> = [
+      [{ x: 0, y: 0.3, z: 1.9 }, { x: 0, y: -0.7, z: -0.7 }, 8_000],
+      [{ x: 0.95, y: 0.2, z: 1.5 }, { x: -1, y: 0, z: 0 }, 9_000], [{ x: -0.95, y: 0.2, z: 1.5 }, { x: 1, y: 0, z: 0 }, 9_000],
+      [{ x: 0, y: 0.68, z: -0.1 }, { x: 0, y: -1, z: 0 }, 4_000],
+      [{ x: 0.95, y: 0.2, z: -1.3 }, { x: -1, y: 0, z: 0 }, 14_000], [{ x: -0.95, y: 0.2, z: -1.3 }, { x: 1, y: 0, z: 0 }, 14_000],
+      [{ x: 0, y: 0.55, z: -1.3 }, { x: 0, y: -0.7, z: 0.7 }, 9_000], [{ x: 0, y: -0.15, z: 2.15 }, { x: 0, y: 0, z: -1 }, 7_000],
+    ];
+    for (const [p, d, e] of hits) dm.inject(a.sim, p, d, e);
+    return [...dm.state.lost];
+  });
+  console.log('wreck parts', lost);
+  for (const p of ['Hood', 'Fender_L', 'Fender_R', 'Roof', 'Quarter_L', 'Quarter_R', 'Deck', 'Wing', 'Bumper_F']) expect(lost).toContain(p);
+  await page.waitForTimeout(2500);
+  const open = await page.evaluate(() => (window as any).__rft.app.renderer.car.damage.debrisInfo());
+  console.log('render', JSON.stringify(open));
+  expect(open.interior).toBe(true);
+  expect(open.cutTriangles).toBeGreaterThan(100_000);
+  for (const p of ['Hood', 'Fender_L', 'Roof', 'Deck']) expect(open.parts).toContain(p);
+  // views relative to the car's heading: three-quarter front left, rear right, from above
+  for (const [name, yaw, pitch, dist] of [['front', 0.7, 0.55, 4.2], ['rear', 2.5, 0.55, 4.2], ['top', 3.14, 0.9, 4.0]] as const) {
+    await page.evaluate(([yaw, pitch, dist]) => {
+      const a = (window as any).__rft.app, q = a.sim.body.rotation();
+      const h = Math.atan2(2 * (q.x * q.z + q.w * q.y), 1 - 2 * (q.x * q.x + q.y * q.y));
+      a.renderer.setCameraMode('orbit');
+      Object.assign(a.renderer.rig.orbit, { yaw: yaw + h, pitch, dist });
+    }, [yaw, pitch, dist]);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: info.outputPath(`damage-interior-${name}.png`) });
+  }
+  await page.evaluate(() => (window as any).__rft.app.restart());
+  await page.waitForTimeout(800);
+  const repaired = await page.evaluate(() => (window as any).__rft.app.renderer.car.damage.debrisInfo());
+  expect(repaired).toEqual({ parts: [], cutTriangles: 0, interior: false });
+  expect(errors, errors.join('\n')).toEqual([]);
+});

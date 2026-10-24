@@ -29,6 +29,8 @@ import { drawDamageView } from '../hud/damageView';
 const PART_LABEL: Partial<Record<DetachablePart, MsgKey>> = {
   Door_L: 'damage.part.doorL', Door_R: 'damage.part.doorR', Bumper_F: 'damage.part.bumperF', Bumper_R: 'damage.part.bumperR',
   Diffuser: 'damage.part.diffuser', NozzleCover_L: 'damage.part.nozzleCoverL', NozzleCover_R: 'damage.part.nozzleCoverR',
+  Hood: 'damage.part.hood', Deck: 'damage.part.deck', Roof: 'damage.part.roof', Fender_L: 'damage.part.fenderL',
+  Fender_R: 'damage.part.fenderR', Quarter_L: 'damage.part.quarterL', Quarter_R: 'damage.part.quarterR',
 };
 import '../ui.css';
 import './menu.css';
@@ -653,6 +655,7 @@ export class Menu extends Emitter<MenuEvents> {
     const sk = d.skirts.filter((v) => v > 0.005).length;
     if (sk) rows.push([t('damage.skirts'), t('damage.damaged', { n: String(sk) })]);
     if (d.wingLost) rows.push([t('damage.wing'), t('damage.lost')]);
+    if (d.tank > 0.005) rows.push([t('damage.tanks'), t('damage.tankVent')]);
     const parts = d.lost.filter((p) => PART_LABEL[p]).map((p) => t(PART_LABEL[p]!));
     if (parts.length) rows.push([t('damage.parts'), parts.join(', ')]);
     const canvas = h('canvas', { class: 'rft-damage-view', 'aria-hidden': 'true', style: 'width:84px;height:170px;flex:none' }) as HTMLCanvasElement;

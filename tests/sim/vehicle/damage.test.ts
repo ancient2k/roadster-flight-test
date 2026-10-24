@@ -216,7 +216,7 @@ describe('functional consequences', () => {
     r.sim.reset(spawnPose({ x: 0, y: 0, z: -1300 }, 0, 0));
     r.run(1);
     const bodies0 = r.sim.world.bodies.len();
-    r.vm.damage.inject(r.sim, { x: 0.98, y: -0.1, z: -1.25 }, { x: -1, y: 0, z: 0 }, 34_000);
+    r.vm.damage.inject(r.sim, { x: 0.98, y: -0.25, z: -1.25 }, { x: -1, y: 0, z: 0 }, 34_000);   // below the rear quarter
     r.vm.damage.inject(r.sim, { x: 0.3, y: 0.62, z: -1.6 }, { x: 0, y: -0.7, z: 0.7 }, 3_000);   // wing
     const d = r.vm.damage.state;
     expect(d.wheelLost[2]).toBe(true);

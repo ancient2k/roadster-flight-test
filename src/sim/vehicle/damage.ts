@@ -19,7 +19,7 @@ import { ROADSTER } from '@shared/roadster';
 import { DEG, clamp, qaxisAngle, qrot, v3, type Quat, type Vec3 } from '@shared/math';
 import type { VehicleState } from '@shared/types';
 import {
-  DAMAGE_ZONES, DETACHABLE_PARTS, PART_GEOMETRY, inBox, intactDamage,
+  DAMAGE_ZONES, DETACHABLE_PARTS, MOUNTED_ON, PART_GEOMETRY, TANK_BAY, inBox, intactDamage,
   type DamageMode, type DamageState, type DamageZone, type Dent, type DetachablePart,
 } from '@shared/damage';
 import type { VehicleBus } from './bus';
@@ -87,6 +87,15 @@ export const NOZZLE_DMG = {
   leakAreaM2: { main: 30e-6, lift: 20e-6, yaw: 8e-6 } as Record<string, number>,
 };
 
+/**
+ * COPV fittings [EST]: the two tanks (type IV, carbon over a polymer liner) survive crashes themselves (UN R134 /
+ * FMVSS 304 crash and drop tests); what fails is the boss with its valve and the feed manifold. Energy absorbed
+ * in the tank bay (TANK_BAY: side hits on the rear quarters and doors, deck hits from above) above yieldJ cracks
+ * them, at fullJ a valve is sheared off: a 10 mm bore ≈ fullAreaM2 = 78 mm² open at tank pressure. Choked flow
+ * 0.0404·A·p/√T at 690 bar, 288 K → ≈ 13 kg/s: a full charge (250 kg) vents in well under a minute.
+ */
+export const TANK_DMG = { yieldJ: 25_000, fullJ: 90_000, fullAreaM2: 78e-6 };
+
 /** Sliding fan skirts [EST]: low contacts (y < maxY) tear skirt segments of their quadrant; a fully torn
  *  quadrant leaks like an extra 20 mm gap along its whole length (5× the sealed gap → suction mostly gone). */
 export const SKIRT_DMG = { maxY: -0.1, yieldJ: 1_000, fullJ: 10_000, extraGapM: 0.02 };
@@ -103,6 +112,17 @@ export const WING_DMG = { downforceScale: 0.3, diffuserDownforceScale: 0.85 };
  * (FMVSS 206: ≈ 11 kN longitudinal per hinge) take ≈ 10 kJ of side intrusion, the diffuser and the brass bells
  * of the main nozzles on their brackets less. Wheels are torn off by the suspension-link model (WHEEL_DMG.fullJ).
  * Masses: 21" wheel + tyre + hub/brake ≈ 32–34 kg, carbon door with glass ≈ 15 kg.
+ * Body panels (carbon skins, ≈ 2 mm with core and edge stiffeners ≈ 4–5 kg/m², the inner shell included):
+ * - Hood (frunk lid, ≈ 0.9 m²): 6 kg on two hinges and the latch; hood hinges and the primary + secondary latch
+ *   (FMVSS 113) hold a few kN each and give way at ≈ 6 kJ, i.e. after the bumper (5 kJ) in a frontal hit.
+ * - Deck (rear hatch with the rear glass, ≈ 1.2 m², glass ≈ 4 mm): 14 kg on two hinges, two gas struts and a
+ *   latch → 7 kJ. The wing stands on it (MOUNTED_ON) and goes with it.
+ * - Roof (removable targa panel, the production car stows it in the trunk): 7 kg on quick-release latches →
+ *   3 kJ; loaded by roof contacts (rollover, things falling on the car).
+ * - Front fenders (≈ 0.5 m², bolted along the crest, the A-pillar and the sill: ≈ 8 M6 bolts at ≈ 8 kN shear,
+ *   most of them pull out of the carbon first): 4 kg, 7 kJ of side or corner impact.
+ * - Rear quarters (clamshell skins over the rear wheels, bonded + bolted to the tub, ≈ 0.7 m²): 6 kg, 12 kJ
+ *   (stiffer than the fenders: bonded flange along the sill and the buttress).
  */
 export const PART_DMG: Record<DetachablePart, { massKg: number; breakJ: number }> = {
   Wing: { massKg: 9, breakJ: 2_000 },
@@ -113,6 +133,13 @@ export const PART_DMG: Record<DetachablePart, { massKg: number; breakJ: number }
   Diffuser: { massKg: 5, breakJ: 3_000 },
   NozzleCover_L: { massKg: 1.2, breakJ: 1_500 },
   NozzleCover_R: { massKg: 1.2, breakJ: 1_500 },
+  Hood: { massKg: 6, breakJ: 6_000 },
+  Deck: { massKg: 14, breakJ: 7_000 },
+  Roof: { massKg: 7, breakJ: 3_000 },
+  Fender_L: { massKg: 4, breakJ: 7_000 },
+  Fender_R: { massKg: 4, breakJ: 7_000 },
+  Quarter_L: { massKg: 6, breakJ: 12_000 },
+  Quarter_R: { massKg: 6, breakJ: 12_000 },
   Wheel_FL: { massKg: 32, breakJ: Infinity },
   Wheel_FR: { massKg: 32, breakJ: Infinity },
   Wheel_RL: { massKg: 34, breakJ: Infinity },
@@ -134,7 +161,7 @@ export const RELEASE = { kickShare: 0.01, kickMinMs: 1.2, kickMaxMs: 7 };
  * Debris limits (performance and clutter): at most MAX_DEBRIS bodies (the oldest goes first), each one removed
  * after DEBRIS_LIFE_S or when it has fallen far below the car (off the world). Resting debris sleeps in Rapier.
  */
-export const MAX_DEBRIS = 8;
+export const MAX_DEBRIS = 12;
 export const DEBRIS_LIFE_S = 45;
 
 /**
@@ -178,6 +205,7 @@ export class DamageModule implements ForceModule {
   private wheelBend = [0, 0, 0, 0];      // signed bending energy (sign = toe direction)
   private nozzleE = new Array(ROADSTER.nozzles.length).fill(0);
   private skirtE = [0, 0, 0, 0];
+  private tankE = 0;
   private partE: Record<DetachablePart, number> = Object.fromEntries(DETACHABLE_PARTS.map((p) => [p, 0])) as Record<DetachablePart, number>;
   private debris: Debris[] = [];
   private hitE = 0;
@@ -214,11 +242,12 @@ export class DamageModule implements ForceModule {
     Object.assign(this.state, intactDamage(this.mode));
     for (const z of DAMAGE_ZONES) this.zoneE[z] = 0;
     this.dentE = [];
-    this.wheelE.fill(0); this.wheelBend.fill(0); this.nozzleE.fill(0); this.skirtE.fill(0);
+    this.wheelE.fill(0); this.wheelBend.fill(0); this.nozzleE.fill(0); this.skirtE.fill(0); this.tankE = 0;
     this.landing = null; this.landingCharged.fill(false);
     this.bus.damage.reset();
     sim.propulsion.thrustScale.fill(1);
     sim.propulsion.leakAreaM2 = 0;
+    sim.propulsion.tankLeakAreaM2 = 0;
     this.setMode(sim, this.mode);
   }
 
@@ -278,6 +307,8 @@ export class DamageModule implements ForceModule {
         const dist = Math.hypot(c.p.x - n.x, c.p.y - n.y, c.p.z - n.z);
         if (dist < NOZZLE_DMG.regionM) this.nozzleE[i] += e * (1 - dist / NOZZLE_DMG.regionM);
       }
+      // COPV bay
+      if (inBox(TANK_BAY, c.p)) this.tankE += e;
       // skirts
       if (c.p.y < SKIRT_DMG.maxY) this.skirtE[(c.p.x >= 0 ? 0 : 1) + (c.p.z >= -0.1 ? 0 : 2)] += e;
     }
@@ -377,6 +408,13 @@ export class DamageModule implements ForceModule {
       if (part === 'Wing') ds.wingLost = true;
       this.detach(sim, part, this.partE[part] - spec.breakJ);
     }
+    // parts standing on a part that is gone go with it
+    for (const part of DETACHABLE_PARTS) {
+      const base = MOUNTED_ON[part];
+      if (!base || ds.lost.includes(part) || !ds.lost.includes(base)) continue;
+      if (part === 'Wing') ds.wingLost = true;
+      this.detach(sim, part, 0);
+    }
     let leak = 0;
     for (let i = 0; i < ROADSTER.nozzles.length; i++) {
       const d = d01(this.nozzleE[i], NOZZLE_DMG.yieldJ, NOZZLE_DMG.fullJ);
@@ -385,6 +423,8 @@ export class DamageModule implements ForceModule {
       leak += d * d * (NOZZLE_DMG.leakAreaM2[ROADSTER.nozzles[i].group] ?? 0);
     }
     if (fx) sim.propulsion.leakAreaM2 = leak;
+    ds.tank = d01(this.tankE, TANK_DMG.yieldJ, TANK_DMG.fullJ);
+    if (fx) sim.propulsion.tankLeakAreaM2 = TANK_DMG.fullAreaM2 * ds.tank;
     for (let q = 0; q < 4; q++) {
       const d = d01(this.skirtE[q], SKIRT_DMG.yieldJ, SKIRT_DMG.fullJ);
       ds.skirts[q] = d;
@@ -476,6 +516,8 @@ export class DamageModule implements ForceModule {
   debrisBodies(): ReadonlyArray<{ part: DetachablePart; body: RAPIER.RigidBody; massKg: number }> { return this.debris; }
   /** Test/diagnostic access: impact energy absorbed within a part's box (J). */
   partEnergy(part: DetachablePart): number { return this.partE[part]; }
+  /** Test/diagnostic access: impact energy absorbed in the COPV bay (J). */
+  tankEnergy(): number { return this.tankE; }
   /** Test/diagnostic access: absorbed energy per zone (J). */
   zoneEnergy(z: DamageZone): number { return this.zoneE[z]; }
   /** Test hook: deposit energy at a body-frame point as if a contact had absorbed it (direction into the car). */
