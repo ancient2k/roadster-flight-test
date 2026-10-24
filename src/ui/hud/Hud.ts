@@ -137,6 +137,21 @@ export class Hud {
     loadFonts().then(() => { this.fontsReady = true; this.resize(); });
   }
 
+  private menuBtn: HTMLButtonElement | null = null;
+  /** Menu button (pause menu with the settings) for mouse and keyboard; the touch overlay has its own ☰. */
+  setMenuButton(label: string, onClick: () => void): void {
+    if (!this.menuBtn) {
+      this.menuBtn = document.createElement('button');
+      this.menuBtn.className = 'rft-hud-menu';
+      this.menuBtn.type = 'button';
+      this.menuBtn.tabIndex = -1; // Esc / P is the keyboard way; Space must not "press" it while flying
+      this.menuBtn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+      this.el.append(this.menuBtn);
+    }
+    this.menuBtn.textContent = label;
+    this.menuBtn.setAttribute('aria-label', label);
+  }
+
   setVisible(v: boolean): void {
     this.visible = v;
     this.el.style.visibility = v ? 'visible' : 'hidden';

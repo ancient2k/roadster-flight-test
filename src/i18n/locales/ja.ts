@@ -414,6 +414,8 @@ export const ja: Messages = {
   'flash.compressorOn': 'コンプレッサー オン',
   'flash.compressorOff': 'コンプレッサー オフ',
   'flash.compressorNoAir': '吸い込む空気がない · 設定: コンプレッサー 遊び重視',
+  'flash.worldEdge': 'マップの端 · ここで世界は終わり',
+  'hud.menu': 'メニュー',
   'pyramid.needFans': 'タイヤだけでは急すぎます · ファン: {mode}',
 
   'loading.site': '場所を読み込み中',

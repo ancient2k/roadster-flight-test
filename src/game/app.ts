@@ -114,6 +114,7 @@ export class App {
   private resultShown = false;
   /** Next time (performance.now) the pyramid fan hint may show again. */
   private pyramidHintAt = 0;
+  private worldEdgeHintAt = 0;
   private attract = true;           // title-screen demo run in the background
   ready = false;
   frameMs = 0;
@@ -528,6 +529,11 @@ export class App {
     cameraInput.rightButton = !s.controls.mouseAttitude; // the right button turns the chase camera unless it steers
     this.audio.setVolume(s.audio);
     this.hud.setVisible(s.hud.visible);
+    // visible way into the pause menu (settings) for mouse and keyboard; re-labelled on a language change
+    this.hud.setMenuButton(`☰ ${t('hud.menu')} · ${this.input.hint('menu')}`, () => {
+      if (this.menu.isOpen() || this.editor?.visible) return;
+      if (this.levelMode) this.backToEditor(); else this.menu.show('pause');
+    });
     if (this.renderer.getStats().quality !== s.graphics.quality) this.renderer.setQuality(s.graphics.quality);
     this.sim?.propulsion.setCompressor(s.refillRate); // 'game' = Fun: 20 s on every world, 'realistic': 6–7 h, Earth only
     if (this.session) this.session.infiniteAir = s.realism.infiniteAir;
@@ -578,6 +584,8 @@ export class App {
         // pyramid faces need the fan suction: hint (at most every 20 s) while on steep stone without GRIP
         if (steepStoneWithoutGrip(this.sim, this.manual.fanMode) && performance.now() > this.pyramidHintAt) { this.pyramidHintAt = performance.now() + 20_000; this.hud.flash(t('pyramid.needFans', { mode: upper(FAN_LABEL.grip) }), 'warn', 4500); }
       }
+      // the end of a terrain world (RoadsterSim.keepInsideWorld): say why the car stops there (at most every 8 s)
+      if (this.sim.atWorldEdge && performance.now() > this.worldEdgeHintAt) { this.worldEdgeHintAt = performance.now() + 8000; this.hud.flash(t('flash.worldEdge'), 'warn', 3500); }
       if (input.pressed.cameraCycle) this.renderer.cycleCamera();
       if (input.pressed.reset) this.restart();
       if (input.pressed.slowMo) this.loop.timeScale = this.loop.timeScale < 1 ? 1 : 0.25;

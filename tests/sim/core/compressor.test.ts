@@ -56,4 +56,17 @@ describe('compressor setting', () => {
     sim.setEnvironment(EARTH);
     sim.dispose();
   });
+
+  it('Fun stops at the rated tank: about 10,000 psi when full, no compression heating (was 16,800 psi)', async () => {
+    const sim = await RoadsterSim.create();
+    sim.propulsion.setCompressor('game');
+    sim.reset(spawnPose({ x: 0, y: 0.5, z: 0 }, 0), { airMassKg: 20 });
+    const sys = { ...neutralSystems(), refill: true };
+    for (let i = 0; i < 240 * 25; i++) sim.step(neutralDrive(), sys, zeroThrust());
+    const tk = sim.getState().tank;
+    expect(tk.airMassKg).toBeCloseTo(ROADSTER.tank.fullMassKg, 3);
+    expect(tk.pressurePa / ROADSTER.tank.fullPressurePa).toBeGreaterThan(0.97);
+    expect(tk.pressurePa / ROADSTER.tank.fullPressurePa).toBeLessThan(1.03);
+    sim.dispose();
+  });
 });

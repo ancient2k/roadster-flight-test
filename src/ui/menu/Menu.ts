@@ -267,10 +267,12 @@ export class Menu extends Emitter<MenuEvents> {
     );
   }
 
-  private header(title: string, sub?: string): HTMLElement {
+  private header(title: string, sub?: string, settingsLink = false): HTMLElement {
     return h('header', { class: 'rft-header' },
       h('button', { class: 'rft-back', 'aria-label': t('menu.back'), onclick: () => this.back() }, '←'),
-      h('div', null, h('h2', { text: title }), sub ? h('p', { text: sub }) : null));
+      h('div', null, h('h2', { text: title }), sub ? h('p', { text: sub }) : null),
+      // the settings before a run (compressor, infinite air, damage …) without going back to the title screen
+      settingsLink ? h('button', { class: 'rft-ghost rft-header-settings', 'data-settings-link': '', onclick: () => { this.emit('uiSound', 'select'); this.settingsTab = 'simulation'; this.show('settings'); } }, `⚙ ${t('menu.settings')}`) : null);
   }
 
   private stuntsView(): HTMLElement {
@@ -311,7 +313,7 @@ export class Menu extends Emitter<MenuEvents> {
     const inp = this.opts.input;
     const hint = (id: ControlId) => (inp ? inp.hint(id) : '');
     return h('section', { class: 'rft-page', 'data-title': t('free.title') },
-      this.header(t('free.title'), t('free.sub')),
+      this.header(t('free.title'), t('free.sub'), true),
       h('h3', { class: 'rft-subhead', text: t('free.assist') }),
       h('div', { class: 'rft-options' }, ...assistCards),
       h('h3', { class: 'rft-subhead', text: t('free.site') }),
@@ -352,7 +354,7 @@ export class Menu extends Emitter<MenuEvents> {
     h('span', { class: 'rft-card-desc rft-coords', text: w.coords }),
     h('span', { class: 'rft-card-foot' }, w.available ? h('span', { class: 'rft-best', text: t('worlds.available') }) : h('span', { class: 'rft-wip', text: t('worlds.wip') }))));
     return h('section', { class: 'rft-page', 'data-title': t('worlds.title') },
-      this.header(t('worlds.title'), t('worlds.sub')),
+      this.header(t('worlds.title'), t('worlds.sub'), true),
       tabs,
       h('div', { id: 'rft-worldpanel', role: 'tabpanel', 'aria-labelledby': `wtab-${body.id}` },
         h('p', { class: 'rft-note', text: body.tagline }), facts,
@@ -375,6 +377,9 @@ export class Menu extends Emitter<MenuEvents> {
       h('div', { class: 'rft-pause-quick' },
         this.toggleRow(t('settings.infiniteAir'), st.get().realism.infiniteAir, (v) => {
           this.emit('settingsChanged', st.update((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'));
+        }),
+        this.segRow(t('settings.compressor'), [['game', t('compressor.game')], ['realistic', t('compressor.realistic')]], st.get().refillRate, (v) => {
+          this.emit('settingsChanged', st.update((d) => { d.refillRate = v as Settings['refillRate']; }, 'refillRate'));
         })));
   }
 

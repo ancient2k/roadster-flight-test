@@ -414,6 +414,8 @@ export const ptBR: Messages = {
   'flash.compressorOn': 'COMPRESSOR LIGADO',
   'flash.compressorOff': 'COMPRESSOR DESLIGADO',
   'flash.compressorNoAir': 'SEM AR PARA ASPIRAR · CONFIGURAÇÕES: COMPRESSOR DIVERSÃO',
+  'flash.worldEdge': 'BORDA DO MAPA · O MUNDO TERMINA AQUI',
+  'hud.menu': 'MENU',
   'pyramid.needFans': 'ÍNGREME DEMAIS PARA OS PNEUS · VENTOINHAS: {mode}',
 
   'loading.site': 'Carregando local',

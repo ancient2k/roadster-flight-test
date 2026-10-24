@@ -414,6 +414,8 @@ export const nl: Messages = {
   'flash.compressorOn': 'COMPRESSOR AAN',
   'flash.compressorOff': 'COMPRESSOR UIT',
   'flash.compressorNoAir': 'GEEN LUCHT OM AAN TE ZUIGEN · INSTELLINGEN: COMPRESSOR SPEELPLEZIER',
+  'flash.worldEdge': 'RAND VAN DE KAART · HIER EINDIGT DE WERELD',
+  'hud.menu': 'MENU',
   'pyramid.needFans': 'TE STEIL VOOR DE BANDEN · VENTILATOREN: {mode}',
 
   'loading.site': 'Locatie laden',

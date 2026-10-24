@@ -414,6 +414,8 @@ export const ru: Messages = {
   'flash.compressorOn': 'КОМПРЕССОР ВКЛ.',
   'flash.compressorOff': 'КОМПРЕССОР ВЫКЛ.',
   'flash.compressorNoAir': 'НЕЧЕГО ВСАСЫВАТЬ · НАСТРОЙКИ: КОМПРЕССОР ДЛЯ УДОВОЛЬСТВИЯ',
+  'flash.worldEdge': 'КРАЙ КАРТЫ · ЗДЕСЬ МИР ЗАКАНЧИВАЕТСЯ',
+  'hud.menu': 'МЕНЮ',
   'pyramid.needFans': 'СЛИШКОМ КРУТО ДЛЯ ШИН · ВЕНТИЛЯТОРЫ: {mode}',
 
   'loading.site': 'Загрузка места',

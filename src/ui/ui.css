@@ -16,6 +16,14 @@
 
 .rft-hud { position: absolute; inset: 0; pointer-events: none; overflow: hidden; contain: strict; z-index: 10; }
 .rft-hud-canvas { position: absolute; inset: 0; display: block; }
+/* menu button for mouse and keyboard (top centre, above the air warning); touch devices use the overlay's ☰ */
+.rft-hud-menu {
+  position: absolute; left: 50%; top: 8px; transform: translateX(-50%); pointer-events: auto; cursor: pointer;
+  font: 600 11px / 1 var(--rft-display); letter-spacing: 0.18em; color: rgba(255,255,255,0.72);
+  padding: 6px 12px 5px; border: 1px solid rgba(255,255,255,0.22); border-radius: 3px; background: rgba(0,0,0,0.35);
+}
+.rft-hud-menu:hover { color: #fff; border-color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.55); }
+html.rft-has-touch .rft-hud-menu { display: none; }
 
 .rft-flash {
   position: absolute; left: 50%; top: 17%; transform: translate(-50%, -8px);

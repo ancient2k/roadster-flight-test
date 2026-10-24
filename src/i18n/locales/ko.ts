@@ -414,6 +414,8 @@ export const ko: Messages = {
   'flash.compressorOn': '컴프레서 켜짐',
   'flash.compressorOff': '컴프레서 꺼짐',
   'flash.compressorNoAir': '빨아들일 공기 없음 · 설정: 컴프레서 재미',
+  'flash.worldEdge': '맵 가장자리 · 세계는 여기서 끝납니다',
+  'hud.menu': '메뉴',
   'pyramid.needFans': '타이어만으로는 너무 가파름 · 팬: {mode}',
 
   'loading.site': '장소 불러오는 중',

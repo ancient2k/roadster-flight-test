@@ -22,6 +22,10 @@ import { GROUP_CAR, GROUP_PROP, GROUP_WORLD, buildLandmarkColliders, buildTerrai
 
 /** heightAboveGroundM when no ground is found below the car (space, off the terrain, very high). */
 export const NO_GROUND_M = 10_000;
+/** Terrain worlds end where the collision terrain ends (a square of extentM): the car is kept this far inside (m) … */
+const WORLD_EDGE_MARGIN_M = 30;
+/** … braked over the last WORLD_EDGE_SOFT_M with at most WORLD_EDGE_DECEL (m/s²) towards the edge. */
+const WORLD_EDGE_SOFT_M = 150, WORLD_EDGE_DECEL = 15;
 
 let rapierReady: Promise<void> | null = null;
 export function initRapier(): Promise<void> {
@@ -384,6 +388,7 @@ export class RoadsterSim implements VehicleSim {
     this.dampCrashSpin(dt);
     this.alignToWall(dt);
     this.rescueBelowGround();
+    this.keepInsideWorld();
     this.props?.afterStep();
     // 7. derive state
     this.deriveState(dt);
@@ -507,6 +512,38 @@ export class RoadsterSim implements VehicleSim {
     if (Math.hypot(w.x, w.y, w.z) < FUN_SPIN_MIN_RADS) return;
     const f = Math.exp(-FUN_SPIN_RATE * dt);
     this.body.setAngvel({ x: w.x * f, y: w.y * f, z: w.z * f }, true);
+  }
+
+  /** The car is at the edge of a terrain world this step (keepInsideWorld braked or stopped it). */
+  atWorldEdge = false;
+
+  /**
+   * The collision terrain is a square of extentM; the rendered landscape (and the sea) goes on beyond it. A car that
+   * left it had no ground any more and fell for minutes (driving out to sea at Starbase: 240 m/s, the HUD at
+   * altitude 0, an automatic landing towards nothing). Near the edge the speed towards it is limited to what a
+   * WORLD_EDGE_DECEL stop would still have left, at the edge it is zero: an invisible, soft fence, no crash.
+   */
+  private keepInsideWorld(): void {
+    this.atWorldEdge = false;
+    const t = this.terrainH;
+    if (!t) return;
+    const lim = t.extentM / 2 - WORLD_EDGE_MARGIN_M;
+    const p = this.body.translation(), v = this.body.linvel();
+    const clampAxis = (pos: number, vel: number): [number, number, boolean] => {
+      const d = Math.abs(pos) - (lim - WORLD_EDGE_SOFT_M);
+      if (d <= 0) return [pos, vel, false];
+      const s = Math.sign(pos);
+      let out = vel * s;
+      const vMax = Math.sqrt(2 * WORLD_EDGE_DECEL * Math.max(0, lim - Math.abs(pos)));
+      if (out > vMax) out = vMax;
+      if (Math.abs(pos) > lim) { pos = s * lim; out = Math.min(out, 0); }
+      return [pos, out * s, out !== vel * s || Math.abs(pos) >= lim];
+    };
+    const [px, vx, ex] = clampAxis(p.x, v.x), [pz, vz, ez] = clampAxis(p.z, v.z);
+    if (!ex && !ez) return;
+    this.atWorldEdge = true;
+    if (px !== p.x || pz !== p.z) this.body.setTranslation({ x: px, y: p.y, z: pz }, true);
+    if (vx !== v.x || vz !== v.z) this.body.setLinvel({ x: vx, y: v.y, z: vz }, true);
   }
 
   private rescueBelowGround(): void {

@@ -414,6 +414,8 @@ export const it: Messages = {
   'flash.compressorOn': 'COMPRESSORE ACCESO',
   'flash.compressorOff': 'COMPRESSORE SPENTO',
   'flash.compressorNoAir': 'NIENTE ARIA DA ASPIRARE · IMPOSTAZIONI: COMPRESSORE DIVERTIMENTO',
+  'flash.worldEdge': 'BORDO DELLA MAPPA · QUI FINISCE IL MONDO',
+  'hud.menu': 'MENU',
   'pyramid.needFans': 'TROPPO RIPIDO PER LE GOMME · VENTOLE: {mode}',
 
   'loading.site': 'Caricamento luogo',

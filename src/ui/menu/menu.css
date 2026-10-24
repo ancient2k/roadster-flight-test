@@ -73,6 +73,7 @@
 .rft-header { display: flex; gap: 1.2em; align-items: flex-start; margin-bottom: 2.2em; }
 .rft-header h2 { margin: 0; font: 800 2.3em/1 var(--rft-display); letter-spacing: .1em; text-transform: uppercase; }
 .rft-header p { margin: .7em 0 0; color: #b5b5b5; max-width: 52em; }
+.rft-header-settings { margin-left: auto; flex: none; white-space: nowrap; }
 .rft-back { flex: none; width: 2.6em; height: 2.6em; border-radius: 50%; cursor: pointer; background: rgba(255,255,255,.05); border: 1px solid var(--rft-line-strong); font-size: 1em !important; }
 .rft-back:hover, .rft-back:focus-visible { border-color: #fff; box-shadow: 0 0 0 3px rgba(232,38,28,.6); }
 

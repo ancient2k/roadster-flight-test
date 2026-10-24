@@ -414,6 +414,8 @@ export const pl: Messages = {
   'flash.compressorOn': 'SPRĘŻARKA WŁ.',
   'flash.compressorOff': 'SPRĘŻARKA WYŁ.',
   'flash.compressorNoAir': 'BRAK POWIETRZA DO ZASSANIA · USTAWIENIA: SPRĘŻARKA ZABAWA',
+  'flash.worldEdge': 'KRAWĘDŹ MAPY · TU KOŃCZY SIĘ ŚWIAT',
+  'hud.menu': 'MENU',
   'pyramid.needFans': 'ZA STROMO DLA OPON · WENTYLATORY: {mode}',
 
   'loading.site': 'Ładowanie miejsca',

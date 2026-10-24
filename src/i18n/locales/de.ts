@@ -414,6 +414,8 @@ export const de: Messages = {
   'flash.compressorOn': 'KOMPRESSOR AN',
   'flash.compressorOff': 'KOMPRESSOR AUS',
   'flash.compressorNoAir': 'KEINE LUFT ZUM ANSAUGEN · EINSTELLUNG: KOMPRESSOR SPIELSPASS',
+  'flash.worldEdge': 'KARTENRAND · HIER ENDET DIE WELT',
+  'hud.menu': 'MENÜ',
   'pyramid.needFans': 'ZU STEIL FÜR DIE REIFEN · LÜFTER: {mode}',
 
   'loading.site': 'Lade Ort',

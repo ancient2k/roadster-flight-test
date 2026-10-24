@@ -414,6 +414,8 @@ export const tr: Messages = {
   'flash.compressorOn': 'KOMPRESÖR AÇIK',
   'flash.compressorOff': 'KOMPRESÖR KAPALI',
   'flash.compressorNoAir': 'EMİLECEK HAVA YOK · AYARLAR: KOMPRESÖR EĞLENCE',
+  'flash.worldEdge': 'HARİTANIN SONU · DÜNYA BURADA BİTİYOR',
+  'hud.menu': 'MENÜ',
   'pyramid.needFans': 'LASTİKLER İÇİN ÇOK DİK · FANLAR: {mode}',
 
   'loading.site': 'Yer yükleniyor',

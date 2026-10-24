@@ -53,6 +53,7 @@ export class Propulsion {
   setCompressor(mode: CompressorMode): void {
     const c = compressorConfig(mode);
     this.refillRateKgS = c.rateKgS; this.refillOnboard = c.onboard;
+    this.tank.isothermalFill = mode === 'game';
   }
 
   constructor(specs: readonly NozzleSpec[] = ROADSTER.nozzles, valveCfg?: ValveCfg) {

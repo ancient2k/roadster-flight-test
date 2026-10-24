@@ -33,6 +33,18 @@ describe('ManualAssist', () => {
     expect(qrot(s.quat, v3(0, 1, 0)).y).toBeGreaterThan(0.99);
   });
 
+  it('ASSIST: no ground below (off the terrain) is no reason for LOW_AIR or an automatic landing', () => {
+    // 12 km up: the height ray (10 km) finds nothing, like past the edge of a terrain world
+    sim.reset({ pos: v3(0, 12_000, 0), quat: qaxisAngle(v3(0, 1, 0), 0) });
+    const m = new ManualAssist();
+    let maxDuty = 0;
+    for (let k = 0; k < 240; k++) { const c = m.update(sim, zero, 'ASSIST'); maxDuty = Math.max(maxDuty, ...c.duty); sim.step(drive, sys, c); }
+    expect(sim.getState().heightAboveGroundM).toBeGreaterThanOrEqual(10_000);
+    expect(m.status.autoLand).toBe(false);
+    expect(m.status.lowAir).toBe(false);
+    expect(m.status.label).toBe('');
+  });
+
   it('ASSIST: auto-rights from inverted and lands softly with the lift stick held down', () => {
     sim.reset({ pos: v3(0, 25, 0), quat: qaxisAngle(v3(0, 0, 1), Math.PI) });
     const m = new ManualAssist();

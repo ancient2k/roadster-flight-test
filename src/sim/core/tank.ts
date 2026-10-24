@@ -18,6 +18,10 @@ export class Tank {
   Tw = 288;       // K wall
   feedPressure = 0;
   regulated = false;
+  /** Gameplay compressor ("Compressor: Fun", a full tank in 20 s): the delivered air enters at ambient temperature
+   *  without the compression heating of so fast a fill, and the tank stops at its rated mass. Physically the inflow
+   *  enthalpy heated the gas to ≈ 465 K, so a 20 s refill ended at 1160 bar (16,800 psi) in a 690 bar tank. */
+  isothermalFill = false;
 
   constructor(cfg: TankCfg = ROADSTER.tank) {
     this.cfg = cfg;
@@ -71,9 +75,10 @@ export class Tank {
     const c = this.cfg;
     const out = Math.min(mdotOut * dt, Math.max(0, this.m - 1e-3));
     const hOut = this.h;
-    const hIn = this.cp * c.ambientTempK + c.abelNobleB * this.pressure; // aftercooled compressor delivery
+    const hIn = this.isothermalFill ? c.cv * c.ambientTempK
+      : this.cp * c.ambientTempK + c.abelNobleB * this.pressure; // aftercooled compressor delivery
     const Qwall = c.wallHeatTransferWPerK * (this.Tw - this.T);
-    const inn = Math.max(0, Math.min(mdotIn * dt, c.fullMassKg * 1.02 - this.m));
+    const inn = Math.max(0, Math.min(mdotIn * dt, c.fullMassKg * (this.isothermalFill ? 1 : 1.02) - this.m));
     this.U += Qwall * dt + inn * hIn - out * hOut;
     this.m += inn - out;
     const Qamb = c.wallToAmbientWPerK * (c.ambientTempK - this.Tw);

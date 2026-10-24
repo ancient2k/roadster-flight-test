@@ -2,7 +2,7 @@
 import { DEG, clamp, qaxisAngle, qmul, qrot, qrotInv, v3, type Quat, type Vec3 } from '@shared/math';
 import { ROADSTER } from '@shared/roadster';
 import { NOZZLE_COUNT, type AssistLevel, type ThrusterCommand } from '@shared/types';
-import type { RoadsterSim } from '../core/roadsterSim';
+import { NO_GROUND_M, type RoadsterSim } from '../core/roadsterSim';
 import { LEVELS } from './allocator';
 import { quatFromUpForward } from './attitude';
 import { Estimator, type StateEstimate } from './estimator';
@@ -34,6 +34,8 @@ export interface ManualStatus {
 const ZERO_G = 0.05;           // m/s²
 const LOW_AIR_FACTOR = 1.3;    // warn below 1.3 · reserve + 10 kg
 const LOW_AIR_ADD_KG = 10;
+/** Air the tank must gain after the automatic landing latched before the pilot gets the controls back (kg). */
+const AUTOLAND_RELEASE_KG = 25;
 const TRANSLATE_ACCEL = 2.0;   // m/s² per full stick, free-space ASSIST
 /** Free-space deadbands (minimum impulse bit of the valves, see space()). */
 const ATT_DEADBAND = 5 * DEG;
@@ -135,6 +137,8 @@ export class ManualAssist {
   private vRef: Vec3 | null = null;
   private level: AssistLevel | null = null;
   private belowReserveS = 0;
+  /** Air in the tank when the automatic landing latched (kg). */
+  private autoLandAirKg = 0;
   private heldSettled = false;
   private calmS = 0;
   /** fine(): time until which the last single pulse is still being delivered (no new decision). */
@@ -190,8 +194,13 @@ export class ManualAssist {
     const g = fc.gMag;
     st.zeroG = g < ZERO_G;
     st.airKg = e.airKg;
-    if (st.zeroG) {
+    // No ground below (off the edge of a terrain world, or far above it): the height is unknown, not 10 km. Taken at
+    // face value it made the landing reserve enormous, so a full tank showed LOW_AIR and the automatic landing
+    // latched and fired the jets at nothing.
+    const noGround = e.height >= 0.5 * NO_GROUND_M;
+    if (st.zeroG || noGround) {
       st.reserveKg = 0; st.maxAltitudeM = Infinity; st.lowAir = e.airKg < LOW_AIR_ADD_KG; st.autoLand = false;
+      this.belowReserveS = 0;
     } else {
       const decel = Math.min(DEFAULT_DECEL, 0.6 * Math.max(0.1, fc.liftReserveAccel()));
       const h = Math.max(0, e.height - ROADSTER.restCogHeightM);
@@ -201,8 +210,10 @@ export class ManualAssist {
       st.lowAir = e.airKg < LOW_AIR_FACTOR * st.reserveKg + LOW_AIR_ADD_KG;
       // latch after 0.25 s below the reserve (a single noisy estimate must not trigger it)
       this.belowReserveS = e.airKg < st.reserveKg && !e.groundContact ? this.belowReserveS + this.sim!.dt : 0;
-      if (e.groundContact) st.autoLand = false;
-      else if (level === 'ASSIST' && this.belowReserveS > 0.25) st.autoLand = true;
+      // released on the ground, or once the compressor (or infinite air) has refilled the tank in the air: the
+      // reserve itself shrinks during the descent, so only air gained since the latch counts
+      if (e.groundContact || (st.autoLand && !st.lowAir && e.airKg > this.autoLandAirKg + AUTOLAND_RELEASE_KG)) st.autoLand = false;
+      else if (!st.autoLand && level === 'ASSIST' && this.belowReserveS > 0.25) { st.autoLand = true; this.autoLandAirKg = e.airKg; }
     }
     st.label = level === 'RAW' ? ''
       : st.autoLand && level === 'ASSIST' ? 'AUTOLAND'

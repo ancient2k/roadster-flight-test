@@ -21,7 +21,7 @@ const SAME_EVERYWHERE = new Set<string>([
   'menu.menu', 'control.menu', 'bind.action', 'series.altitude', 'reason.crash', 'hud.collision', 'orbit.dir', 'common.no',
   'hud.manual', 'bind.padAria', 'settings.tab.graphics', 'control.slowMo', 'control.help', 'pad.dpad', 'ref.maxPitchDeg',
   'ref.maxDownforceKg', 'hud.autoland', 'phase.AUTOLAND', 'phase.land', 'phase.stop', 'sun.warpKeys',
-  'key.ShiftLeft', 'key.Backspace', 'key.Enter', 'key.CapsLock', 'unit.au', 'settings.compressor', 'hud.compressor',
+  'key.ShiftLeft', 'key.Backspace', 'key.Enter', 'key.CapsLock', 'unit.au', 'settings.compressor', 'hud.compressor', 'hud.menu',
 ]);
 
 describe('locale files', () => {

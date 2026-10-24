@@ -431,6 +431,8 @@ export const en = {
   'flash.compressorOn': 'COMPRESSOR ON',
   'flash.compressorOff': 'COMPRESSOR OFF',
   'flash.compressorNoAir': 'NO AIR TO DRAW IN · SETTINGS: COMPRESSOR FUN',
+  'flash.worldEdge': 'EDGE OF THE MAP · THE WORLD ENDS HERE',
+  'hud.menu': 'MENU',
   'pyramid.needFans': 'TOO STEEP FOR THE TIRES · FANS: {mode}',
 
   // ---------------------------------------------------------------- loading

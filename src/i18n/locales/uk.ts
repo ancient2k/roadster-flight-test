@@ -414,6 +414,8 @@ export const uk: Messages = {
   'flash.compressorOn': 'КОМПРЕСОР УВІМК.',
   'flash.compressorOff': 'КОМПРЕСОР ВИМК.',
   'flash.compressorNoAir': 'НЕМА ЧОГО ВСМОКТУВАТИ · НАЛАШТУВАННЯ: КОМПРЕСОР ДЛЯ ЗАДОВОЛЕННЯ',
+  'flash.worldEdge': 'КРАЙ МАПИ · ТУТ СВІТ ЗАКІНЧУЄТЬСЯ',
+  'hud.menu': 'МЕНЮ',
   'pyramid.needFans': 'ЗАНАДТО КРУТО ДЛЯ ШИН · ВЕНТИЛЯТОРИ: {mode}',
 
   'loading.site': 'Завантаження місця',

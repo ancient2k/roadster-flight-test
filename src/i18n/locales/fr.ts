@@ -414,6 +414,8 @@ export const fr: Messages = {
   'flash.compressorOn': 'COMPRESSEUR EN MARCHE',
   'flash.compressorOff': 'COMPRESSEUR ARRÊTÉ',
   'flash.compressorNoAir': 'PAS D’AIR À ASPIRER · RÉGLAGES : COMPRESSEUR PLAISIR',
+  'flash.worldEdge': 'BORD DE LA CARTE · LE MONDE S’ARRÊTE ICI',
+  'hud.menu': 'MENU',
   'pyramid.needFans': 'TROP RAIDE POUR LES PNEUS · VENTILATEURS : {mode}',
 
   'loading.site': 'Chargement du lieu',

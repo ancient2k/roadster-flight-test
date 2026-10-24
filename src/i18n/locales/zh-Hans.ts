@@ -414,6 +414,8 @@ export const zhHans: Messages = {
   'flash.compressorOn': '压缩机开启',
   'flash.compressorOff': '压缩机关闭',
   'flash.compressorNoAir': '没有可吸入的空气 · 设置：压缩机 娱乐',
+  'flash.worldEdge': '地图边缘 · 世界到此为止',
+  'hud.menu': '菜单',
   'pyramid.needFans': '坡度太陡，仅靠轮胎无法攀爬 · 风扇：{mode}',
 
   'loading.site': '正在加载地点',
