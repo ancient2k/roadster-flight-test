@@ -373,8 +373,10 @@ export class Menu extends Emitter<MenuEvents> {
         b(t('menu.help'), () => this.show('help')),
         b(t('menu.main'), () => { this.emit('quitToTitle', undefined); this.show('title'); }),
       ),
-      // quick switch for the most wanted gameplay aid (also in Settings -> Simulation)
+      // shortcuts to the same settings as Settings -> Simulation (they act at once and are saved, said so on screen)
       h('div', { class: 'rft-pause-quick' },
+        h('h3', { class: 'rft-subhead', text: t('pause.quickTitle') }),
+        h('p', { class: 'rft-note', text: t('pause.quickNote') }),
         this.toggleRow(t('settings.infiniteAir'), st.get().realism.infiniteAir, (v) => {
           this.emit('settingsChanged', st.update((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'));
         }),
@@ -434,19 +436,25 @@ export class Menu extends Emitter<MenuEvents> {
           this.bindingsTable(),
         );
         break;
-      case 'simulation':
+      case 'simulation': {
+        // two groups that say when a setting takes effect (it was all "applies immediately", but the start assist,
+        // the damage model and the sensor noise only act from the next start)
+        const assistKey = this.opts.input?.hint('assistCycle') ?? 'N';
         panel.append(
+          h('h3', { class: 'rft-subhead', text: t('settings.group.live') }),
+          this.toggleRow(t('settings.infiniteAir'), s.realism.infiniteAir, (v) => upd((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'), t('settings.infiniteAirNote')),
           this.segRow(t('settings.compressor'), [['game', t('compressor.game')], ['realistic', t('compressor.realistic')]], s.refillRate, (v) => upd((d) => { d.refillRate = v as Settings['refillRate']; }, 'refillRate'),
             t('settings.compressorNote')),
-          this.segRow(t('settings.assistDefault'), (['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((a) => [a, ASSIST_LABEL[a]] as [string, string]), s.assistDefault, (v) => upd((d) => { d.assistDefault = v as AssistLevel; }, 'assistDefault')),
-          this.toggleRow(t('settings.infiniteAir'), s.realism.infiniteAir, (v) => upd((d) => { d.realism.infiniteAir = v; }, 'realism.infiniteAir'), t('settings.infiniteAirNote')),
-          this.toggleRow(t('settings.valveDelays'), s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), t('settings.valveDelaysNote')),
-          this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
-          this.toggleRow(t('settings.wind'), s.realism.wind, (v) => upd((d) => { d.realism.wind = v; }, 'realism.wind'), t('settings.windNote')),
           this.segRow(t('handling.setting'), [['fun', t('handling.fun')], ['realistic', t('handling.realistic')]], s.realism.handling, (v) => upd((d) => { d.realism.handling = v as Settings['realism']['handling']; }, 'realism.handling'), t('handling.settingNote')),
+          this.toggleRow(t('settings.valveDelays'), s.realism.valveDelays, (v) => upd((d) => { d.realism.valveDelays = v; }, 'realism.valveDelays'), t('settings.valveDelaysNote')),
+          h('h3', { class: 'rft-subhead', text: t('settings.group.nextStart') }),
+          this.segRow(t('settings.assistDefault'), (['ASSIST', 'STABILIZED', 'RAW'] as AssistLevel[]).map((a) => [a, ASSIST_LABEL[a]] as [string, string]), s.assistDefault, (v) => upd((d) => { d.assistDefault = v as AssistLevel; }, 'assistDefault'),
+            t('settings.assistStartNote', { key: assistKey })),
           this.segRow(t('damage.setting'), [['off', t('damage.off')], ['visual', t('damage.visual')], ['realistic', t('damage.realistic')]], s.realism.damage, (v) => upd((d) => { d.realism.damage = v as Settings['realism']['damage']; }, 'realism.damage'), t('damage.settingNote')),
+          this.toggleRow(t('settings.sensorNoise'), s.realism.sensorNoise, (v) => upd((d) => { d.realism.sensorNoise = v; }, 'realism.sensorNoise'), t('settings.sensorNoiseNote')),
         );
         break;
+      }
     }
     return h('section', { class: 'rft-page rft-settings', 'data-title': t('settings.title') },
       this.header(t('settings.title'), t('settings.sub')),

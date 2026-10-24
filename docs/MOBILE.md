@@ -198,7 +198,9 @@ plugin `tools/pwa/plugin.ts`; registered by `src/pwa/register.ts`):
   one is deleted) and keeps every asset whose content did not change; changed assets are dropped and
   fetched again when needed. The new worker installs in the background during a visit and waits; at the
   next start `register.ts` activates it and reloads the page once, so that start already runs the new
-  build with matching assets (a version is never mixed with the other's files in one session).
+  build with matching assets (a version is never mixed with the other's files in one session). A running
+  game also asks for a new build every 15 minutes and on returning to the tab; once one has installed it
+  shows **New version available · Reload · Later** at the bottom (Reload activates it and reloads).
 - **Offline after one visit:** title menu, free play, the stunts at McGregor and every world that was
   opened online at least once. Worlds never opened need a connection. The browser may evict the
   cache when storage runs low; Safari also clears the data of a site not used for 7 days unless it

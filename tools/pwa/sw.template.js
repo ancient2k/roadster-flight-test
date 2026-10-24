@@ -5,7 +5,7 @@
    - Large assets (assets/<subdir>/…): cached on first use in "rft-assets", keyed by URL + content hash;
      a new build drops exactly the entries whose file changed.
    - Updates: a new build installs in the background and waits; the next start of the game activates
-     it and reloads once (src/pwa/register.ts). Everything is relative to the registration scope, so
+     it and reloads once, and a running game offers "Reload" as soon as it is ready (src/pwa/register.ts). Everything is relative to the registration scope, so
      the site works in any sub-folder (GitHub Pages, the web ZIP). */
 const VERSION = __RFT_VERSION__;
 const PRECACHE = __RFT_PRECACHE__;

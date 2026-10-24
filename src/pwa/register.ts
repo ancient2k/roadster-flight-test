@@ -21,8 +21,15 @@ export async function applyPendingUpdate(): Promise<void> {
   reg.waiting.postMessage({ type: 'skip-waiting' });
 }
 
-/** After the game is ready (so the shell precache does not compete with the start-up downloads). */
-export async function registerServiceWorker(): Promise<void> {
+/** How often a running game asks the server for a new build (ms); also on returning to the tab. */
+const UPDATE_CHECK_MS = 15 * 60 * 1000;
+
+/**
+ * After the game is ready (so the shell precache does not compete with the start-up downloads). `onUpdate` is
+ * called when a new build has installed in the background while this page runs (the page itself was served from
+ * the cache, so a deploy only showed up on the start after next); `apply()` activates it and reloads.
+ */
+export async function registerServiceWorker(onUpdate?: (apply: () => void) => void): Promise<void> {
   if (!supported() || new URLSearchParams(location.search).has('nosw')) return;
   try { sessionStorage.removeItem(RELOAD_KEY); } catch { /* blocked */ }
   const reg = await navigator.serviceWorker.register(SW_URL).catch((e) => { console.warn('service worker:', e); return undefined; });
@@ -31,6 +38,25 @@ export async function registerServiceWorker(): Promise<void> {
   await navigator.serviceWorker.ready;
   const urls = performance.getEntriesByType('resource').map((e) => e.name).filter((u) => u.includes('/assets/'));
   reg.active?.postMessage({ type: 'warm', urls });
+  if (!onUpdate) return;
+  let told = false;
+  const tell = (w: ServiceWorker | null) => {
+    // (no controller: first visit – the new worker simply takes over, nothing to announce)
+    if (!w || told || !navigator.serviceWorker.controller) return;
+    told = true;
+    onUpdate(() => {
+      navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true });
+      w.postMessage({ type: 'skip-waiting' });
+    });
+  };
+  if (reg.waiting) tell(reg.waiting);
+  reg.addEventListener('updatefound', () => {
+    const w = reg.installing;
+    w?.addEventListener('statechange', () => { if (w.state === 'installed') tell(w); });
+  });
+  const check = () => { void reg.update().catch(() => { /* offline */ }); };
+  setInterval(check, UPDATE_CHECK_MS);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
 }
 
 async function removeServiceWorker(): Promise<void> {

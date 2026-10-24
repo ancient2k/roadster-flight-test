@@ -537,6 +537,7 @@ export class App {
     });
     if (this.renderer.getStats().quality !== s.graphics.quality) this.renderer.setQuality(s.graphics.quality);
     this.sim?.propulsion.setCompressor(s.refillRate); // 'game' = Fun: 20 s on every world, 'realistic': 6–7 h, Earth only
+    this.sim?.propulsion.valves.setDelays(s.realism.valveDelays); // (the setting was shown but never wired)
     if (this.session) this.session.infiniteAir = s.realism.infiniteAir;
     if (this.sim && this.manual) this.sim.handling = s.realism.handling;   // free play: at once
   }

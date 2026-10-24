@@ -8,7 +8,9 @@ import { NOZZLE_COUNT } from '@shared/types';
 export type ValveCfg = { openDelayS: number; closeDelayS: number; minOnTimeS: number; pwmPeriodS: number };
 
 export class ValveBank {
-  readonly cfg: ValveCfg;
+  /** Timing in use: the configured one, or without the switching delays (setting "Valve delays" off). */
+  cfg: ValveCfg;
+  private readonly baseCfg: ValveCfg;
   readonly n: number;
   /** Requested (commanded) state after sigma-delta. */
   readonly cmdOpen: Uint8Array;
@@ -21,7 +23,7 @@ export class ValveBank {
   private readonly faults: Int8Array;      // -1 stuck closed, 1 stuck open, 0 ok
 
   constructor(n = NOZZLE_COUNT, cfg: ValveCfg = ROADSTER.valves) {
-    this.n = n; this.cfg = cfg;
+    this.n = n; this.cfg = cfg; this.baseCfg = cfg;
     this.cmdOpen = new Uint8Array(n); this.open = new Uint8Array(n);
     this.err = new Float64Array(n); this.onTime = new Float64Array(n);
     this.sinceChange = new Float64Array(n).fill(1e9); this.openFrac = new Float64Array(n);
@@ -34,6 +36,11 @@ export class ValveBank {
   }
 
   setFault(i: number, f: -1 | 0 | 1): void { this.faults[i] = f; }
+
+  /** Setting "Valve delays": on = the configured opening/closing delays, off = ideal valves (min on-time kept). */
+  setDelays(on: boolean): void {
+    this.cfg = on ? this.baseCfg : { ...this.baseCfg, openDelayS: 0, closeDelayS: 0 };
+  }
 
   /** Advance one step; returns per-valve open fraction for this step (for thrust integration). */
   step(dt: number, duty: ArrayLike<number>): Float64Array {

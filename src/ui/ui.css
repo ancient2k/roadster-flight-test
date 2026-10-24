@@ -24,6 +24,16 @@
 }
 .rft-hud-menu:hover { color: #fff; border-color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.55); }
 html.rft-has-touch .rft-hud-menu { display: none; }
+/* a new build is ready (src/main.ts showUpdateNotice): bottom centre, above HUD and menus */
+.rft-update {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 1000;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); box-sizing: border-box;
+  padding: 8px 10px 8px 14px; border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; background: rgba(8,8,9,0.88);
+  font: 600 12px / 1.2 var(--rft-display); letter-spacing: 0.12em; text-transform: uppercase; color: #fff;
+}
+.rft-update button { font: inherit; letter-spacing: inherit; cursor: pointer; border-radius: 3px; padding: 6px 10px; }
+.rft-update-go { color: #fff; background: var(--rft-red); border: 1px solid var(--rft-red); }
+.rft-update-later { color: rgba(255,255,255,0.75); background: transparent; border: 1px solid rgba(255,255,255,0.25); }
 
 .rft-flash {
   position: absolute; left: 50%; top: 17%; transform: translate(-50%, -8px);

@@ -25,6 +25,9 @@ const XS = VEH_EXT.suspension, XT = VEH_EXT.tire, XP = VEH_EXT.powertrain;
 const Q_AXIS_X: Quat = qaxisAngle({ x: 0, y: 0, z: 1 }, Math.PI / 2); // cylinder axis Y -> body X
 const CAST_GROUPS = groups(GROUP_CAR, GROUP_WORLD);
 
+/** 'fun' handling: extra deceleration (m/s²) of a full brake with all wheels on soil (≈ 0.55 g → ≈ 1 g). */
+const FUN_SOIL_BRAKE_MS2 = 4.5;
+
 export class Wheel {
   readonly spec: WheelSpec;
   readonly r: number;
@@ -291,6 +294,23 @@ export class ChassisModule implements ForceModule {
     }
     this.bus.tireUtilization = util;
     this.bus.tireForceN = fsum;
+    this.funSoilBrake(ctx, m, vlin);
+  }
+
+  /**
+   * 'fun' handling: on deformable soil (sand, regolith) the braked tyres reach only ≈ 0.55 g (terramechanics), so a
+   * stop from speed took many seconds and the brake felt broken. The share of the wheels on soil adds a plain
+   * retarding force up to about 1 g in total; 'realistic' keeps the soil physics alone.
+   */
+  private funSoilBrake(ctx: StepContext, m: number, v: { x: number; y: number; z: number }): void {
+    const brk = clamp(ctx.drive.brake, 0, 1);
+    if (ctx.sim.handling !== 'fun' || brk < 0.05) return;
+    let soil = 0;
+    for (const w of this.wheels) if (w.contact && w.prof.soil) soil++;
+    const vh = Math.hypot(v.x, v.z);
+    if (!soil || vh < 0.3) return;
+    const f = Math.min(m * FUN_SOIL_BRAKE_MS2 * brk * soil / this.wheels.length, m * vh / ctx.dt);
+    ctx.acc.addWorld({ x: -v.x / vh * f, y: 0, z: -v.z / vh * f }, ctx.sim.comWorld());
   }
 
   private computeTorques(ctx: StepContext, m: number, zb: Vec3, vFwd: number): void {

@@ -93,7 +93,25 @@ async function boot(): Promise<void> {
   if (/[#&]track=/.test(location.hash)) void app.openEditor();
   try { sessionStorage.removeItem(RETRY_KEY); } catch { /* blocked */ }
   hideBootScreen();
-  void registerServiceWorker();
+  void registerServiceWorker(showUpdateNotice);
+}
+
+/** A new build is ready (src/pwa/register.ts): a small notice with "Reload" – the game keeps running until then. */
+function showUpdateNotice(apply: () => void): void {
+  if (document.querySelector('.rft-update')) return;
+  const el = document.createElement('div');
+  el.className = 'rft-update';
+  el.setAttribute('role', 'status');
+  const msg = document.createElement('span');
+  msg.textContent = t('update.ready');
+  const go = document.createElement('button');
+  go.type = 'button'; go.className = 'rft-update-go'; go.textContent = t('update.reload');
+  go.addEventListener('click', () => { go.disabled = true; apply(); });
+  const later = document.createElement('button');
+  later.type = 'button'; later.className = 'rft-update-later'; later.textContent = t('update.later');
+  later.addEventListener('click', () => el.remove());
+  el.append(msg, go, later);
+  document.body.append(el);
 }
 
 // ------------------------------------------------------------------ boot screen (index.html)
