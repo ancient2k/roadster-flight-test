@@ -214,6 +214,21 @@ function groundRoad(B: Builder, fr: Frame[], w = ROAD_W): void {
   }
 }
 
+/** Ground road between z0 and z1 whose left/right edges move from a to b (eased): asphalt and edge lines. */
+function funnel(B: Builder, z0: number, z1: number, a: [number, number], b: [number, number]): void {
+  const n = 12, at = (k: number) => { const u = k / n, e = sstep(u); return { z: z0 + (z1 - z0) * u, l: a[0] + (b[0] - a[0]) * e, r: a[1] + (b[1] - a[1]) * e }; };
+  const up: V = [0, 1, 0];
+  for (let k = 0; k < n; k++) {
+    const p = at(k), q = at(k + 1);
+    const strip = (dst: number[], l0: number, l1: number, m0: number, m1: number, y: number) => {
+      tri(dst, [l0, y, p.z], [m0, y, p.z], [m1, y, q.z], up); tri(dst, [l0, y, p.z], [m1, y, q.z], [l1, y, q.z], up);
+    };
+    strip(B.decal('asphalt'), p.l, q.l, p.r, q.r, 0.015);
+    strip(B.decal('paint'), p.l + 0.3, q.l + 0.3, p.l + 0.5, q.l + 0.5, 0.03);
+    strip(B.decal('paint'), p.r - 0.5, q.r - 0.5, p.r - 0.3, q.r - 0.3, 0.03);
+  }
+}
+
 /** Deck section: road on top, thickness below, low curbs at the edges (closed, convex parts separately). */
 const deck = (w: number, t = DECK_T): [number, number][] => [[-w / 2, -t], [w / 2, -t], [w / 2, 0], [-w / 2, 0]];
 const curbL = (w: number): [number, number][] => [[-w / 2 - 0.4, -0.2], [-w / 2, -0.2], [-w / 2, 0.45], [-w / 2 - 0.4, 0.45]];
@@ -362,9 +377,12 @@ const BUILD: Record<PartType, (B: Builder, opt?: number) => void> = {
     // clothoid loop (LOOP below): the curvature grows from a gentle entry to the tight top and back, so the load
     // stays under ≈ 4 g where a circular loop of the same height pulls 8 g at the bottom (the suspension bottomed out,
     // the hull scraped and ate the speed); the lane moves 7.5 m sideways over the loop so that entry and exit pass
-    const L = loopLine();
-    groundRoad(B, frames(line(H, 0, H, L.zIn + 2), 4));
-    groundRoad(B, frames(line(H, L.zOut - 2, H, 2 * T), 4));
+    // the road funnels into the lane of the loop (and widens back after it): the outer edge runs on, the inner edge
+    // closes in like a merging lane, so the deck starts in line with the asphalt; the straight line into the loop
+    // stays on the asphalt all the way
+    const L = loopLine(), x0 = L.pts[0][0], x1 = L.pts[L.pts.length - 1][0], hw = LOOP.deckW / 2;
+    funnel(B, 0, L.zIn + 0.6, [H - ROAD_W / 2, H + ROAD_W / 2], [x0 - hw - 0.2, x0 + hw + 0.2]);
+    funnel(B, L.zOut - 0.6, 2 * T, [x1 - hw - 0.2, x1 + hw + 0.2], [H - ROAD_W / 2, H + ROAD_W / 2]);
     const fr = frames((s) => loopAt(L, s), 120, (s) => loopUp(L, s));
     sweep(B.solid('concrete'), fr, deck(LOOP.deckW, 0.5));
     curbs(B, 'curb', fr, LOOP.deckW);
