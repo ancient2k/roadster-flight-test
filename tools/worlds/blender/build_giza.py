@@ -51,10 +51,17 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
     t = 1.0 / math.tan(math.radians(slope_deg))
     n = int(h_now / course)
     r = np.random.default_rng(seed)
-    hx0, hz0 = base_x / 2 - inset, base_z / 2 - inset
+    taper = 14.0     # m below the casing over which the core's set-back runs out (no overhang under the casing)
+
+    def setback(y):
+        if casing_from is None:
+            return inset
+        u = min(1.0, max(0.0, (casing_from - y) / taper))
+        return inset * u * u * (3 - 2 * u)
 
     def half(y):
-        return hx0 - y * t, hz0 - y * t
+        s = setback(y)
+        return base_x / 2 - s - y * t, base_z / 2 - s - y * t
 
     def ring(y, dx, dz, k):
         """Perimeter points (corners + intermediate points) with erosion; k = course number (seed)."""
@@ -69,6 +76,7 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
                 # erosion: set back inwards, stronger at the corners
                 edge = min(f, 1 - f) if s else 0.0
                 e = erosion * (0.5 + noise.noise(Vector((x * 0.08, y * 0.3, z * 0.08 + k))) + (0.9 if s == 0 else 0.0))
+                e *= setback(y) / inset if inset > 0 else 1.0     # the core under the casing is intact
                 nrm = Vector((x, 0, z))
                 nrm = Vector((math.copysign(1, x) if abs(x) / dx > abs(z) / dz else 0, 0, math.copysign(1, z) if abs(z) / dz >= abs(x) / dx else 0))
                 if s == 0:
@@ -79,8 +87,8 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
     prev_top = None
     for k in range(n):
         y0, y1 = k * course, (k + 1) * course
-        if casing_from is not None and y0 >= casing_from:
-            break
+        if casing_from is not None and y1 > casing_from + 1e-6:
+            break      # the core ends under the casing (a last course reaching into it poked through its faces)
         dx, dz = half(y0)
         if dx < 1.0:
             break
@@ -118,10 +126,9 @@ def stepped_pyramid(mb, base_x, base_z, slope_deg, h_now, course=0.75, segs=8, i
             mb.poly([tuple(hi[i]), tuple(hi[j]), tuple(lo[j]), tuple(lo[i])], casing_mat,
                     uvs=[(0, Ls), (Lb, Ls), (Lb, 0), (0, 0)])
         mb.poly([tuple(p) for p in hi][::-1], casing_mat)
-        # transition core -> casing (ledge)
-        for i in range(len(top)):
-            pass
-        mb.poly([tuple(p) for p in [Vector((sx * hxc, casing_from, sz * hzc)) for sx, sz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]][::-1], core_mat)
+        # underside of the casing, facing down (it was wound upward: culled from below, the open shell could be seen
+        # into while driving up the face); the core's set-back has run out here, so it closes flush on the core
+        mb.poly([tuple(p) for p in [Vector((sx * hxc, casing_from, sz * hzc)) for sx, sz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]], core_mat)
     else:
         mb.poly([tuple(p) for p in top][::-1], core_mat, uvs=[(p.x / 6, p.z / 6) for p in top][::-1])   # summit platform
     return ytop

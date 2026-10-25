@@ -22,6 +22,13 @@ export interface PyramidFit {
   ax: number; az: number; bx: number; bz: number;
   /** face angle from horizontal (rad), mean of both axes */
   slope: number;
+  /**
+   * Face profile of a stepped model: half-widths per axis at heights y0 + i·dy, following the outer step edges course
+   * by course (smoothed, never overhanging, never outside the face lines). Without it the faces are the straight
+   * lines (synthetic frustums). The straight lines enclose every point, so one proud course – or the smooth casing
+   * on Khafre's top, 1.6 m in front of the stepped core – held the car up to a metre above the steps below.
+   */
+  prof?: { dy: number; hx: Float32Array; hz: Float32Array };
 }
 
 export const TALUS_R = 14; // m: front lip (16° approach angle) clears the transition by ≥ 8 cm (tests/sim/vehicle/pyramid.test.ts)
@@ -89,13 +96,74 @@ export function fitPyramid(pts: ArrayLike<number>, cx: number, cz: number, headi
   ax = enclose(kx0, lx); az = enclose(kz0, lz);
   const bx = Math.max(0.05, ax - kx0 * H), bz = Math.max(0.05, az - kz0 * H);
   const slope = (Math.atan2(H, ax - bx) + Math.atan2(H, az - bz)) / 2;
-  return { cx, cz, heading, y0, yTop, ax, az, bx, bz, slope };
+  const fit: PyramidFit = { cx, cz, heading, y0, yTop, ax, az, bx, bz, slope };
+  fit.prof = faceProfile(fit, pts, lx, lz, kx0, kz0);
+  return fit;
+}
+
+const PROF_DY = 0.5;      // m between profile heights
+const PROF_WIN = 0.6;     // m: points within ± this height count for a profile height (covers the gap to the next one)
+const PROF_GRAD = 0.04;   // how fast the set-back from the face line may change per metre of height (≈ 2° of slope; 7° made
+                          // the face so uneven that the hull scraped and the car stuck halfway up Khafre)
+const PROF_MIN_H = 50;    // m: profile only on the large pyramids
+
+/**
+ * The outer step edges course by course (see PyramidFit.prof); undefined for sparse point clouds. Per height the
+ * set-back d of the outermost stone behind the straight face line is taken, then only ever reduced: the smallest d
+ * within reach (every stone stays inside: the car rides on the edges, never in them), changing by at most PROF_GRAD
+ * per metre (gentle slope changes the car can drive), running out to 0 at the summit (the rounded crest) and below
+ * the talus top (the fillet meets the straight face).
+ */
+function faceProfile(f: PyramidFit, pts: ArrayLike<number>, lx: Float32Array, lz: Float32Array, kx: number, kz: number): PyramidFit['prof'] {
+  const H = f.yTop - f.y0, L = Math.floor(H / PROF_DY) + 1;
+  const ex = new Float32Array(L).fill(-1), ez = new Float32Array(L).fill(-1);
+  for (let i = 0; i < lx.length; i++) {
+    const y = pts[i * 3 + 1] - f.y0;
+    const k0 = Math.max(0, Math.ceil((y - PROF_WIN) / PROF_DY)), k1 = Math.min(L - 1, Math.floor((y + PROF_WIN) / PROF_DY));
+    for (let k = k0; k <= k1; k++) { ex[k] = Math.max(ex[k], Math.abs(lx[i])); ez[k] = Math.max(ez[k], Math.abs(lz[i])); }
+  }
+  let filled = 0;
+  for (let k = 0; k < L; k++) if (ex[k] >= 0) filled++;
+  // the queens' pyramids (≈ 20–30 m) keep the straight faces: between the talus and the crest there is too little
+  // face for the set-back to run in and out gently (the faces got steeper near the top and the car stalled 3 m short)
+  if (filled < 0.3 * L || H < PROF_MIN_H) return undefined;     // sparse clouds: synthetic frustums
+  // the talus (src: pyramidTalus) merges into the straight face up to ≈ 2 m (ground over the embedded foot) + its arc
+  const footTop = 2 + TALUS_R * (1 - Math.cos(f.slope)) + 1;
+  const profile = (e: Float32Array, a0: number, k: number) => {
+    const d = new Float32Array(L);
+    for (let i = 0; i < L; i++) {
+      const y = i * PROF_DY, line = a0 - k * y;
+      d[i] = e[i] < 0 ? 0 : Math.max(0, line - e[i]);         // no stones at this height (Khafre's smooth casing: corners only): on the line
+      d[i] = Math.min(d[i], Math.max(0, y - footTop) * PROF_GRAD, Math.max(0, H - y) * PROF_GRAD);
+    }
+    for (let i = 1; i < L; i++) d[i] = Math.min(d[i], d[i - 1] + PROF_GRAD * PROF_DY);
+    for (let i = L - 2; i >= 0; i--) d[i] = Math.min(d[i], d[i + 1] + PROF_GRAD * PROF_DY);
+    const out = new Float32Array(L);
+    for (let i = 0; i < L; i++) out[i] = a0 - k * i * PROF_DY - d[i];
+    return out;
+  };
+  return { dy: PROF_DY, hx: profile(ex, f.ax, kx), hz: profile(ez, f.az, kz) };
 }
 
 /** Half-widths of the face lines at height y (no rounding). */
 export function halfWidthAt(f: PyramidFit, y: number): [number, number] {
   const t = (y - f.y0) / Math.max(1e-3, f.yTop - f.y0);
-  return [f.ax + (f.bx - f.ax) * t, f.az + (f.bz - f.az) * t];
+  const line: [number, number] = [f.ax + (f.bx - f.ax) * t, f.az + (f.bz - f.az) * t];
+  const p = f.prof;
+  if (!p) return line;
+  const u = Math.min(p.hx.length - 1, Math.max(0, (y - f.y0) / p.dy)), i = Math.min(p.hx.length - 2, Math.floor(u)), w = u - i;
+  return [Math.min(line[0], p.hx[i] + (p.hx[i + 1] - p.hx[i]) * w), Math.min(line[1], p.hz[i] + (p.hz[i + 1] - p.hz[i]) * w)];
+}
+
+/** Height at which the profile of one axis has half-width u (the profile narrows upward; y0 … yTop). */
+function profileHeight(f: PyramidFit, h: Float32Array, u: number): number {
+  const dy = f.prof!.dy;
+  if (u >= h[0]) return f.y0;
+  let lo = 0, hi = h.length - 1;
+  if (u <= h[hi]) return f.yTop;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (h[m] >= u) lo = m; else hi = m; }
+  const w = h[lo] - h[hi] > 1e-6 ? (h[lo] - u) / (h[lo] - h[hi]) : 0;
+  return Math.min(f.yTop, f.y0 + (lo + w) * dy);
 }
 
 /** Local (x, z) → world (x, z). */
@@ -144,6 +212,8 @@ export function pyramidHullPoints(f: PyramidFit, crestR = CREST_R, segs = 12): F
     for (let k = 0; k < segs; k++) ys.add(f.yTop - R + R * Math.cos(th * (1 - k / segs)));
   }
   // (rings closer than 5 cm merged: equal axes give near-identical heights → degenerate slivers)
+  // a stepped model's face profile: a ring every profile height below the crest
+  if (f.prof) for (let k = 1; k * f.prof.dy < f.yTop - f.y0; k++) ys.add(f.y0 + k * f.prof.dy);
   const levels = [...ys].sort((a, b) => a - b).filter((y, i, l) => i === l.length - 1 || l[i + 1] - y > 0.05);
   const out: number[] = [];
   const ring = (hx: number, hz: number, y: number) => {
@@ -152,9 +222,11 @@ export function pyramidHullPoints(f: PyramidFit, crestR = CREST_R, segs = 12): F
       out.push(x, y, z);
     }
   };
-  ring(f.ax, f.az, f.y0);
+  const [px0, pz0] = halfWidthAt(f, f.y0);
+  ring(px0, pz0, f.y0);
   for (const y of levels) {
-    ring(Math.max(0.05, crestHalfWidth(f.bx, thx, f.yTop, Rx, y)), Math.max(0.05, crestHalfWidth(f.bz, thz, f.yTop, Rz, y)), y);
+    const [px, pz] = halfWidthAt(f, y);
+    ring(Math.max(0.05, Math.min(px, crestHalfWidth(f.bx, thx, f.yTop, Rx, y))), Math.max(0.05, Math.min(pz, crestHalfWidth(f.bz, thz, f.yTop, Rz, y))), y);
   }
   return new Float32Array(out);
 }
@@ -257,6 +329,7 @@ export function pyramidHeightAt(f: PyramidFit, x: number, z: number, crestR?: nu
   const H = f.yTop - f.y0;
   let yx = ux <= f.bx ? f.yTop : f.y0 + ((f.ax - ux) / Math.max(1e-3, f.ax - f.bx)) * H;
   let yz = uz <= f.bz ? f.yTop : f.y0 + ((f.az - uz) / Math.max(1e-3, f.az - f.bz)) * H;
+  if (f.prof) { yx = Math.min(yx, profileHeight(f, f.prof.hx, ux)); yz = Math.min(yz, profileHeight(f, f.prof.hz, uz)); }
   if (crestR != null) {
     const [thx, thz] = axisSlopes(f), [Rx, Rz] = crestRadii(f, crestR);
     const arc = (u: number, b: number, R: number, th: number, y: number) => {
