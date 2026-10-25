@@ -9,6 +9,8 @@ import { OUT, encode } from './lib.mjs';
 
 const URL_SITE = 'https://roadster.ageco-labs.de';
 const lang = process.env.TRAILER_LANG ?? 'en';
+/** Credit for the score (CC BY 4.0 asks for it); empty when the trailer runs without music. */
+const MUSIC_CREDIT = process.env.MUSIC_CREDIT ?? "Music: 'Aphelion' by Scott Buckley · CC BY 4.0 · scottbuckley.com.au";
 const TEXT = {
   de: { free: 'Kostenlos im Browser · Open Source', build: 'Bau deine Strecke.', fly: 'Flieg sie.', scan: 'Scannen und losfliegen', disclaimer: 'Inoffizielles Fan-Projekt · keine Verbindung zu Tesla, Inc. oder SpaceX' },
   en: { free: 'Free in your browser · Open source', build: 'Build your track.', fly: 'Fly it.', scan: 'Scan and take off', disclaimer: 'Unofficial fan project · not affiliated with Tesla, Inc. or SpaceX' },
@@ -85,13 +87,15 @@ h1{margin:0;font-weight:800;font-size:58px;letter-spacing:.06em;line-height:1.05
 .url{font-weight:800;font-size:30px;letter-spacing:.02em}
 .scan{font-weight:600;font-size:19px;letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:10px}
 .gh{margin-top:16px;font-weight:400;font-size:19px;opacity:.75}
+.credit{margin-top:26px;font-weight:400;font-size:16px;opacity:.7;letter-spacing:.02em}
 .disc{margin-top:30px;font-weight:400;font-size:15px;opacity:.55;letter-spacing:.02em}
 </style></head><body><div class="panel">
 <h1>Roadster<br>Flight Test</h1>
 <div class="free">${TEXT.free}</div>
 <div class="row"><div class="qr">${qr}</div><div><div class="scan">${TEXT.scan}</div><div class="url">roadster.ageco-labs.de</div>
 <div class="gh">github.com/ancient2k/<br>roadster-flight-test</div></div></div>
-<div class="disc">${TEXT.disclaimer}</div>
+${MUSIC_CREDIT ? `<div class="credit">${MUSIC_CREDIT}</div>` : ''}
+<div class="disc" style="${MUSIC_CREDIT ? 'margin-top:8px' : ''}">${TEXT.disclaimer}</div>
 </div></body></html>`;
   await page.setContent(html);
   await page.evaluate(() => document.fonts.ready);

@@ -1,6 +1,6 @@
 // Cuts the trailer from the rendered shots (trailer-out/*.mp4 with game sound), the DOS boot, the editor, the end card
-// and the own sound stems. The epic music is optional: trailer-out/music.wav (or .mp3), laid from the first frame and
-// faded out under the Sun shots; without it the cut has game sound only in those parts.
+// and the own sound stems. The score is optional: trailer-out/music.wav (or .mp3), laid from the first frame to the fade
+// over Roadster 1 and again from the test drive to the end; without it the cut has game sound only in those parts.
 //   node tools/trailer/assemble.mjs              → trailer-out/trailer.mp4
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -28,21 +28,24 @@ const EDIT = [
 ];
 /** Game sound under the music (the score carries the trailer; jets and engine only underneath). */
 const GAME_VOLUME = 0.3;
+/** Where the score starts (s into the file; Aphelion by Scott Buckley: 5:00, the swell peaks around 5:40) and its level. */
+const MUSIC_IN = Number(process.env.MUSIC_IN ?? 300);
+const MUSIC_VOLUME = 0.8;
 const W = 1920, H = 1080, FPS = 60;
 
 const inputs = [], vf = [], af = [], segs = [];
-let t = 0, musicEnd = 0;
+let t = 0, musicEnd = 0, musicBack = 0;
 const stems = [];
 for (const [k, e] of EDIT.entries()) {
   if (e.black) {
-    vf.push(`color=c=black:s=${W}x${H}:r=${FPS}:d=${e.black},format=yuv420p[v${k}]`);
+    vf.push(`color=c=black:s=${W}x${H}:r=${FPS}:d=${e.black},settb=1/${FPS},format=yuv420p[v${k}]`);
     af.push(`anullsrc=r=48000:cl=stereo,atrim=0:${e.black}[a${k}]`);
     segs.push(k); t += e.black; continue;
   }
   const file = path.join(OUT, `${e.src}.mp4`);
   if (!fs.existsSync(file)) throw new Error(`missing ${file} (render it with tools/trailer/run.mjs or cards.mjs)`);
   const i = inputs.push(file) - 1;
-  let v = `[${i}:v]trim=start=${e.in}:duration=${e.len},setpts=PTS-STARTPTS,fps=${FPS},scale=${W}:${H},format=yuv420p`;
+  let v = `[${i}:v]trim=start=${e.in}:duration=${e.len},setpts=PTS-STARTPTS,fps=${FPS},settb=1/${FPS},scale=${W}:${H},format=yuv420p`;
   if (e.fadeIn) v += `,fade=t=in:st=0:d=${e.fadeIn}`;
   if (e.fadeOut) v += `,fade=t=out:st=${e.len - e.fadeOut}:d=${e.fadeOut}`;
   // editor → 3D: the picture starts as big pixels and sharpens (nearest-neighbour down- and upscale per frame)
@@ -51,7 +54,7 @@ for (const [k, e] of EDIT.entries()) {
     const c = inputs.push(path.join(OUT, 'endcard.png')) - 1;
     vf.push(`[${c}:v]format=rgba,loop=loop=-1:size=1:start=0,trim=duration=${e.len},setpts=PTS-STARTPTS,fade=t=in:st=${e.card.at}:d=${e.card.fade}:alpha=1[card${k}]`);
     vf.push(`${v}[base${k}]`);
-    vf.push(`[base${k}][card${k}]overlay=0:0:shortest=1,format=yuv420p[v${k}]`);
+    vf.push(`[base${k}][card${k}]overlay=0:0:shortest=1,settb=1/${FPS},format=yuv420p[v${k}]`);
   } else vf.push(`${v}[v${k}]`);
   if (e.silent) af.push(`anullsrc=r=48000:cl=stereo,atrim=0:${e.len}[a${k}]`);
   else {
@@ -62,6 +65,7 @@ for (const [k, e] of EDIT.entries()) {
   }
   for (const s of [e.stem ?? []].flat()) stems.push({ file: path.join(OUT, `${s}.wav`), at: t });
   if (e.src === '09-roadster1') musicEnd = t + e.len;
+  if (e.src === '11-return' && !musicBack) musicBack = t;
   segs.push(k); t += e.len - (e.xfade ?? 0);
 }
 const total = t;
@@ -71,7 +75,9 @@ let cv = `[v${segs[0]}]`, ca = `[a${segs[0]}]`, len = EDIT[segs[0]].len ?? EDIT[
 for (let n = 1; n < segs.length; n++) {
   const k = segs[n], prev = EDIT[segs[n - 1]], e = EDIT[k], l = e.len ?? e.black, nv = `[j${n}v]`, na = `[j${n}a]`;
   if (prev.xfade) {
-    join.push(`${cv}[v${k}]xfade=transition=fade:duration=${prev.xfade}:offset=${(len - prev.xfade).toFixed(3)}${nv}`);
+    // xfade needs both inputs on the same timebase (concat hands its output on in microseconds)
+    join.push(`${cv}settb=1/${FPS}[j${n}x]`);
+    join.push(`[j${n}x][v${k}]xfade=transition=fade:duration=${prev.xfade}:offset=${(len - prev.xfade).toFixed(3)}${nv}`);
     join.push(`${ca}[a${k}]acrossfade=d=${prev.xfade}${na}`);
     len += l - prev.xfade;
   } else {
@@ -82,7 +88,7 @@ for (let n = 1; n < segs.length; n++) {
 }
 join.push(`${cv}null[vout]`, `${ca}anull[game]`);
 const concat = join.join(';\n');
-// stems at their places; the music (if any) from 0 to the end of the Sun part, with a fade-out
+// stems at their places, then the score (if any) in its two parts
 const mix = [`[game]volume=${GAME_VOLUME}[g]`];
 const labels = ['[g]'];
 for (const [j, s] of stems.entries()) {
@@ -92,9 +98,13 @@ for (const [j, s] of stems.entries()) {
 }
 const music = ['music.wav', 'music.mp3'].map((f) => path.join(OUT, f)).find((f) => fs.existsSync(f));
 if (music) {
-  const i = inputs.push(music) - 1;
-  mix.push(`[${i}:a]aresample=48000,atrim=0:${musicEnd},afade=t=out:st=${musicEnd - 2.5}:d=2.5,apad,atrim=0:${total},volume=0.8[m]`);
-  labels.push('[m]');
+  // part one from MUSIC_IN to the fade-out over Roadster 1; after the editor the score picks up where it stopped and
+  // its decay carries the test drive and the closing picture
+  const a = inputs.push(music) - 1, b = inputs.push(music) - 1, back = MUSIC_IN + musicEnd, tail = total - musicBack;
+  mix.push(`[${a}:a]aresample=48000,atrim=start=${MUSIC_IN}:duration=${musicEnd},asetpts=PTS-STARTPTS,afade=t=out:st=${musicEnd - 2.5}:d=2.5,apad,atrim=0:${total},volume=${MUSIC_VOLUME}[m]`);
+  mix.push(`[${b}:a]aresample=48000,atrim=start=${back}:duration=${tail},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=1.2,afade=t=out:st=${tail - 2}:d=2[mb]`);
+  mix.push(`anullsrc=r=48000:cl=stereo,atrim=0:${musicBack}[mpre]`, `[mpre][mb]concat=n=2:v=0:a=1,apad,atrim=0:${total},volume=${MUSIC_VOLUME}[m2]`);
+  labels.push('[m]', '[m2]');
 }
 mix.push(`${labels.join('')}amix=inputs=${labels.length}:normalize=0,alimiter=limit=0.95[aout]`);
 

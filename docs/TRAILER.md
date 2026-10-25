@@ -4,7 +4,7 @@ The trailer is rendered from the game itself, frame by frame on a fixed clock: n
 frames, any resolution, and every shot can be rendered again exactly the same. Everything lives in `tools/trailer/`;
 the output goes to `trailer-out/` (not in git).
 
-## Story (≈ 87 s)
+## Story (≈ 94 s)
 
 | Part | Shots |
 |---|---|
@@ -28,8 +28,10 @@ node tools/trailer/audio.mjs                         # 8-bit tune, DOS and edito
 node tools/trailer/assemble.mjs                      # → trailer-out/trailer.mp4
 ```
 
-Music: put the score as `trailer-out/music.wav` (or `.mp3`); `assemble.mjs` lays it from the first frame to the end of
-the Sun part and fades it out there. The 8-bit tune, the DOS and editor sounds are synthesised in `audio.mjs` (own
+Music: put the score as `trailer-out/music.wav` (or `.mp3`); `assemble.mjs` lays it from `MUSIC_IN` (default 300 s, the
+last build of Aphelion by Scott Buckley, CC BY 4.0) to the fade over Roadster 1, and picks it up again where it stopped
+from the test drive to the end. The credit is on the end card (`MUSIC_CREDIT` in `cards.mjs`, also needed in the video
+description). The 8-bit tune, the DOS and editor sounds are synthesised in `audio.mjs` (own
 work, no samples).
 
 ## How it works
