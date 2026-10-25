@@ -359,7 +359,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   // drivable pyramids: smooth frustum hull + sand/rubble talus at the foot (shared with the physics)
   const pyramids = lm.items.map((it) => {
     if (it.def.collider !== 'pyramid') return null;
-    const fit = fitPyramid(worldTriangles(it.object, 400_000), it.def.x, it.def.z, (it.def.headingDeg ?? 0) * Math.PI / 180);
+    const fit = fitPyramid(worldTriangles(it.object, 400_000), it.def.x, it.def.z, (it.def.headingDeg ?? 0) * Math.PI / 180, (x, z) => field.height(x, z));
     return { fit, talus: pyramidTalus(fit, (x, z) => field.height(x, z)) };
   });
   const talusTris = pyramids.filter((p) => p).map((p) => p!.talus);

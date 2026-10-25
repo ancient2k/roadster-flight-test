@@ -37,7 +37,7 @@ export const CREST_R = 12; // m: breakover on the summit edge, see above (tests/
 const rot = (x: number, z: number, c: number, s: number): [number, number] => [c * x - s * z, s * x + c * z];
 
 /** Fits a square frustum to a point cloud (world xyz…) of a pyramid placed at (cx, cz) with heading (rad). */
-export function fitPyramid(pts: ArrayLike<number>, cx: number, cz: number, heading: number): PyramidFit {
+export function fitPyramid(pts: ArrayLike<number>, cx: number, cz: number, heading: number, groundAt?: (x: number, z: number) => number): PyramidFit {
   const c = Math.cos(-heading), s = Math.sin(-heading);
   const n = Math.floor(pts.length / 3);
   const lx = new Float32Array(n), lz = new Float32Array(n);
@@ -97,7 +97,18 @@ export function fitPyramid(pts: ArrayLike<number>, cx: number, cz: number, headi
   const bx = Math.max(0.05, ax - kx0 * H), bz = Math.max(0.05, az - kz0 * H);
   const slope = (Math.atan2(H, ax - bx) + Math.atan2(H, az - bz)) / 2;
   const fit: PyramidFit = { cx, cz, heading, y0, yTop, ax, az, bx, bz, slope };
-  fit.prof = faceProfile(fit, pts, lx, lz, kx0, kz0);
+  // the ground along the foot (the models sit embedded in the sand; at Khufu several metres above their base)
+  let rise = 2;
+  if (groundAt) {
+    for (const [px, pz, qx, qz] of [[ax, -az, ax, az], [-ax, -az, -ax, az], [-ax, az, ax, az], [-ax, -az, ax, -az]]) {
+      for (let u = 0; u <= 1.0001; u += 1 / 64) {
+        const [wx, wz] = toWorld(fit, px + (qx - px) * u, pz + (qz - pz) * u);
+        const g = groundAt(wx, wz);
+        if (Number.isFinite(g)) rise = Math.max(rise, g - y0);
+      }
+    }
+  }
+  fit.prof = faceProfile(fit, pts, lx, lz, kx0, kz0, rise);
   return fit;
 }
 
@@ -114,7 +125,7 @@ const PROF_MIN_H = 50;    // m: profile only on the large pyramids
  * per metre (gentle slope changes the car can drive), running out to 0 at the summit (the rounded crest) and below
  * the talus top (the fillet meets the straight face).
  */
-function faceProfile(f: PyramidFit, pts: ArrayLike<number>, lx: Float32Array, lz: Float32Array, kx: number, kz: number): PyramidFit['prof'] {
+function faceProfile(f: PyramidFit, pts: ArrayLike<number>, lx: Float32Array, lz: Float32Array, kx: number, kz: number, rise: number): PyramidFit['prof'] {
   const H = f.yTop - f.y0, L = Math.floor(H / PROF_DY) + 1;
   const ex = new Float32Array(L).fill(-1), ez = new Float32Array(L).fill(-1);
   for (let i = 0; i < lx.length; i++) {
@@ -127,8 +138,9 @@ function faceProfile(f: PyramidFit, pts: ArrayLike<number>, lx: Float32Array, lz
   // the queens' pyramids (≈ 20–30 m) keep the straight faces: between the talus and the crest there is too little
   // face for the set-back to run in and out gently (the faces got steeper near the top and the car stalled 3 m short)
   if (filled < 0.3 * L || H < PROF_MIN_H) return undefined;     // sparse clouds: synthetic frustums
-  // the talus (src: pyramidTalus) merges into the straight face up to ≈ 2 m (ground over the embedded foot) + its arc
-  const footTop = 2 + TALUS_R * (1 - Math.cos(f.slope)) + 1;
+  // the talus (src: pyramidTalus) merges into the straight face at the highest ground along the foot (`rise` above the
+  // base) + its arc: below that the face must stay on the line, or the talus top stands proud of it as a lip
+  const footTop = rise + TALUS_R * (1 - Math.cos(f.slope)) + 1;
   const profile = (e: Float32Array, a0: number, k: number) => {
     const d = new Float32Array(L);
     for (let i = 0; i < L; i++) {
@@ -150,7 +162,9 @@ export function halfWidthAt(f: PyramidFit, y: number): [number, number] {
   const t = (y - f.y0) / Math.max(1e-3, f.yTop - f.y0);
   const line: [number, number] = [f.ax + (f.bx - f.ax) * t, f.az + (f.bz - f.az) * t];
   const p = f.prof;
-  if (!p) return line;
+  // below the base (ground lower than the model's foot, as on parts of Khufu's south side) the talus follows the
+  // face line on down; the profile (from y0 up) would cut it off there and leave a riser at the talus top
+  if (!p || y <= f.y0) return line;
   const u = Math.min(p.hx.length - 1, Math.max(0, (y - f.y0) / p.dy)), i = Math.min(p.hx.length - 2, Math.floor(u)), w = u - i;
   return [Math.min(line[0], p.hx[i] + (p.hx[i + 1] - p.hx[i]) * w), Math.min(line[1], p.hz[i] + (p.hz[i + 1] - p.hz[i]) * w)];
 }

@@ -12,7 +12,7 @@ import { readGlbFile } from '../../assets/glbFile';
 import { createRoadsterSim, vehicleModules } from '../../../src/sim/vehicle';
 import { steepStoneWithoutGrip } from '../../../src/sim/vehicle/fans';
 import type { RoadsterSim } from '../../../src/sim/core/roadsterSim';
-import { CREST_R, TALUS_R, axisSlopes, crestRadii, fitPyramid, halfWidthAt, pyramidHeightAt, pyramidHullMesh, pyramidTalus, type PyramidFit } from '../../../src/shared/pyramid';
+import { CREST_R, TALUS_R, axisSlopes, crestRadii, fitPyramid, halfWidthAt, pyramidHeightAt, pyramidHullMesh, pyramidTalus, triangleHeightField, type PyramidFit } from '../../../src/shared/pyramid';
 import { hudPitchDeg, qaxisAngle, qmul } from '../../../src/shared/math';
 import { KB_RAMP } from '../../../src/input/mapping';
 import { neutralDrive, neutralSystems, zeroThrust, type VehicleState } from '../../../src/shared/types';
@@ -193,6 +193,50 @@ describe('pyramids driven like a player (keyboard, fans GRIP on demand)', () => 
       if (Math.min(fit.bx, fit.bz) < 4) continue; // Menkaure: pointed top (≈ 4 x 7 m), no platform to drive onto
       // 7.3 cm at R 12 m; where the platform limits R: Khafre 8.2 cm, G1-c's 8.5 m deep platform 9.9 cm (ride height 10 cm)
       for (const R of crestRadii(fit)) expect(L * L / (8 * R), p.file).toBeLessThan(0.1);
+    }
+  });
+
+  it('ground below the base (parts of the south side of Khufu): no riser between the talus and the face', () => {
+    for (const p of PYR) {
+      const pts = glbPoints(p.file, p.headingDeg);
+      const y0 = fitPyramid(pts, 0, 0, p.headingDeg * DEG).y0;
+      for (const sink of [-3, 2, 8]) {
+        const g0 = y0 + sink;
+        const f = fitPyramid(pts, 0, 0, p.headingDeg * DEG, () => g0);
+        const hull = triangleHeightField(pyramidHullMesh(f)), tal = triangleHeightField(pyramidTalus(f, () => g0));
+        const c = Math.cos(f.heading), sn = Math.sin(f.heading);
+        // in along the middle of the -z face: from the sand over the fillet onto the face, never more than the
+        // face's own rise per 0.25 m
+        let prev = g0, step = 0;
+        for (let d = 20; d > -25; d -= 0.25) {
+          const lx = 3, lz = -f.az - d, x = c * lx + sn * lz, z = -sn * lx + c * lz;
+          const h = Math.max(g0, hull(x, z), tal(x, z));
+          step = Math.max(step, h - prev);
+          prev = h;
+        }
+        expect(step, `${p.file} ground ${sink} m above the base`).toBeLessThan(0.25 * Math.tan(f.slope) + 0.1);
+      }
+    }
+  });
+
+  it('talus on high sand (Khufu sits several metres deep): the face stays on its line until the fillet has merged', () => {
+    for (const p of PYR) {
+      for (const sink of [2, 6, 10]) {
+        const pts = glbPoints(p.file, p.headingDeg);
+        const y0 = fitPyramid(pts, 0, 0, p.headingDeg * DEG).y0, g0 = y0 + sink;
+        const fit = fitPyramid(pts, 0, 0, p.headingDeg * DEG, () => g0);
+        const [thx, thz] = axisSlopes(fit);
+        const t = pyramidTalus(fit, () => g0);
+        const c = Math.cos(-fit.heading), sn = Math.sin(-fit.heading);
+        let worst = 0;
+        for (let i = 0; i < t.length; i += 3) {
+          const lx = Math.abs(c * t[i] - sn * t[i + 2]), lz = Math.abs(sn * t[i] + c * t[i + 2]), y = t[i + 1];
+          const [hx, hz] = halfWidthAt(fit, y);
+          if (lz < hz - 2 && y - g0 > TALUS_R * (1 - Math.cos(thx)) + 0.01) worst = Math.max(worst, lx - hx);
+          if (lx < hx - 2 && y - g0 > TALUS_R * (1 - Math.cos(thz)) + 0.01) worst = Math.max(worst, lz - hz);
+        }
+        expect(worst, `${p.file} sunk ${sink} m`).toBeLessThan(0.02);
+      }
     }
   });
 
