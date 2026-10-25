@@ -21,7 +21,7 @@ import { applyPropPoses, loadLandmarks, splitDynamicLandmarks, worldTriangles } 
 import { loadPavedGround } from './pavedGround';
 import type { PropPlacement, PropPose } from '../../shared/props';
 import { buildTalusMesh } from './talus';
-import { fitPyramid, pyramidHeightAt, pyramidHullMesh, pyramidTalus } from '../../shared/pyramid';
+import { fitPyramid, pyramidHeightAt, pyramidHullMesh, pyramidTalus, triangleHeightField } from '../../shared/pyramid';
 import { loadFootprintFile, loadTrampled, Footprints } from './footprints';
 import { GroundMarks } from './groundMarks';
 import { buildWater } from './water';
@@ -366,6 +366,8 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
   const talusAll = new Float32Array(talusTris.reduce((n, t) => n + t.length, 0));
   talusTris.reduce((o, t) => { talusAll.set(t, o); return o + t.length; }, 0);
   const talusMesh = buildTalusMesh(talusAll, fine, rock);
+  // the talus is solid (a collider): the ground the camera, the effects and the trailer stand on includes it
+  const talusAt = talusAll.length ? triangleHeightField(talusAll) : null;
   if (talusMesh) group.add(talusMesh);
   // pebbles/cobbles at the camera (Moon, Mars, Giza desert pavement)
   // stones per 0,7-m lattice cell (≈ 2 × per m²)
@@ -411,6 +413,7 @@ export async function loadWorld(scene: THREE.Scene, renderer: THREE.WebGPURender
     surfaceAt: (x, z) => {
       let h = field.height(x, z);
       for (const p of pyramids) if (p) h = Math.max(h, pyramidHeightAt(p.fit, x, z));
+      if (talusAt) h = Math.max(h, talusAt(x, z));
       return h;
     },
     collisionTriangles: () => worldTriangles(lm.group, 250_000),

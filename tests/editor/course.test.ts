@@ -2,7 +2,7 @@
 // src/editor/samples/*.json from the turtle descriptions below; normal runs check that the shipped files match.
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
-import { buildCourse, exitOf, fitPiece } from '../../src/shared/course';
+import { buildCourse, drawRot, exitOf, fitPiece } from '../../src/shared/course';
 import { DIRS, partDef, placedConnectors, type PartType } from '../../src/shared/parts';
 import { canPlace, emptyLevel, levelToJson, validateLevel, type Level, type LevelPart } from '../../src/shared/level';
 
@@ -87,6 +87,18 @@ const SAMPLES: Record<string, () => Level> = {
 };
 
 describe('course', () => {
+  it('boost chevrons point the way the course runs, however the pad was placed', () => {
+    const sprint = JSON.parse(fs.readFileSync('src/editor/samples/starbase-sprint.json', 'utf8')) as Level;
+    const k = sprint.parts.findIndex((p) => p.type === 'boost');
+    // Starbase Sprint runs from the start (rot 2) towards -j: the pad was placed with rot 0 (chevrons towards +j)
+    expect(sprint.parts[k].rot).toBe(0);
+    expect(drawRot(sprint, k)).toBe(2);
+    const turned = { ...sprint, parts: sprint.parts.map((p, n) => (n === k ? { ...p, rot: 2 as const } : p)) };
+    expect(drawRot(turned, k)).toBe(2);
+    // other pieces keep their rotation
+    expect(drawRot(sprint, 0)).toBe(sprint.parts[0].rot);
+  });
+
   it('follows the road from the start and detects a closed lap', () => {
     const L = SAMPLES['starbase-sprint']();
     const c = buildCourse(L)!;

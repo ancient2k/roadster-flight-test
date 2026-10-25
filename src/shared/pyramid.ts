@@ -318,6 +318,43 @@ export function pyramidTalus(f: PyramidFit, groundAt: (x: number, z: number) => 
 }
 
 /**
+ * Height lookup over upward-facing triangles (the talus): the highest triangle under (x, z), -Infinity where there is
+ * none. Bucketed on a cell grid; for the ground the car stands on (camera, trailer, effects), the physics casts
+ * against the triangles themselves.
+ */
+export function triangleHeightField(tris: Float32Array, cell = 4): (x: number, z: number) => number {
+  const grid = new Map<number, number[]>();
+  const key = (i: number, j: number) => i * 65536 + j;
+  for (let t = 0; t < tris.length; t += 9) {
+    const x0 = Math.min(tris[t], tris[t + 3], tris[t + 6]), x1 = Math.max(tris[t], tris[t + 3], tris[t + 6]);
+    const z0 = Math.min(tris[t + 2], tris[t + 5], tris[t + 8]), z1 = Math.max(tris[t + 2], tris[t + 5], tris[t + 8]);
+    for (let i = Math.floor(x0 / cell); i <= Math.floor(x1 / cell); i++) {
+      for (let j = Math.floor(z0 / cell); j <= Math.floor(z1 / cell); j++) {
+        const k = key(i, j);
+        let b = grid.get(k);
+        if (!b) grid.set(k, (b = []));
+        b.push(t);
+      }
+    }
+  }
+  return (x, z) => {
+    const b = grid.get(key(Math.floor(x / cell), Math.floor(z / cell)));
+    let h = -Infinity;
+    if (!b) return h;
+    for (const t of b) {
+      const ax = tris[t], az = tris[t + 2], bx = tris[t + 3], bz = tris[t + 5], cx = tris[t + 6], cz = tris[t + 8];
+      const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+      if (Math.abs(d) < 1e-9) continue;
+      const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d;
+      const v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / d;
+      if (u < -1e-6 || v < -1e-6 || u + v > 1 + 1e-6) continue;
+      h = Math.max(h, u * tris[t + 1] + v * tris[t + 4] + (1 - u - v) * tris[t + 7]);
+    }
+    return h;
+  };
+}
+
+/**
  * Height of the frustum surface at world (x, z), -Infinity outside the base. Without crestR the sharp frustum
  * (camera/jet ground); with crestR (CREST_R as in the collider) the summit edge is rounded like the collision mesh.
  */

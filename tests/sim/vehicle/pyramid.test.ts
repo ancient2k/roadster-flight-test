@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRoadsterSim, vehicleModules } from '../../../src/sim/vehicle';
 import { spawnPose, type RoadsterSim } from '../../../src/sim/core/roadsterSim';
-import { fitPyramid, pyramidHeightAt, pyramidHullMesh, pyramidHullPoints, pyramidTalus, type PyramidFit } from '../../../src/shared/pyramid';
+import { fitPyramid, pyramidHeightAt, pyramidHullMesh, pyramidHullPoints, pyramidTalus, triangleHeightField, type PyramidFit } from '../../../src/shared/pyramid';
 import { hudPitchDeg } from '../../../src/shared/math';
 import { neutralDrive, neutralSystems, zeroThrust } from '../../../src/shared/types';
 
@@ -74,6 +74,24 @@ describe('drivable pyramids', () => {
     const hp = pyramidHullPoints(f);
     let top = -Infinity; for (let i = 1; i < hp.length; i += 3) top = Math.max(top, hp[i]);
     expect(top).toBeCloseTo(f.yTop, 3);
+  });
+
+  it('ground height includes the talus: no step from the sand over the fillet onto the face (car sits on it)', () => {
+    const f = synthetic();
+    const talus = triangleHeightField(pyramidTalus(f, () => 0));
+    const ground = (x: number, z: number) => Math.max(0, talus(x, z), pyramidHeightAt(f, x, z));
+    expect(talus(A + 40, 0)).toBe(-Infinity);
+    // walking in from the sand towards the face: rising, without a step anywhere, and above the bare ground on the fillet
+    let prev = ground(A + 25, 3), maxStep = 0, onFillet = 0;
+    for (let x = A + 25; x >= A - 15; x -= 0.25) {
+      const h = ground(x, 3);
+      expect(h).toBeGreaterThanOrEqual(prev - 1e-6);
+      maxStep = Math.max(maxStep, h - prev);
+      if (talus(x, 3) > 0.5) onFillet++;
+      prev = h;
+    }
+    expect(maxStep).toBeLessThan(0.25 * Math.tan(SLOPE) + 0.05);
+    expect(onFillet).toBeGreaterThan(4);
   });
 
   it('collision mesh: closed and wound outward (positive volume ≈ frustum volume)', () => {

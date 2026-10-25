@@ -3,6 +3,7 @@
 import * as THREE from 'three/webgpu';
 import { boxTris, buildPart, partDef, placeTris, type MatKey, type DecoType } from '../../shared/parts';
 import type { Level } from '../../shared/level';
+import { buildCourse, drawRot } from '../../shared/course';
 import type { LandmarkShape } from '../../sim/core/world';
 
 /** Build area of the site (meta.json buildArea). */
@@ -64,9 +65,12 @@ export function buildLevelScene(level: Level, area: LevelArea): LevelScene {
     for (let k = 0; k < t.length; k += 3) { t[k] += area.minX; t[k + 1] += area.y; t[k + 2] += area.minZ; }
     return t;
   };
+  const course = buildCourse(level);
   level.parts.forEach((p, n) => {
     const def = partDef(p.type);
     const mesh = buildPart(p.type, p.opt);
+    // markings that read in one direction (boost chevrons) follow the way the course runs through the piece
+    const rot = drawRot(level, n, course);
     for (const s of mesh.solids) {
       const t = toWorld(placeTris(s.tris, def, p.i, p.j, p.rot, 0, area.tileM));
       push(s.mat, t);
@@ -74,7 +78,7 @@ export function buildLevelScene(level: Level, area: LevelArea): LevelScene {
     }
     // paint lies 6 cm above the field: the coarse terrain LOD further away would otherwise cover it
     for (const d of mesh.decals) {
-      const t = toWorld(placeTris(d.tris, def, p.i, p.j, p.rot, 0.06, area.tileM));
+      const t = toWorld(placeTris(d.tris, def, p.i, p.j, rot, 0.06, area.tileM));
       push(d.mat, t);
       if (d.mat === 'asphalt' || d.mat === 'pad') pavedParts.push(t);
     }

@@ -8,6 +8,7 @@ import { VGA, pixelTitle, partIcon, decoColour } from './retro';
 import { deleteLevel, lastLevelId, listLevels, loadLevel, saveLevel } from './storage';
 import { decodeLevel, shareUrl, trackCodeFromHash } from './share';
 import { SAMPLE_LEVELS } from './samples';
+import { buildCourse, drawRot } from '../shared/course';
 
 export interface EditorHost {
   /** Drive the level in 3D (resolves when the world is ready). */
@@ -468,8 +469,10 @@ export class EditorScreen {
     g.fillText('N', ox + GRID.nx * s / 2 - 4, oz - 6);
     g.fillText('STARBASE →', ox + GRID.nx * s - 92, oz - 6);
     // pieces: ground level first, elevated on top
-    const order = [...this.level.parts].sort((a, b) => (a.lv ?? 0) - (b.lv ?? 0));
-    for (const p of order) this.drawPart(g, p, 1);
+    // markings that read one way (boost chevrons) follow the way the course runs, as in 3D
+    const course = buildCourse(this.level);
+    const order = this.level.parts.map((p, k) => ({ p, rot: drawRot(this.level, k, course) })).sort((a, b) => (a.p.lv ?? 0) - (b.p.lv ?? 0));
+    for (const { p, rot } of order) this.drawPart(g, p, 1, rot);
     for (const d of this.level.deco) {
       g.fillStyle = decoColour(d.type);
       const r = Math.max(2, s * 0.12);
@@ -489,9 +492,9 @@ export class EditorScreen {
     }
   }
 
-  private drawPart(g: CanvasRenderingContext2D, p: LevelPart, alpha: number): void {
+  private drawPart(g: CanvasRenderingContext2D, p: LevelPart, alpha: number, rot: number = p.rot): void {
     const { scale: s, ox, oz } = this.view;
-    const ic = partIcon(p.type, p.rot, 16);
+    const ic = partIcon(p.type, rot, 16);
     g.globalAlpha = alpha;
     // the icon's rows run along +z = south = down on screen
     g.drawImage(ic, ox + p.i * s, oz + p.j * s, ic.width / 16 * s, ic.height / 16 * s);

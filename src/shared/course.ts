@@ -75,6 +75,26 @@ export function buildCourse(level: Level): Course | null {
 }
 
 /**
+ * Rotation to draw a piece with so its arrows point the way the course runs through it. Only for pieces whose road
+ * works both ways and whose markings are directional (the boost pad: chevrons along its own +z, the pad pushes in
+ * either direction); every other piece, and a boost pad off the course, keeps its own rotation.
+ */
+export function drawRot(level: Level, k: number, course: Course | null = buildCourse(level)): Rot {
+  const p = level.parts[k];
+  if (p.type !== 'boost' || !course) return p.rot;
+  const n = course.order.indexOf(k);
+  if (n < 0) return p.rot;
+  // the neighbour the car comes from (or, for the first piece, the one it goes to) and the end nearer to it
+  const other = level.parts[course.order[n > 0 ? n - 1 : n + 1] ?? k];
+  if (other === p) return p.rot;
+  const tiles = partTiles(other);
+  const dist = (c: Exit) => Math.min(...tiles.map(([i, j]) => Math.hypot(i - (c.ti + DIRS[c.dir][0]), j - (c.tj + DIRS[c.dir][1]))));
+  const [south, north] = conns(p);   // the pad's connectors: S (back) then N (+z, where the chevrons point)
+  const fromNorth = dist(north) < dist(south);
+  return ((n > 0) === fromNorth ? (p.rot + 2) % 4 : p.rot) as Rot;
+}
+
+/**
  * Places a piece so that one of its road ends sits on tile (ti, tj) facing `dir` (the direction back towards the
  * road it continues). `variant` picks among the fitting rotations/ends (e.g. a curve turning left or right).
  */

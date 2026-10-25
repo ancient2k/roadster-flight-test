@@ -21,10 +21,11 @@ const EDIT = [
   { src: 'dos', in: 0.0, len: 4.2, silent: true, stem: 'dos-sfx' },
   { src: '10-editor', in: 0.0, len: 11.6, silent: true, stem: ['chiptune', 'editor-sfx'] },
   // the test drive: down to the start line and through the loop, a hard cut to the run-up to the jump, and at the top
-  // of the jump a cross-fade into the closing picture (the Roadster slides to a stop as the booster comes down)
+  // of the jump a cross-fade into the empty closing picture; then the Roadster runs in from the left and slides to a stop
+  // as the booster comes down
   { src: '11-return', in: 0.0, len: 10.4, pixelIn: 0.7 },
   { src: '11-return', in: 14.2, len: 4.6, xfade: 1.0 },
-  { src: '12-finale', in: 0.0, len: 16.0, card: { at: 5.0, fade: 1.2 }, fadeOut: 1.5 },
+  { src: '12-finale', in: 0.0, len: 17.0, card: { at: 6.2, fade: 1.2 }, fadeOut: 1.5 },
 ];
 /** Game sound under the music (the score carries the trailer; jets and engine only underneath). */
 const GAME_VOLUME = 0.3;
