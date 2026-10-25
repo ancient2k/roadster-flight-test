@@ -126,6 +126,8 @@ export async function camera(page, keys) {
       // looking (almost) straight down: north (−z) at the top of the picture, as on a map
       const dn = Math.hypot(...d), vert = Math.abs(d[1] / dn);
       if (vert > 0.999) cam.up.set(0, 0, -1); else cam.up.set(0, 1, 0);
+      // never below the ground (a spline between keys high up and close to the car can dip under it)
+      p[1] = Math.max(p[1], ground(p[0], p[2]) + 0.8);
       cam.position.set(p[0], p[1], p[2]); cam.lookAt(p[0] + d[0] * 100, p[1] + d[1] * 100, p[2] + d[2] * 100);
       cam.fov = (a.fov ?? 50) + ((b.fov ?? a.fov ?? 50) - (a.fov ?? 50)) * s;
       cam.updateProjectionMatrix(); cam.updateMatrixWorld();
@@ -161,6 +163,7 @@ export async function record(page, name, seconds, { fps = 60, each, cutFirst = t
   const stills = scout ? new Set(Array.from({ length: 8 }, (_, k) => Math.min(n - 1, Math.round((k * (n - 1)) / 7)))) : null;
   for (let i = 0; i < n; i++) {
     if (each) await each(page, i, i / fps);
+    if (process.env.TRACE && i % 30 === 0) console.log(`  ${name} t=${(i / fps).toFixed(1)}`, await page.evaluate(() => { const s = window.__rft.app.sim.getState(); const a = window.__rft.app; return `x=${s.pos.x.toFixed(0)} y=${s.pos.y.toFixed(1)} z=${s.pos.z.toFixed(0)} v=${s.speedMs.toFixed(0)} thr=${a.manual?.drive?.throttle} brk=${a.manual?.drive?.brake} menu=${a.menu.isOpen()} ed=${a.editor?.visible} paused=${a.loop.paused}`; }));
     const keep = !stills || stills.has(i);
     // one frame per task, then wait for the browser to present it (several renders in one task show only one);
     // with sound: the offline audio render is held at this frame's time while the frame updates the voices
@@ -246,8 +249,8 @@ export function encode(name, fps = 60, wav = null) {
  * Catmull–Rom path through keys = [{ t, pos: [x, y, z], heading?, pitch?, roll? }] (degrees; y above ground when
  * `agl`), with the matching velocity, so wheels, jets and dust react as in a real flight. null clears it.
  */
-export async function flyPath(page, keys, { agl = true } = {}) {
-  await page.evaluate(({ keys, agl }) => {
+export async function flyPath(page, keys, { agl = true, conform = false } = {}) {
+  await page.evaluate(({ keys, agl, conform }) => {
     const app = window.__rft.app, sess = app.session;
     sess.__step ??= sess.step.bind(sess);
     if (!keys) { sess.step = sess.__step; delete sess.__step; return; }
@@ -267,8 +270,19 @@ export async function flyPath(page, keys, { agl = true } = {}) {
       return { x, y: f((k) => k.pos[1]) + ground(x, z), z, h: f((k) => k.heading ?? 0), p: f((k) => k.pitch ?? 0), r: f((k) => k.roll ?? 0) };
     };
     const D = Math.PI / 180;
+    // conform: the car sits on the ground – pitch and height from the ground under the front and rear axle
+    // (keys then only give x, z and heading; the given y and pitch are ignored)
+    const FRONT = 1.4, REAR = 1.25, RIDE = 0.45;
+    const onGround = (a) => {
+      const h = a.h * Math.PI / 180, fx = Math.sin(h), fz = Math.cos(h);
+      const g = (x, z) => { const v = app.renderer.worldHandle?.surfaceAt?.(x, z) ?? 0; return Number.isFinite(v) ? v : 0; };
+      const hf = g(a.x + fx * FRONT, a.z + fz * FRONT), hr = g(a.x - fx * REAR, a.z - fz * REAR);
+      const p = Math.atan2(hf - hr, FRONT + REAR);
+      return { ...a, y: (hf * REAR + hr * FRONT) / (FRONT + REAR) + RIDE / Math.cos(p), p: p * 180 / Math.PI };
+    };
     sess.step = () => {
-      const t = app.sim.getState().t - t0, dt = app.sim.dt, a = at(t), b = at(t + dt), b2 = app.sim.body;
+      const t = app.sim.getState().t - t0, dt = app.sim.dt, b2 = app.sim.body;
+      const a = conform ? onGround(at(t)) : at(t), b = conform ? onGround(at(t + dt)) : at(t + dt);
       // heading about y, then pitch (nose up = about −x local), then roll (right side down = about +z local)
       const cy = Math.cos(a.h * D / 2), sy = Math.sin(a.h * D / 2), cp = Math.cos(-a.p * D / 2), sp = Math.sin(-a.p * D / 2), cr2 = Math.cos(a.r * D / 2), sr = Math.sin(a.r * D / 2);
       const q1 = { w: cy * cp, x: cy * sp, y: sy * cp, z: -sy * sp };                         // yaw · pitch
@@ -279,7 +293,7 @@ export async function flyPath(page, keys, { agl = true } = {}) {
       b2.setAngvel({ x: 0, y: (b.h - a.h) * D / dt, z: 0 }, true);
       sess.__step();
     };
-  }, { keys, agl });
+  }, { keys, agl, conform });
 }
 
 /** Endless air for the shot (no autoland, no empty tank). */

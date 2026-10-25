@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { OUT } from './lib.mjs';
 
-/** Edit list: source, in point, length (s), and what happens to it. */
+/** Edit list: source, in point, length (s), and what happens to it (xfade: cross-fade of that length into the next). */
 const EDIT = [
   { src: '01-liftoff', in: 0.0, len: 4.0, fadeIn: 0.6 },
   { src: '02-stonehenge', in: 0.3, len: 3.2 },
@@ -20,8 +20,11 @@ const EDIT = [
   { black: 0.8 },
   { src: 'dos', in: 0.0, len: 4.2, silent: true, stem: 'dos-sfx' },
   { src: '10-editor', in: 0.0, len: 11.6, silent: true, stem: ['chiptune', 'editor-sfx'] },
-  { src: '11-return', in: 0.0, len: 8.5, pixelIn: 0.7 },
-  { src: '12-finale', in: 0.0, len: 14.0, card: { at: 2.5, fade: 1.2 }, fadeOut: 1.5 },
+  // the test drive: down to the start line and through the loop, a hard cut to the run-up to the jump, and at the top
+  // of the jump a cross-fade into the closing picture (the Roadster slides to a stop as the booster comes down)
+  { src: '11-return', in: 0.0, len: 10.4, pixelIn: 0.7 },
+  { src: '11-return', in: 14.2, len: 4.6, xfade: 1.0 },
+  { src: '12-finale', in: 0.0, len: 16.0, card: { at: 5.0, fade: 1.2 }, fadeOut: 1.5 },
 ];
 /** Game sound under the music (the score carries the trailer; jets and engine only underneath). */
 const GAME_VOLUME = 0.3;
@@ -59,10 +62,26 @@ for (const [k, e] of EDIT.entries()) {
   }
   for (const s of [e.stem ?? []].flat()) stems.push({ file: path.join(OUT, `${s}.wav`), at: t });
   if (e.src === '09-roadster1') musicEnd = t + e.len;
-  segs.push(k); t += e.len;
+  segs.push(k); t += e.len - (e.xfade ?? 0);
 }
 const total = t;
-const concat = `${segs.map((k) => `[v${k}][a${k}]`).join('')}concat=n=${segs.length}:v=1:a=1[vout][game]`;
+// join the segments one after another: a cut, or a cross-fade where the previous segment asks for one
+const join = [];
+let cv = `[v${segs[0]}]`, ca = `[a${segs[0]}]`, len = EDIT[segs[0]].len ?? EDIT[segs[0]].black;
+for (let n = 1; n < segs.length; n++) {
+  const k = segs[n], prev = EDIT[segs[n - 1]], e = EDIT[k], l = e.len ?? e.black, nv = `[j${n}v]`, na = `[j${n}a]`;
+  if (prev.xfade) {
+    join.push(`${cv}[v${k}]xfade=transition=fade:duration=${prev.xfade}:offset=${(len - prev.xfade).toFixed(3)}${nv}`);
+    join.push(`${ca}[a${k}]acrossfade=d=${prev.xfade}${na}`);
+    len += l - prev.xfade;
+  } else {
+    join.push(`${cv}${ca}[v${k}][a${k}]concat=n=2:v=1:a=1${nv}${na}`);
+    len += l;
+  }
+  cv = nv; ca = na;
+}
+join.push(`${cv}null[vout]`, `${ca}anull[game]`);
+const concat = join.join(';\n');
 // stems at their places; the music (if any) from 0 to the end of the Sun part, with a fade-out
 const mix = [`[game]volume=${GAME_VOLUME}[g]`];
 const labels = ['[g]'];
